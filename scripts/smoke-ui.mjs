@@ -9,13 +9,17 @@ Options:
   --url <url>          Running DSH URL (default: http://127.0.0.1:14171)
   --session <title>    Exact existing session title (required)
   --channel <name>     Browser channel such as chrome (optional)
+  --executable <path>  Existing Chromium-family executable (optional)
   --headed             Show the browser window
   --screenshot <path>  Save the opened confirmation dialog
+  --simulate-delete-success
+                       On a ?fixture page only, intercept the delete request,
+                       click the final button, and verify no page reload
   --help               Show this help
 
-This check opens Delete session…, verifies the confirmation dialog, and clicks
-Cancel. It never clicks the permanent-delete button and never controls DSH's
-process lifecycle.
+By default this check opens Delete session…, verifies the confirmation dialog,
+and clicks Cancel. The simulation mode never reaches the Host deletion route or
+controls DSH's process lifecycle.
 `
 
 export function parseArgs(argv) {
@@ -28,7 +32,11 @@ export function parseArgs(argv) {
       result.headed = true
       continue
     }
-    if (['--url', '--session', '--channel', '--screenshot'].includes(arg)) {
+    if (arg === '--simulate-delete-success') {
+      result.simulateDeleteSuccess = true
+      continue
+    }
+    if (['--url', '--session', '--channel', '--executable', '--screenshot'].includes(arg)) {
       const value = argv[index + 1]
       if (value === undefined || value.startsWith('--')) throw new Error(`${arg} requires a value`)
       result[arg.slice(2)] = value
@@ -40,7 +48,26 @@ export function parseArgs(argv) {
   if (typeof result.session !== 'string' || result.session.length === 0) {
     throw new Error('--session is required so the smoke test never chooses a user session implicitly')
   }
+  if (result.channel !== undefined && result.executable !== undefined) {
+    throw new Error('use either --channel or --executable, not both')
+  }
+  if (result.simulateDeleteSuccess === true) {
+    const target = new URL(result.url)
+    if (!target.searchParams.has('fixture')) {
+      throw new Error('--simulate-delete-success requires a DSH fixture URL so it cannot target user sessions')
+    }
+  }
   return result
+}
+
+export function isIgnorableFixtureConsoleError(message) {
+  return (
+    message.includes('[cordis-client-runner] syncing inspect providers failed:')
+      && message.includes('fixture connection RPC endpoint "dynamicCordisRunner/syncInspectManifest" is unavailable')
+  ) || (
+    message.includes('[ui-cordis] reading the Cordis inventory failed:')
+      && message.includes('fixture connection RPC endpoint "dynamicCordisRunner/inventory" is unavailable')
+  )
 }
 
 export async function runSmoke(options) {
@@ -49,9 +76,27 @@ export async function runSmoke(options) {
   const browser = await chromium.launch({
     headless: !options.headed,
     ...(options.channel === undefined ? {} : { channel: options.channel }),
+    ...(options.executable === undefined ? {} : { executablePath: options.executable }),
   })
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 960 } })
+    let navigationArmed = false
+    let mainFrameNavigations = 0
+    if (options.simulateDeleteSuccess === true) {
+      await page.addInitScript(() => {
+        globalThis.__dshDeleteSmokeDocumentToken = crypto.randomUUID()
+      })
+      await page.route('**/plugins/dsh-session-delete/delete', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: true, value: { deleted: true } }),
+        })
+      })
+      page.on('framenavigated', (frame) => {
+        if (navigationArmed && frame === page.mainFrame()) mainFrameNavigations += 1
+      })
+    }
     page.on('request', (request) => {
       if (new URL(request.url()).pathname === '/plugins/dsh-session-delete/delete') {
         deleteRequests.push(request.method())
@@ -62,6 +107,28 @@ export async function runSmoke(options) {
     })
 
     await page.goto(options.url, { waitUntil: 'domcontentloaded' })
+    const documentToken = options.simulateDeleteSuccess === true
+      ? await page.evaluate(() => globalThis.__dshDeleteSmokeDocumentToken)
+      : undefined
+    if (options.simulateDeleteSuccess === true) {
+      // Fixture mode cannot persist DSH's product-wide onboarding acknowledgement,
+      // so clicking Continue immediately reopens the unrelated notice. Remove only
+      // that exact fixture-only overlay; never mutate real settings or user pages.
+      const onboarding = page.getByRole('dialog', { name: /^(内测声明|Internal Testing Notice)$/ })
+      const onboardingVisible = await onboarding
+        .waitFor({ state: 'visible', timeout: 3000 })
+        .then(() => true, () => false)
+      if (onboardingVisible) {
+        await onboarding.evaluate((element) => {
+          const overlay = element.parentElement
+          if (overlay !== null) overlay.remove()
+          else element.remove()
+          for (const inertElement of document.querySelectorAll('[inert]')) {
+            inertElement.removeAttribute('inert')
+          }
+        })
+      }
+    }
     const matchingTitles = page.getByText(options.session, { exact: true })
     await matchingTitles.first().waitFor()
     const rowCount = await matchingTitles.count()
@@ -86,18 +153,36 @@ export async function runSmoke(options) {
     const cancel = dialog.getByRole('button', { name: /^(Cancel|取消)$/ })
     await cancel.waitFor()
     if (options.screenshot !== undefined) await dialog.screenshot({ path: options.screenshot })
-    await cancel.click()
-    await dialog.waitFor({ state: 'hidden' })
-
-    if (deleteRequests.length > 0) {
-      throw new Error(`cancel path unexpectedly sent ${deleteRequests.length} delete request(s)`)
+    if (options.simulateDeleteSuccess === true) {
+      navigationArmed = true
+      await dialog.getByRole('button', { name: /^(Delete permanently|永久删除)$/ }).click()
+      await page.waitForTimeout(750)
+      const settledToken = await page.evaluate(() => globalThis.__dshDeleteSmokeDocumentToken)
+      if (deleteRequests.length !== 1) {
+        throw new Error(`simulated success expected one delete request, observed ${deleteRequests.length}`)
+      }
+      if (mainFrameNavigations !== 0 || settledToken !== documentToken) {
+        throw new Error(`successful deletion reloaded the WebView (${mainFrameNavigations} main-frame navigation(s))`)
+      }
+      await dialog.getByText(/^(Permanently delete session\?|永久删除会话？)$/).waitFor({ state: 'hidden' })
+    } else {
+      await cancel.click()
+      await dialog.waitFor({ state: 'hidden' })
+      if (deleteRequests.length > 0) {
+        throw new Error(`cancel path unexpectedly sent ${deleteRequests.length} delete request(s)`)
+      }
     }
-    if (consoleErrors.length > 0) {
-      throw new Error(`browser console errors: ${consoleErrors.join(' | ')}`)
+    const blockingConsoleErrors = options.simulateDeleteSuccess === true
+      ? consoleErrors.filter((message) => !isIgnorableFixtureConsoleError(message))
+      : consoleErrors
+    if (blockingConsoleErrors.length > 0) {
+      throw new Error(`browser console errors: ${blockingConsoleErrors.join(' | ')}`)
     }
     return {
       ok: true,
-      checks: ['Archive session', 'Delete session…', 'confirmation dialog', 'cancel without request'],
+      checks: options.simulateDeleteSuccess === true
+        ? ['Archive session', 'Delete session…', 'confirmation dialog', 'successful delete without reload']
+        : ['Archive session', 'Delete session…', 'confirmation dialog', 'cancel without request'],
     }
   } finally {
     await browser.close()

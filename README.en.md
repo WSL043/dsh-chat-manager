@@ -34,6 +34,8 @@ warranty.
 - Requires an explicit permanent-deletion confirmation;
 - Deletes opened sessions directly; running work is stopped safely before DSH
   tears down the session in lifecycle order;
+- Refreshes session and workspace state in place after success without reloading
+  the whole DSH page;
 - Deletes only a standalone JSONL session directory whose identity, storage
   root, real path, and file type have been verified;
 - Accepts only a same-origin JSON POST with a dedicated confirmation header.
@@ -56,7 +58,7 @@ https://raw.githubusercontent.com/WSL043/dsh-session-delete/main/AGENTS.md
 ### Existing `dsh` command
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.1/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.2/dsh-session-delete.tgz"
 ```
 
 ### Windows DSH-Portable
@@ -64,7 +66,7 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 Run this inside the DSH-Portable folder:
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.1/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.2/dsh-session-delete.tgz"
 ```
 
 The package occupies DSH's native
@@ -94,7 +96,7 @@ quiescence, tears down the session, and then removes its local record.
 - This is a `dsh.client` injection and does not contribute a configuration patch
   layer. A missing `dsh.bundle` notice is expected, is not an installation
   failure, and should not be silenced with an empty bundle.
-- DSH supplies the runtime peers. v0.1.1 marks them optional so host injection
+- DSH supplies the runtime peers. Since v0.1.1 they are optional so host injection
   is not misreported as a plugin defect. If other profile packages still emit
   peer warnings, assess them by package name.
 
@@ -109,6 +111,17 @@ pnpm smoke:ui -- --url http://127.0.0.1:14171 --session "Exact session title"
 The script verifies **Archive session**, **Delete session…**, the second
 confirmation, and cancellation. It never clicks **Delete permanently** and
 does not start, stop, or restart DSH.
+
+To check the successful no-flash path, intercept deletion inside DSH's isolated
+fixture:
+
+```sh
+pnpm smoke:ui -- --url "http://127.0.0.1:14171/?fixture" --session "Fixture 历史会话" --simulate-delete-success
+```
+
+This mode is restricted to a URL containing `?fixture`. It returns a simulated
+success and asserts that the main page was not reloaded; no request reaches the
+Host and no real session is deleted.
 
 ## Update and uninstall
 

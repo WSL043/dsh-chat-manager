@@ -27,6 +27,17 @@ test('patches the official workspace client with a native confirmed delete flow'
   assert.doesNotMatch(patched, /id: "dsh-session-delete"/)
 })
 
+test('settles a successful deletion in place without reloading the WebView', async () => {
+  const source = await readFile(resolveUpstreamClient(), 'utf8')
+  const patched = patchWorkspaceClient(source)
+
+  assert.doesNotMatch(patched, /window\.location\.reload/)
+  assert.match(patched, /ctx\.sessions\.clear\(\)/)
+  assert.match(patched, /ctx\.sessions\.refresh\(\)/)
+  assert.match(patched, /ctx\.workspaces\.refresh\(\)/)
+  assert.match(patched, /setSessionDeleteTarget\(null\)/)
+})
+
 test('refuses to silently patch an unknown upstream client shape', () => {
   assert.throws(() => patchWorkspaceClient('unknown upstream'), /upstream marker/)
 })
