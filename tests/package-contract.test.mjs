@@ -1,0 +1,48 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import test from 'node:test'
+
+const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
+
+test('public package metadata and native replacement identity remain intentional', async () => {
+  const manifest = JSON.parse(await read('package.json'))
+
+  assert.equal(manifest.name, 'dsh-session-delete')
+  assert.equal(manifest.version, '0.1.0')
+  assert.equal(manifest.private, undefined)
+  assert.equal(manifest.license, 'MIT')
+  assert.equal(manifest.repository.url, 'git+https://github.com/WSL043/dsh-session-delete.git')
+  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.0-rc.6')
+  assert.ok(manifest.files.includes('THIRD_PARTY_NOTICES.md'))
+})
+
+test('public artifacts contain no local workspace paths', async () => {
+  const files = [
+    'package.json',
+    'README.md',
+    'README.en.md',
+    'AGENTS.md',
+    'src/index.js',
+    'src/host/delete-session.mjs',
+    'scripts/build-client.mjs',
+  ]
+  const contents = (await Promise.all(files.map(read))).join('\n')
+
+  assert.doesNotMatch(contents, /[A-Z]:[\\/]Users[\\/]/i)
+  assert.doesNotMatch(contents, /Documents[\\/]Codex/i)
+})
+
+test('documentation pins the replacement slot, release asset, and second confirmation', async () => {
+  const [chinese, english, agents] = await Promise.all([
+    read('README.md'),
+    read('README.en.md'),
+    read('AGENTS.md'),
+  ])
+
+  for (const document of [chinese, english, agents]) {
+    assert.match(document, /@deepseek-ai\/dsh-client-ui-workspace@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v0\.1\.0\/dsh-session-delete\.tgz/)
+  }
+  assert.match(chinese, /再次\s*确认/)
+  assert.match(english, /second confirmation/i)
+  assert.match(agents, /Never delete a session as an installation test/)
+})
