@@ -1,0 +1,81 @@
+{
+  "name": "dsh-session-delete",
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.19.0",
+  "description": "Confirmed permanent deletion for DeepSeek Harness sessions",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "docs/assets/confirm-delete.png",
+    "lib/client.js",
+    "scripts/build-client.mjs",
+    "src/index.js",
+    "src/host/delete-session.mjs",
+    "README.md",
+    "README.en.md",
+    "AGENTS.md",
+    "LICENSE",
+    "SECURITY.md",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build-client.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "pnpm run test && pnpm run build && pnpm pack --pack-destination .artifacts",
+    "prepack": "pnpm run build"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "session",
+    "delete",
+    "privacy"
+  ],
+  "author": "WSL043",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WSL043/dsh-session-delete.git"
+  },
+  "bugs": {
+    "url": "https://github.com/WSL043/dsh-session-delete/issues"
+  },
+  "homepage": "https://github.com/WSL043/dsh-session-delete#readme",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "dependencies": {
+    "clsx": "^2.0.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-client-locale": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.0-rc.6",
+    "@deepseek-ai/dsh-invariants": "0.1.0-rc.6",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-client-ui-workspace": "0.1.0-rc.6"
+  }
+}
