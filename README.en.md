@@ -11,32 +11,22 @@ by DeepSeek.
 
 ![DSH Session Delete confirmation dialog](docs/assets/confirm-delete.png)
 
-## Important: risks and responsibility
+## Before deleting
 
-> **Make your own backup first. After you select Delete permanently, there is
-> no recycle bin, undo action, or official recovery workflow.**
+> **Permanent deletion cannot be undone. Confirm the target session and make a
+> backup first when needed.**
 
-- The operator must have authority to dispose of the target session and must
-  independently verify the target, backup requirements, and any organizational
-  or legal retention obligations. The authors and maintainers do not decide
-  whether a particular session should be deleted for you.
-- This release supports only the default per-session JSONL storage in DeepSeek
-  Harness `0.1.0-rc.6` and replaces the native workspace package dependency
-  slot. DSH upgrades, custom profiles, or another plugin replacing the same
-  slot may be incompatible. Uninstall or revalidate before upgrading.
-- The plugin deletes only the verified session-owned target directory. It does
-  not promise to remove indexes, caches, attachments, logs, backups,
-  synchronized copies, or data stored by other plugins, and must not be treated
-  as a complete privacy-erasure or compliance-destruction tool.
-- The operator assumes the risk of selecting the wrong target, failing to keep
-  a backup, compatibility changes, interruption, configuration conflicts, data
-  loss, service disruption, and other loss caused by using or being unable to
-  use the plugin.
-- The software is provided “as is” under the [MIT License](LICENSE), without
-  express or implied warranties. To the maximum extent permitted by applicable
-  law, the authors and maintainers are not liable for damages arising from use
-  of or inability to use the software. Liability that cannot legally be
-  excluded or limited remains unaffected.
+This release supports only the default per-session JSONL storage in DeepSeek
+Harness `0.1.0-rc.6`. It deletes the target session-owned directory; data held
+by other plugins, caches, indexes, backups, or synchronized copies is outside
+its scope, so this is not a secure-erasure tool. You are responsible for having
+authority to delete the target session and for meeting applicable retention
+requirements.
+
+This is an unofficial community plugin. DSH upgrades or another plugin using
+the same workspace dependency slot may be incompatible; revalidate after an
+upgrade. The software is provided under the [MIT License](LICENSE), without
+warranty.
 
 ## What it does
 
@@ -113,7 +103,7 @@ The plugin deletes the session-owned directory in the default JSONL backend,
 including the main transcript and session-owned files stored in that directory.
 The operation cannot be undone.
 
-This is not a system-wide privacy erase. Data held by other plugins, external
+This is not secure erasure. Data held by other plugins, external
 attachment directories, indexes, backups, synchronized copies, or logging
 systems is outside this plugin's scope. Non-JSONL storage backends are refused.
 
