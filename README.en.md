@@ -9,7 +9,7 @@ action remains available.
 This is an unofficial community plugin and is not affiliated with or endorsed
 by DeepSeek.
 
-![DSH Session Delete confirmation dialog](docs/assets/confirm-delete.png)
+![DSH Session Delete confirmation dialog](docs/assets/confirm-delete.en.png)
 
 ## Before deleting
 

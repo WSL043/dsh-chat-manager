@@ -11,7 +11,7 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "docs/assets/confirm-delete.png",
+    "docs/assets/*.png",
     "lib/client.js",
     "scripts/build-client.mjs",
     "src/index.js",
