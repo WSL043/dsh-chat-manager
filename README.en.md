@@ -11,6 +11,33 @@ by DeepSeek.
 
 ![DSH Session Delete confirmation dialog](docs/assets/confirm-delete.png)
 
+## Important: risks and responsibility
+
+> **Make your own backup first. After you select Delete permanently, there is
+> no recycle bin, undo action, or official recovery workflow.**
+
+- The operator must have authority to dispose of the target session and must
+  independently verify the target, backup requirements, and any organizational
+  or legal retention obligations. The authors and maintainers do not decide
+  whether a particular session should be deleted for you.
+- This release supports only the default per-session JSONL storage in DeepSeek
+  Harness `0.1.0-rc.6` and replaces the native workspace package dependency
+  slot. DSH upgrades, custom profiles, or another plugin replacing the same
+  slot may be incompatible. Uninstall or revalidate before upgrading.
+- The plugin deletes only the verified session-owned target directory. It does
+  not promise to remove indexes, caches, attachments, logs, backups,
+  synchronized copies, or data stored by other plugins, and must not be treated
+  as a complete privacy-erasure or compliance-destruction tool.
+- The operator assumes the risk of selecting the wrong target, failing to keep
+  a backup, compatibility changes, interruption, configuration conflicts, data
+  loss, service disruption, and other loss caused by using or being unable to
+  use the plugin.
+- The software is provided “as is” under the [MIT License](LICENSE), without
+  express or implied warranties. To the maximum extent permitted by applicable
+  law, the authors and maintainers are not liable for damages arising from use
+  of or inability to use the software. Liability that cannot legally be
+  excluded or limited remains unaffected.
+
 ## What it does
 
 - Places deletion in the native session actions menu;

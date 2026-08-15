@@ -43,6 +43,12 @@ test('documentation pins the replacement slot, release asset, and second confirm
     assert.match(document, /@deepseek-ai\/dsh-client-ui-workspace@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v0\.1\.0\/dsh-session-delete\.tgz/)
   }
   assert.match(chinese, /再次\s*确认/)
+  assert.match(chinese, /风险与责任边界/)
+  assert.match(chinese, /操作者自行承担风险/)
+  assert.match(chinese, /适用法律\s*允许的最大范围/)
   assert.match(english, /second confirmation/i)
+  assert.match(english, /risks and responsibility/i)
+  assert.match(english, /operator assumes the risk/i)
+  assert.match(english, /maximum extent permitted by applicable\s+law/i)
   assert.match(agents, /Never delete a session as an installation test/)
 })
