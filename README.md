@@ -25,6 +25,7 @@
 - 删除入口直接出现在原生会话操作菜单中；
 - 使用明确的永久删除弹窗，不会单击菜单后立即删除；
 - 已打开的会话可直接删除；正在运行的任务会先安全停止，再由 DSH 有序摘载会话；
+- 删除成功后原地刷新会话与 workspace 状态，不重载整个 DSH 页面；
 - 只删除经过会话 ID、存储根目录、真实路径和文件类型校验的独立 JSONL 会话目录；
 - 请求必须是同源 JSON POST，并带有专用确认请求头。
 
@@ -44,7 +45,7 @@ https://raw.githubusercontent.com/WSL043/dsh-session-delete/main/AGENTS.md
 ### 已有 `dsh` 命令
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.1/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.2/dsh-session-delete.tgz"
 ```
 
 ### Windows DSH-Portable
@@ -52,7 +53,7 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 在 DSH-Portable 文件夹中执行：
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.1/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.2/dsh-session-delete.tgz"
 ```
 
 安装器会让这个包占用 DSH 原生的
@@ -77,7 +78,7 @@ DSH 的生命周期句柄停止并等待任务收敛，再摘载会话并删除�
   可能迁移 Portable profile、重建依赖链接或更新锁文件。
 - 本插件只有 `dsh.client` 客户端注入，不提供配置补丁层；因此缺少 `dsh.bundle` 的提示
   是预期信息，不代表安装失败，也不应为消除提示而添加空 bundle。
-- DSH 宿主负责提供运行时 peer。v0.1.1 已把这些 peer 标为 optional，以避免把宿主注入
+- DSH 宿主负责提供运行时 peer。自 v0.1.1 起已把这些 peer 标为 optional，以避免把宿主注入
   误报成插件缺包；如果 profile 中其他插件仍有 peer 告警，应按包名分别判断。
 
 从源码安装依赖并执行 `pnpm exec playwright install chromium` 后，可对一个明确指定的
@@ -89,6 +90,15 @@ pnpm smoke:ui -- --url http://127.0.0.1:14171 --session "Exact session title"
 
 脚本只验证 **归档会话**、**删除会话…**、二次确认弹窗和取消逻辑；它不会点击
 **永久删除**，也不会启动、停止或重启 DSH。
+
+若要验收删除成功后的无闪屏路径，可在 DSH 自带的隔离 fixture 中拦截删除请求：
+
+```sh
+pnpm smoke:ui -- --url "http://127.0.0.1:14171/?fixture" --session "Fixture 历史会话" --simulate-delete-success
+```
+
+该模式只允许用于带 `?fixture` 的页面；它会模拟成功响应并确认主页面没有重载，不会把
+请求发送到 Host，也不会删除真实会话。
 
 ## 更新与卸载
 
