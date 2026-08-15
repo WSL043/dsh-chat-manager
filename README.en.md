@@ -2,7 +2,7 @@
 
 [中文](README.md)
 
-Adds **Delete session…** to the native DeepSeek Harness session menu. Deletion
+Adds **Delete session** to the native DeepSeek Harness session menu. Deletion
 always requires a second confirmation in a modal, while the existing archive
 action remains available.
 
@@ -30,7 +30,8 @@ warranty.
 
 ## What it does
 
-- Places deletion in the native session actions menu;
+- Places deletion in the native session actions menu using DSH's native red
+  danger treatment;
 - Requires an explicit permanent-deletion confirmation;
 - Deletes opened sessions directly; running work is stopped safely before DSH
   tears down the session in lifecycle order;
@@ -58,7 +59,7 @@ https://raw.githubusercontent.com/WSL043/dsh-session-delete/main/AGENTS.md
 ### Existing `dsh` command
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.2/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.3/dsh-session-delete.tgz"
 ```
 
 ### Windows DSH-Portable
@@ -66,7 +67,7 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 Run this inside the DSH-Portable folder:
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.2/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.3/dsh-session-delete.tgz"
 ```
 
 The package occupies DSH's native
@@ -81,7 +82,7 @@ Linux/macOS.
 
 ## Use
 
-Open a session's actions menu in the sidebar, choose **Delete session…**, read
+Open a session's actions menu in the sidebar, choose the red **Delete session**, read
 the warning, and select **Delete permanently**.
 
 Opened sessions do not need to be closed manually. After confirmation, running
@@ -108,7 +109,7 @@ deleting it:
 pnpm smoke:ui -- --url http://127.0.0.1:14171 --session "Exact session title"
 ```
 
-The script verifies **Archive session**, **Delete session…**, the second
+The script verifies **Archive session**, **Delete session**, the second
 confirmation, and cancellation. It never clicks **Delete permanently** and
 does not start, stop, or restart DSH.
 

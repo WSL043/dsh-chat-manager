@@ -23,10 +23,10 @@ This plugin must replace the dependency key
 or installing it under the name `dsh-session-delete`, does not prove that the
 native workspace menu was replaced.
 
-The fixed v0.1.2 package spec is:
+The fixed v0.1.3 package spec is:
 
 ```text
-@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.2/dsh-session-delete.tgz
+@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.3/dsh-session-delete.tgz
 ```
 
 ## Detect DSH
@@ -61,16 +61,16 @@ snapshot the selected profile's relevant metadata before invoking it.
 With an existing `dsh` command:
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.2/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.3/dsh-session-delete.tgz"
 ```
 
 With DSH-Portable, run from its root:
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.2/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.3/dsh-session-delete.tgz"
 ```
 
-Use the same command for v0.1.2 update or repair. Do not restart DSH
+Use the same command for v0.1.3 update or repair. Do not restart DSH
 automatically.
 
 The Release includes `dsh-session-delete.tgz.sha256`. When downloading assets
@@ -88,15 +88,15 @@ dsh plugin --profile web list @deepseek-ai/dsh-client-ui-workspace --depth 0
 Static success requires all of the following:
 
 1. The dependency appears exactly once under the requested profile.
-2. The direct dependency spec is the fixed v0.1.2 Release URL.
+2. The direct dependency spec is the fixed v0.1.3 Release URL.
 3. The installed alias directory
    `node_modules/@deepseek-ai/dsh-client-ui-workspace/package.json` reports
-   `name: "dsh-session-delete"` and `version: "0.1.2"`.
+   `name: "dsh-session-delete"` and `version: "0.1.3"`.
 4. No unrelated dependency, profile patch, or running DSH process changed.
 
 A live UI check requires permission to restart DSH. After restart, open the
 explicitly selected session's actions menu and verify **Archive session** and
-**Delete session…** are both present. Open the delete action and verify the
+the red **Delete session** are both present. Open the delete action and verify the
 second confirmation modal, then cancel it. Cancellation is the default
 non-destructive acceptance check.
 

@@ -17,7 +17,7 @@ Options:
                        click the final button, and verify no page reload
   --help               Show this help
 
-By default this check opens Delete session…, verifies the confirmation dialog,
+By default this check opens Delete session, verifies the confirmation dialog,
 and clicks Cancel. The simulation mode never reaches the Host deletion route or
 controls DSH's process lifecycle.
 `
@@ -142,9 +142,17 @@ export async function runSmoke(options) {
     if (await actions.count() !== 1) throw new Error('session action button was not uniquely identifiable')
     await actions.click()
 
-    await page.getByRole('menuitem', { name: /^(Archive session|归档会话)$/ }).waitFor()
-    const deleteItem = page.getByRole('menuitem', { name: /^(Delete session…|删除会话…)$/ })
+    const archiveItem = page.getByRole('menuitem', { name: /^(Archive session|归档会话)$/ })
+    await archiveItem.waitFor()
+    const deleteItem = page.getByRole('menuitem', { name: /^(Delete session|删除会话)$/ })
     await deleteItem.waitFor()
+    const [archiveColor, deleteColor] = await Promise.all([
+      archiveItem.evaluate((element) => getComputedStyle(element).color),
+      deleteItem.evaluate((element) => getComputedStyle(element).color),
+    ])
+    if (archiveColor === deleteColor) {
+      throw new Error(`delete menu item is not using a distinct danger color (${deleteColor})`)
+    }
     await deleteItem.click()
 
     const dialog = page.getByRole('dialog')
@@ -181,8 +189,8 @@ export async function runSmoke(options) {
     return {
       ok: true,
       checks: options.simulateDeleteSuccess === true
-        ? ['Archive session', 'Delete session…', 'confirmation dialog', 'successful delete without reload']
-        : ['Archive session', 'Delete session…', 'confirmation dialog', 'cancel without request'],
+        ? ['Archive session', 'red Delete session', 'confirmation dialog', 'successful delete without reload']
+        : ['Archive session', 'red Delete session', 'confirmation dialog', 'cancel without request'],
     }
   } finally {
     await browser.close()

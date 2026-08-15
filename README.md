@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-给 DeepSeek Harness 的原生会话菜单增加 **删除会话…**。删除前必须在弹窗中再次
+给 DeepSeek Harness 的原生会话菜单增加 **删除会话**。删除前必须在弹窗中再次
 确认；原有的归档选项仍然保留。
 
 这是非官方社区插件，与 DeepSeek 官方无隶属或背书关系。
@@ -22,7 +22,7 @@
 
 ## 能做什么
 
-- 删除入口直接出现在原生会话操作菜单中；
+- 删除入口直接出现在原生会话操作菜单中，并使用 DSH 原生红色危险态；
 - 使用明确的永久删除弹窗，不会单击菜单后立即删除；
 - 已打开的会话可直接删除；正在运行的任务会先安全停止，再由 DSH 有序摘载会话；
 - 删除成功后原地刷新会话与 workspace 状态，不重载整个 DSH 页面；
@@ -45,7 +45,7 @@ https://raw.githubusercontent.com/WSL043/dsh-session-delete/main/AGENTS.md
 ### 已有 `dsh` 命令
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.2/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.3/dsh-session-delete.tgz"
 ```
 
 ### Windows DSH-Portable
@@ -53,7 +53,7 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 在 DSH-Portable 文件夹中执行：
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.2/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.3/dsh-session-delete.tgz"
 ```
 
 安装器会让这个包占用 DSH 原生的
@@ -66,7 +66,7 @@ Release 同时提供 `dsh-session-delete.tgz.sha256`。下载两个文件后，�
 
 ## 使用
 
-在侧边栏会话右侧打开操作菜单，选择 **删除会话…**，阅读永久删除提示后再点
+在侧边栏会话右侧打开操作菜单，选择红色的 **删除会话**，阅读永久删除提示后再点
 **永久删除**。
 
 已打开的会话无需手动关闭。确认永久删除后，如果目标会话正在运行，插件会先调用
@@ -88,7 +88,7 @@ DSH 的生命周期句柄停止并等待任务收敛，再摘载会话并删除�
 pnpm smoke:ui -- --url http://127.0.0.1:14171 --session "Exact session title"
 ```
 
-脚本只验证 **归档会话**、**删除会话…**、二次确认弹窗和取消逻辑；它不会点击
+脚本只验证 **归档会话**、**删除会话**、二次确认弹窗和取消逻辑；它不会点击
 **永久删除**，也不会启动、停止或重启 DSH。
 
 若要验收删除成功后的无闪屏路径，可在 DSH 自带的隔离 fixture 中拦截删除请求：
