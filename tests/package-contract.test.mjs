@@ -8,7 +8,7 @@ test('public package metadata and native replacement identity remain intentional
   const manifest = JSON.parse(await read('package.json'))
 
   assert.equal(manifest.name, 'dsh-session-delete')
-  assert.equal(manifest.version, '0.1.2')
+  assert.equal(manifest.version, '0.1.3')
   assert.equal(manifest.private, undefined)
   assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.repository.url, 'git+https://github.com/WSL043/dsh-session-delete.git')
@@ -46,7 +46,7 @@ test('documentation pins the replacement slot, release asset, and second confirm
   ])
 
   for (const document of [chinese, english, agents]) {
-    assert.match(document, /@deepseek-ai\/dsh-client-ui-workspace@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v0\.1\.2\/dsh-session-delete\.tgz/)
+    assert.match(document, /@deepseek-ai\/dsh-client-ui-workspace@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v0\.1\.3\/dsh-session-delete\.tgz/)
   }
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
