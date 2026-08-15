@@ -24,7 +24,7 @@
 
 - 删除入口直接出现在原生会话操作菜单中；
 - 使用明确的永久删除弹窗，不会单击菜单后立即删除；
-- 正在运行或本次启动后已经打开的会话会被拒绝；
+- 已打开的会话可直接删除；正在运行的任务会先安全停止，再由 DSH 有序摘载会话；
 - 只删除经过会话 ID、存储根目录、真实路径和文件类型校验的独立 JSONL 会话目录；
 - 请求必须是同源 JSON POST，并带有专用确认请求头。
 
@@ -44,7 +44,7 @@ https://raw.githubusercontent.com/WSL043/dsh-session-delete/main/AGENTS.md
 ### 已有 `dsh` 命令
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.0/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.1/dsh-session-delete.tgz"
 ```
 
 ### Windows DSH-Portable
@@ -52,20 +52,43 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 在 DSH-Portable 文件夹中执行：
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.0/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.1/dsh-session-delete.tgz"
 ```
 
 安装器会让这个包占用 DSH 原生的
 `@deepseek-ai/dsh-client-ui-workspace` 依赖位，因此菜单是原生选项，而不是额外页面
 或浏览器脚本。命令不会重启 DSH；安装完成后请手动重启。
 
+Release 同时提供 `dsh-session-delete.tgz.sha256`。下载两个文件后，可用
+`Get-FileHash .\dsh-session-delete.tgz -Algorithm SHA256`（Windows）或
+`sha256sum -c dsh-session-delete.tgz.sha256`（Linux/macOS）校验 SHA-256。
+
 ## 使用
 
 在侧边栏会话右侧打开操作菜单，选择 **删除会话…**，阅读永久删除提示后再点
 **永久删除**。
 
-如果会话正在运行或本次启动后已经打开，插件会拒绝删除。重启 DSH 后，不要先打开
-目标会话，直接从侧边栏菜单删除。
+已打开的会话无需手动关闭。确认永久删除后，如果目标会话正在运行，插件会先调用
+DSH 的生命周期句柄停止并等待任务收敛，再摘载会话并删除本地记录。
+
+## 安装提示与验收
+
+- `dsh plugin ... list` 对会话数据无破坏性，但并非严格的文件系统只读命令；首次运行
+  可能迁移 Portable profile、重建依赖链接或更新锁文件。
+- 本插件只有 `dsh.client` 客户端注入，不提供配置补丁层；因此缺少 `dsh.bundle` 的提示
+  是预期信息，不代表安装失败，也不应为消除提示而添加空 bundle。
+- DSH 宿主负责提供运行时 peer。v0.1.1 已把这些 peer 标为 optional，以避免把宿主注入
+  误报成插件缺包；如果 profile 中其他插件仍有 peer 告警，应按包名分别判断。
+
+从源码安装依赖并执行 `pnpm exec playwright install chromium` 后，可对一个明确指定的
+现有会话运行非破坏性验收：
+
+```sh
+pnpm smoke:ui -- --url http://127.0.0.1:14171 --session "Exact session title"
+```
+
+脚本只验证 **归档会话**、**删除会话…**、二次确认弹窗和取消逻辑；它不会点击
+**永久删除**，也不会启动、停止或重启 DSH。
 
 ## 更新与卸载
 

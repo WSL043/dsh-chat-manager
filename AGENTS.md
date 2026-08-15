@@ -23,16 +23,16 @@ This plugin must replace the dependency key
 or installing it under the name `dsh-session-delete`, does not prove that the
 native workspace menu was replaced.
 
-The fixed v0.1.0 package spec is:
+The fixed v0.1.1 package spec is:
 
 ```text
-@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.0/dsh-session-delete.tgz
+@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.1/dsh-session-delete.tgz
 ```
 
 ## Detect DSH
 
-First check the requested profile and available commands with read-only
-operations. On Windows:
+First check the requested profile and available commands with filesystem
+read-only operations. On Windows:
 
 ```powershell
 Get-Command dsh -ErrorAction SilentlyContinue
@@ -50,22 +50,32 @@ its non-secret package spec. Do not print the rest of the profile. This original
 value determines whether uninstall should remove the key or restore a prior
 explicit pin.
 
+`dsh plugin ... list` is not strictly read-only. It is
+non-destructive to sessions, but its first invocation may initialize or migrate
+a Portable profile, reconcile `dsh.profile.bundles`, rebuild pnpm links, or
+update profile package-manager files. If exact change attribution matters,
+snapshot the selected profile's relevant metadata before invoking it.
+
 ## Install or update
 
 With an existing `dsh` command:
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.0/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.1/dsh-session-delete.tgz"
 ```
 
 With DSH-Portable, run from its root:
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.0/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.1/dsh-session-delete.tgz"
 ```
 
-Use the same command for v0.1.0 update or repair. Do not restart DSH
+Use the same command for v0.1.1 update or repair. Do not restart DSH
 automatically.
+
+The Release includes `dsh-session-delete.tgz.sha256`. When downloading assets
+before installation, verify the tarball's SHA-256 against that sidecar. Do not
+treat a hash copied from an unrelated page or prior version as evidence.
 
 ## Verify
 
@@ -78,21 +88,45 @@ dsh plugin --profile web list @deepseek-ai/dsh-client-ui-workspace --depth 0
 Static success requires all of the following:
 
 1. The dependency appears exactly once under the requested profile.
-2. The direct dependency spec is the fixed v0.1.0 Release URL.
+2. The direct dependency spec is the fixed v0.1.1 Release URL.
 3. The installed alias directory
    `node_modules/@deepseek-ai/dsh-client-ui-workspace/package.json` reports
-   `name: "dsh-session-delete"` and `version: "0.1.0"`.
+   `name: "dsh-session-delete"` and `version: "0.1.1"`.
 4. No unrelated dependency, profile patch, or running DSH process changed.
 
-A live UI check requires permission to restart DSH. After restart, open a cold
-session's actions menu and verify **Archive session** and **Delete session…** are
-both present. Open the delete action and verify the second confirmation modal,
-then cancel it. Cancellation is the default non-destructive acceptance check.
+A live UI check requires permission to restart DSH. After restart, open the
+explicitly selected session's actions menu and verify **Archive session** and
+**Delete session…** are both present. Open the delete action and verify the
+second confirmation modal, then cancel it. Cancellation is the default
+non-destructive acceptance check.
+
+For an automated check from a source checkout, install dependencies and the
+Playwright Chromium browser, then run:
+
+```sh
+pnpm smoke:ui -- --url http://127.0.0.1:14171 --session "Exact session title"
+```
+
+The explicit title is mandatory. The script must only open the delete dialog
+and cancel it; it must not send the deletion request or manage the DSH process.
 
 Only if the user explicitly authorizes a destructive test, create or select a
-disposable cold session, confirm deletion in the modal, and verify that the
+disposable session, confirm deletion in the modal, and verify that the
 session no longer appears after reload. Never use an existing user session for
 this check.
+
+## Expected package-manager notices
+
+This package contributes `dsh.client`, not `dsh.bundle`. A bundle declaration
+means a profile configuration patch layer; adding an empty one merely to remove
+a warning would misrepresent the plugin. A missing `dsh.bundle` notice is
+therefore expected for this client-only replacement and is not an installation
+failure when the alias and runtime checks pass.
+
+The DSH host supplies the Cordis, client-runtime, UI, invariants, and React
+peers. v0.1.1 declares those peers optional while retaining exact compatible
+version ranges. If `pnpm peers check` still reports another installed package,
+attribute the warning to the named package rather than this plugin.
 
 ## Uninstall
 

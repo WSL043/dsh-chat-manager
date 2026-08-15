@@ -4,6 +4,55 @@ import { basename, dirname, isAbsolute, relative, sep } from 'node:path'
 const failure = (code, message) => ({ ok: false, error: { code, message } })
 const MAX_REQUEST_BYTES = 8 * 1024
 
+/**
+ * Retain the lifecycle capabilities returned by the public AgentRegistry API.
+ * DSH intentionally exposes only a bare Agent from get(); deletion needs the
+ * original handle so the host can cancel, drain, unregister, and detach in its
+ * own supported order.
+ */
+export function installAgentHandleTracker(agents) {
+  const handles = new Map()
+  const originalCreate = agents.create
+  const originalResume = agents.resume
+
+  const track = (handle) => {
+    if (handle?.agent?.id !== undefined && typeof handle.dispose === 'function') {
+      handles.set(handle.agent.id, handle)
+    }
+    return handle
+  }
+  const wrappedCreate = async function (...args) {
+    return track(await Reflect.apply(originalCreate, this, args))
+  }
+  const wrappedResume = async function (...args) {
+    return track(await Reflect.apply(originalResume, this, args))
+  }
+
+  agents.create = wrappedCreate
+  agents.resume = wrappedResume
+  let released = false
+
+  return {
+    async dispose(sessionId) {
+      const handle = handles.get(sessionId)
+      if (handle === undefined || agents.get(sessionId) !== handle.agent) {
+        handles.delete(sessionId)
+        return false
+      }
+      await handle.dispose()
+      handles.delete(sessionId)
+      return true
+    },
+    release() {
+      if (released) return
+      released = true
+      handles.clear()
+      if (agents.create === wrappedCreate) agents.create = originalCreate
+      if (agents.resume === wrappedResume) agents.resume = originalResume
+    },
+  }
+}
+
 const sendJson = (res, status, body) => {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
@@ -38,20 +87,50 @@ const inside = (root, target) => {
 }
 
 /**
- * Permanently remove one cold JSONL session directory after proving that the
- * persistence backend selected the exact target under the configured root.
+ * Permanently remove one JSONL session directory. A live Agent is first torn
+ * down through its owned host handle; persistence retirement is then awaited
+ * before the same path and identity checks used for a cold session.
  */
-export async function deleteColdSession(deps, { sessionRoot, sessionId }) {
-  if (deps.sessions.get(sessionId) !== undefined || deps.agents.get(sessionId) !== undefined) {
-    return failure('session-active', '该会话仍在内存中，不能安全删除。请重启 DeepSeek Harness 后、打开它之前重试。')
-  }
-
+export async function deleteSessionSafely(deps, { sessionRoot, sessionId }) {
   if (!deps.sessionPersistence.supportsRawArtifacts) {
     return failure('unsupported-backend', '当前会话存储不是可逐会话删除的 JSONL 后端。')
   }
 
-  const header = (await deps.sessionPersistence.list()).find(item => item.id === sessionId)
+  let header = (await deps.sessionPersistence.list()).find(item => item.id === sessionId)
+    ?? deps.sessions.get(sessionId)?.header
   if (header === undefined) return failure('session-not-found', '会话不存在或已经删除。')
+
+  if (deps.agents.get(sessionId) !== undefined) {
+    let disposed
+    try {
+      disposed = await deps.agentHandles.dispose(sessionId)
+    } catch {
+      return failure('lifecycle-error', 'DSH 未能安全停止并摘载该会话，未删除任何内容。')
+    }
+    if (!disposed) {
+      return failure('lifecycle-unavailable', '无法取得该会话的宿主生命周期句柄，未删除任何内容。请确认插件已更新并在更新后重启 DeepSeek Harness。')
+    }
+  }
+
+  if (deps.sessions.get(sessionId) !== undefined || deps.agents.get(sessionId) !== undefined) {
+    return failure('lifecycle-unavailable', '宿主未能完整摘载该会话，未删除任何内容。')
+  }
+
+  // inspect() waits for the persistence backend's asynchronous retirement
+  // drain. A never-materialized blank session is already fully removed here.
+  try {
+    const inspected = await deps.sessionPersistence.inspect(sessionId)
+    if (!sameHeader(header, inspected.meta)) {
+      return failure('unsafe-location', '会话在摘载期间发生了身份变化，未删除任何文件。')
+    }
+    header = inspected.meta
+  } catch (error) {
+    const stillStored = (await deps.sessionPersistence.list()).some(item => item.id === sessionId)
+    if (!stillStored && deps.sessions.get(sessionId) === undefined && deps.agents.get(sessionId) === undefined) {
+      return { ok: true, value: { deleted: true } }
+    }
+    throw error
+  }
 
   const location = deps.sessionPersistence.locate(header)
   const raw = await deps.sessionPersistence.readRaw(sessionId)
@@ -86,7 +165,7 @@ export async function deleteColdSession(deps, { sessionRoot, sessionId }) {
     }
 
     if (deps.sessions.get(sessionId) !== undefined || deps.agents.get(sessionId) !== undefined) {
-      return failure('session-active', '该会话刚刚被打开，已取消删除。请重启 DeepSeek Harness 后、打开它之前重试。')
+      return failure('session-reopened', '该会话在删除过程中被重新打开，已取消删除。')
     }
 
     await rm(sessionDirectory, { recursive: true, force: false })
@@ -96,6 +175,9 @@ export async function deleteColdSession(deps, { sessionRoot, sessionId }) {
     return failure('storage-error', '存储删除失败，未删除任何文件。')
   }
 }
+
+// Kept as an import-compatible alias for 0.1.0 consumers.
+export const deleteColdSession = deleteSessionSafely
 
 /**
  * HTTP boundary for the destructive operation. The native client must make a
@@ -126,14 +208,9 @@ export function createDeleteRequestHandler({ deleteSession }) {
       return
     }
 
+    let body
     try {
-      const body = await readJsonBody(req)
-      if (typeof body?.sessionId !== 'string' || body.sessionId.length === 0 || body.sessionId.length > 512) {
-        sendJson(res, 400, failure('invalid-session-id', '会话 ID 无效。'))
-        return
-      }
-      const result = await deleteSession(body.sessionId)
-      sendJson(res, result.ok ? 200 : 409, result)
+      body = await readJsonBody(req)
     } catch (error) {
       const tooLarge = error instanceof Error && error.message === 'request-too-large'
       sendJson(
@@ -141,6 +218,18 @@ export function createDeleteRequestHandler({ deleteSession }) {
         tooLarge ? 413 : 400,
         failure(tooLarge ? 'request-too-large' : 'invalid-json', tooLarge ? '删除请求过大。' : '删除请求不是有效 JSON。'),
       )
+      return
+    }
+    if (typeof body?.sessionId !== 'string' || body.sessionId.length === 0 || body.sessionId.length > 512) {
+      sendJson(res, 400, failure('invalid-session-id', '会话 ID 无效。'))
+      return
+    }
+
+    try {
+      const result = await deleteSession(body.sessionId)
+      sendJson(res, result.ok ? 200 : 409, result)
+    } catch {
+      sendJson(res, 500, failure('internal', '删除过程中发生未预期错误，未确认删除成功。'))
     }
   }
 }

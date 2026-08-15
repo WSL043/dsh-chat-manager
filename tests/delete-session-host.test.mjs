@@ -7,7 +7,8 @@ import test from 'node:test'
 
 import {
   createDeleteRequestHandler,
-  deleteColdSession,
+  deleteSessionSafely,
+  installAgentHandleTracker,
 } from '../src/host/delete-session.mjs'
 
 const HEADER = Object.freeze({
@@ -35,15 +36,20 @@ function dependencies({
   listed = [HEADER],
   rawMeta = HEADER,
   sessionGet,
+  agentGet,
+  disposeAgent,
+  inspect,
 }) {
   return {
     sessions: { get: sessionGet ?? (() => live ? { id: HEADER.id } : undefined) },
-    agents: { get: () => agentLive ? { id: HEADER.id } : undefined },
+    agents: { get: agentGet ?? (() => agentLive ? { id: HEADER.id, status: 'idle' } : undefined) },
+    agentHandles: { dispose: disposeAgent ?? (async () => false) },
     sessionPersistence: {
       supportsRawArtifacts,
       list: async () => listed,
       locate: () => ({ kind: 'jsonl', path: transcript }),
       readRaw: async () => ({ meta: rawMeta, filename: 'session.jsonl', content: 'fixture' }),
+      inspect: inspect ?? (async () => ({ meta: rawMeta, events: [] })),
     },
   }
 }
@@ -52,7 +58,7 @@ test('deletes only the exact cold JSONL session directory', async (t) => {
   const paths = await fixture()
   t.after(() => rm(paths.base, { recursive: true, force: true }))
 
-  const result = await deleteColdSession(
+  const result = await deleteSessionSafely(
     dependencies({ transcript: paths.transcript }),
     { sessionRoot: paths.root, sessionId: HEADER.id },
   )
@@ -61,31 +67,91 @@ test('deletes only the exact cold JSONL session directory', async (t) => {
   await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
 })
 
-test('refuses a session that is still live in memory', async (t) => {
+test('disposes an opened idle agent before deleting its session', async (t) => {
+  const paths = await fixture()
+  let liveAgent = { id: HEADER.id, status: 'idle' }
+  let liveSession = { id: HEADER.id }
+  let disposed = 0
+  t.after(() => rm(paths.base, { recursive: true, force: true }))
+
+  const result = await deleteSessionSafely(
+    dependencies({
+      transcript: paths.transcript,
+      agentLive: true,
+      sessionGet: () => liveSession,
+      agentGet: () => liveAgent,
+      disposeAgent: async () => {
+        disposed += 1
+        liveAgent = undefined
+        liveSession = undefined
+        return true
+      },
+    }),
+    { sessionRoot: paths.root, sessionId: HEADER.id },
+  )
+
+  assert.deepEqual(result, { ok: true, value: { deleted: true } })
+  assert.equal(disposed, 1)
+  assert.equal(liveAgent, undefined)
+  await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
+})
+
+test('disposes a running agent before deleting its session', async (t) => {
+  const paths = await fixture()
+  let live = true
+  let statusAtDispose
+  t.after(() => rm(paths.base, { recursive: true, force: true }))
+
+  const deps = dependencies({
+    transcript: paths.transcript,
+    sessionGet: () => live ? { id: HEADER.id } : undefined,
+    agentGet: () => live ? { id: HEADER.id, status: 'running' } : undefined,
+    disposeAgent: async () => {
+      statusAtDispose = deps.agents.get(HEADER.id)?.status
+      live = false
+      return true
+    },
+  })
+  const result = await deleteSessionSafely(
+    deps,
+    { sessionRoot: paths.root, sessionId: HEADER.id },
+  )
+
+  assert.equal(result.ok, true)
+  assert.equal(statusAtDispose, 'running')
+  await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
+})
+
+test('fails closed when an already-live agent has no owned lifecycle handle', async (t) => {
   const paths = await fixture()
   t.after(() => rm(paths.base, { recursive: true, force: true }))
 
-  const result = await deleteColdSession(
-    dependencies({ transcript: paths.transcript, live: true }),
+  const result = await deleteSessionSafely(
+    dependencies({ transcript: paths.transcript, live: true, agentLive: true }),
     { sessionRoot: paths.root, sessionId: HEADER.id },
   )
 
   assert.equal(result.ok, false)
-  assert.equal(result.error.code, 'session-active')
+  assert.equal(result.error.code, 'lifecycle-unavailable')
   assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
 })
 
-test('refuses a session owned by a live agent', async (t) => {
+test('reports lifecycle teardown failure without touching storage', async (t) => {
   const paths = await fixture()
   t.after(() => rm(paths.base, { recursive: true, force: true }))
 
-  const result = await deleteColdSession(
-    dependencies({ transcript: paths.transcript, agentLive: true }),
+  const result = await deleteSessionSafely(
+    dependencies({
+      transcript: paths.transcript,
+      live: true,
+      agentLive: true,
+      disposeAgent: async () => { throw new Error('teardown failed') },
+    }),
     { sessionRoot: paths.root, sessionId: HEADER.id },
   )
 
   assert.equal(result.ok, false)
-  assert.equal(result.error.code, 'session-active')
+  assert.equal(result.error.code, 'lifecycle-error')
   assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
 })
 
@@ -93,13 +159,13 @@ test('refuses unsupported storage and a missing session', async (t) => {
   const paths = await fixture()
   t.after(() => rm(paths.base, { recursive: true, force: true }))
 
-  const unsupported = await deleteColdSession(
+  const unsupported = await deleteSessionSafely(
     dependencies({ transcript: paths.transcript, supportsRawArtifacts: false }),
     { sessionRoot: paths.root, sessionId: HEADER.id },
   )
   assert.equal(unsupported.error.code, 'unsupported-backend')
 
-  const missing = await deleteColdSession(
+  const missing = await deleteSessionSafely(
     dependencies({ transcript: paths.transcript, listed: [] }),
     { sessionRoot: paths.root, sessionId: HEADER.id },
   )
@@ -111,7 +177,7 @@ test('refuses a transcript whose persisted header does not match the listing', a
   const paths = await fixture()
   t.after(() => rm(paths.base, { recursive: true, force: true }))
 
-  const result = await deleteColdSession(
+  const result = await deleteSessionSafely(
     dependencies({
       transcript: paths.transcript,
       rawMeta: { ...HEADER, cwd: 'C:\\different' },
@@ -131,7 +197,7 @@ test('refuses a persistence location outside the configured session root', async
   await writeFile(outsideTranscript, 'outside\n', 'utf8')
   t.after(() => rm(paths.base, { recursive: true, force: true }))
 
-  const result = await deleteColdSession(
+  const result = await deleteSessionSafely(
     dependencies({ transcript: outsideTranscript }),
     { sessionRoot: paths.root, sessionId: HEADER.id },
   )
@@ -147,7 +213,7 @@ test('refuses an unexpected transcript filename inside the session directory', a
   await writeFile(unexpected, 'keep\n', 'utf8')
   t.after(() => rm(paths.base, { recursive: true, force: true }))
 
-  const result = await deleteColdSession(
+  const result = await deleteSessionSafely(
     dependencies({ transcript: unexpected }),
     { sessionRoot: paths.root, sessionId: HEADER.id },
   )
@@ -161,7 +227,7 @@ test('rechecks liveness immediately before removal', async (t) => {
   let calls = 0
   t.after(() => rm(paths.base, { recursive: true, force: true }))
 
-  const result = await deleteColdSession(
+  const result = await deleteSessionSafely(
     dependencies({
       transcript: paths.transcript,
       sessionGet: () => (++calls === 1 ? undefined : { id: HEADER.id }),
@@ -169,9 +235,40 @@ test('rechecks liveness immediately before removal', async (t) => {
     { sessionRoot: paths.root, sessionId: HEADER.id },
   )
 
-  assert.equal(result.error.code, 'session-active')
+  assert.equal(result.error.code, 'session-reopened')
   assert.equal(calls, 2)
   assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
+})
+
+test('tracks handles returned by agent create and resume and restores methods on release', async () => {
+  const disposed = []
+  const originalCreate = async ({ sessionId }) => ({
+    agent: { id: sessionId },
+    dispose: async () => { disposed.push(`create:${sessionId}`) },
+  })
+  const originalResume = async ({ resumeSessionId }) => ({
+    agent: { id: resumeSessionId },
+    dispose: async () => { disposed.push(`resume:${resumeSessionId}`) },
+  })
+  const registry = {
+    create: originalCreate,
+    resume: originalResume,
+    get(id) { return this.current?.id === id ? this.current : undefined },
+  }
+  const tracker = installAgentHandleTracker(registry)
+
+  const created = await registry.create({ sessionId: 'created' })
+  registry.current = created.agent
+  assert.equal(await tracker.dispose('created'), true)
+
+  const resumed = await registry.resume({ resumeSessionId: 'resumed' })
+  registry.current = resumed.agent
+  assert.equal(await tracker.dispose('resumed'), true)
+
+  assert.deepEqual(disposed, ['create:created', 'resume:resumed'])
+  tracker.release()
+  assert.equal(registry.create, originalCreate)
+  assert.equal(registry.resume, originalResume)
 })
 
 function request(body, headers = {}) {
@@ -284,4 +381,15 @@ test('returns a conflict response when the storage operation is refused', async 
   await handler(request(JSON.stringify({ sessionId: HEADER.id })), res)
   assert.equal(res.status, 409)
   assert.equal(JSON.parse(res.body).error.code, 'session-active')
+})
+
+test('does not misreport an unexpected deletion failure as invalid JSON', async () => {
+  const handler = createDeleteRequestHandler({
+    deleteSession: async () => { throw new Error('unexpected') },
+  })
+  const res = response()
+  await handler(request(JSON.stringify({ sessionId: HEADER.id })), res)
+
+  assert.equal(res.status, 500)
+  assert.equal(JSON.parse(res.body).error.code, 'internal')
 })

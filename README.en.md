@@ -32,7 +32,8 @@ warranty.
 
 - Places deletion in the native session actions menu;
 - Requires an explicit permanent-deletion confirmation;
-- Refuses sessions that are running or have been opened since DSH started;
+- Deletes opened sessions directly; running work is stopped safely before DSH
+  tears down the session in lifecycle order;
 - Deletes only a standalone JSONL session directory whose identity, storage
   root, real path, and file type have been verified;
 - Accepts only a same-origin JSON POST with a dedicated confirmation header.
@@ -55,7 +56,7 @@ https://raw.githubusercontent.com/WSL043/dsh-session-delete/main/AGENTS.md
 ### Existing `dsh` command
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.0/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.1/dsh-session-delete.tgz"
 ```
 
 ### Windows DSH-Portable
@@ -63,7 +64,7 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 Run this inside the DSH-Portable folder:
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.0/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.1/dsh-session-delete.tgz"
 ```
 
 The package occupies DSH's native
@@ -71,14 +72,43 @@ The package occupies DSH's native
 new action part of the native menu rather than a separate page or browser
 userscript. The command does not restart DSH; restart it manually afterward.
 
+Each Release also provides `dsh-session-delete.tgz.sha256`. Download both files
+and verify the SHA-256 with `Get-FileHash .\dsh-session-delete.tgz -Algorithm
+SHA256` on Windows or `sha256sum -c dsh-session-delete.tgz.sha256` on
+Linux/macOS.
+
 ## Use
 
 Open a session's actions menu in the sidebar, choose **Delete session…**, read
 the warning, and select **Delete permanently**.
 
-If the session is running or has already been opened during this DSH process,
-deletion is refused. Restart DSH, do not open the target session, and delete it
-directly from the sidebar.
+Opened sessions do not need to be closed manually. After confirmation, running
+work is stopped safely through DSH's lifecycle handle; the plugin waits for
+quiescence, tears down the session, and then removes its local record.
+
+## Installation notes and acceptance check
+
+- `dsh plugin ... list` is non-destructive to session data, but it is not
+  strictly read-only on disk. Its first run may migrate a Portable profile,
+  rebuild dependency links, or update a lockfile.
+- This is a `dsh.client` injection and does not contribute a configuration patch
+  layer. A missing `dsh.bundle` notice is expected, is not an installation
+  failure, and should not be silenced with an empty bundle.
+- DSH supplies the runtime peers. v0.1.1 marks them optional so host injection
+  is not misreported as a plugin defect. If other profile packages still emit
+  peer warnings, assess them by package name.
+
+From a source checkout, install dependencies and run `pnpm exec playwright
+install chromium`, then check one explicitly named existing session without
+deleting it:
+
+```sh
+pnpm smoke:ui -- --url http://127.0.0.1:14171 --session "Exact session title"
+```
+
+The script verifies **Archive session**, **Delete session…**, the second
+confirmation, and cancellation. It never clicks **Delete permanently** and
+does not start, stop, or restart DSH.
 
 ## Update and uninstall
 

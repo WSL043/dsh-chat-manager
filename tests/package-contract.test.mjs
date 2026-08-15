@@ -8,11 +8,16 @@ test('public package metadata and native replacement identity remain intentional
   const manifest = JSON.parse(await read('package.json'))
 
   assert.equal(manifest.name, 'dsh-session-delete')
-  assert.equal(manifest.version, '0.1.0')
+  assert.equal(manifest.version, '0.1.1')
   assert.equal(manifest.private, undefined)
   assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.repository.url, 'git+https://github.com/WSL043/dsh-session-delete.git')
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.0-rc.6')
+  for (const peer of Object.keys(manifest.peerDependencies)) {
+    assert.equal(manifest.peerDependenciesMeta?.[peer]?.optional, true, `${peer} should be a host-provided optional peer`)
+  }
+  assert.equal(manifest.scripts['smoke:ui'], 'node scripts/smoke-ui.mjs')
+  assert.ok(manifest.files.includes('scripts/smoke-ui.mjs'))
   assert.ok(manifest.files.includes('THIRD_PARTY_NOTICES.md'))
 })
 
@@ -25,6 +30,7 @@ test('public artifacts contain no local workspace paths', async () => {
     'src/index.js',
     'src/host/delete-session.mjs',
     'scripts/build-client.mjs',
+    'scripts/smoke-ui.mjs',
   ]
   const contents = (await Promise.all(files.map(read))).join('\n')
 
@@ -40,7 +46,7 @@ test('documentation pins the replacement slot, release asset, and second confirm
   ])
 
   for (const document of [chinese, english, agents]) {
-    assert.match(document, /@deepseek-ai\/dsh-client-ui-workspace@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v0\.1\.0\/dsh-session-delete\.tgz/)
+    assert.match(document, /@deepseek-ai\/dsh-client-ui-workspace@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v0\.1\.1\/dsh-session-delete\.tgz/)
   }
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
@@ -49,4 +55,10 @@ test('documentation pins the replacement slot, release asset, and second confirm
   assert.match(english, /permanent deletion cannot be undone/i)
   assert.match(english, /docs\/assets\/confirm-delete\.en\.png/)
   assert.match(agents, /Never delete a session as an installation test/)
+  assert.match(agents, /not strictly read-only/i)
+  assert.match(agents, /dsh\.bundle/)
+  assert.match(chinese, /SHA-256/)
+  assert.match(english, /SHA-256/)
+  assert.match(chinese, /正在运行的任务会先安全停止/)
+  assert.match(english, /running work is stopped safely/i)
 })

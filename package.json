@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-delete",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packageManager": "pnpm@11.19.0",
   "description": "Confirmed permanent deletion for DeepSeek Harness sessions",
   "type": "module",
@@ -14,6 +14,7 @@
     "docs/assets/*.png",
     "lib/client.js",
     "scripts/build-client.mjs",
+    "scripts/smoke-ui.mjs",
     "src/index.js",
     "src/host/delete-session.mjs",
     "README.md",
@@ -38,6 +39,7 @@
     "build": "node scripts/build-client.mjs",
     "test": "node --test tests/*.test.mjs",
     "check": "pnpm run test && pnpm run build && pnpm pack --pack-destination .artifacts",
+    "smoke:ui": "node scripts/smoke-ui.mjs",
     "prepack": "pnpm run build"
   },
   "keywords": [
@@ -75,7 +77,17 @@
     "@deepseek-ai/dsh-invariants": "0.1.0-rc.6",
     "react": "^18.2.0"
   },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": { "optional": true },
+    "@deepseek-ai/dsh-client-locale": { "optional": true },
+    "@deepseek-ai/dsh-client-runtime": { "optional": true },
+    "@deepseek-ai/dsh-client-ui-primitives": { "optional": true },
+    "@deepseek-ai/dsh-client-ui-slots": { "optional": true },
+    "@deepseek-ai/dsh-invariants": { "optional": true },
+    "react": { "optional": true }
+  },
   "devDependencies": {
-    "@deepseek-ai/dsh-client-ui-workspace": "0.1.0-rc.6"
+    "@deepseek-ai/dsh-client-ui-workspace": "0.1.0-rc.6",
+    "playwright": "1.62.1"
   }
 }

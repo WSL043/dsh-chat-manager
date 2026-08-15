@@ -1,4 +1,8 @@
-import { createDeleteRequestHandler, deleteColdSession } from './host/delete-session.mjs'
+import {
+  createDeleteRequestHandler,
+  deleteSessionSafely,
+  installAgentHandleTracker,
+} from './host/delete-session.mjs'
 
 export const name = 'dsh-session-delete'
 export const inject = ['webServer', 'sessionPersistence', 'sessions', 'agents']
@@ -9,10 +13,14 @@ export function apply(ctx) {
     throw new Error('dsh-session-delete requires the per-session JSONL persistence backend')
   }
 
+  const agentHandles = installAgentHandleTracker(ctx.agents)
+  ctx.effect(() => () => agentHandles.release(), 'dsh-session-delete: agent lifecycle tracking')
+
   const handler = createDeleteRequestHandler({
-    deleteSession: sessionId => deleteColdSession({
+    deleteSession: sessionId => deleteSessionSafely({
       sessions: ctx.sessions,
       agents: ctx.agents,
+      agentHandles,
       sessionPersistence: ctx.sessionPersistence,
     }, { sessionRoot, sessionId }),
   })
@@ -27,4 +35,9 @@ export function apply(ctx) {
   )
 }
 
-export { createDeleteRequestHandler, deleteColdSession } from './host/delete-session.mjs'
+export {
+  createDeleteRequestHandler,
+  deleteColdSession,
+  deleteSessionSafely,
+  installAgentHandleTracker,
+} from './host/delete-session.mjs'
