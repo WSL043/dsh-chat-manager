@@ -44,7 +44,9 @@ test('documentation pins the replacement slot, release asset, and second confirm
   }
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
+  assert.match(chinese, /docs\/assets\/confirm-delete\.png/)
   assert.match(english, /second confirmation/i)
   assert.match(english, /permanent deletion cannot be undone/i)
+  assert.match(english, /docs\/assets\/confirm-delete\.en\.png/)
   assert.match(agents, /Never delete a session as an installation test/)
 })
