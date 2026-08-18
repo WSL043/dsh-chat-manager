@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { isIgnorableFixtureConsoleError, parseArgs } from '../scripts/smoke-ui.mjs'
+import { isFixtureUrl, isIgnorableFixtureConsoleError, parseArgs } from '../scripts/smoke-ui.mjs'
 
 test('smoke test requires an explicit session and never chooses one implicitly', () => {
   assert.throws(() => parseArgs([]), /--session is required/)
@@ -50,6 +50,12 @@ test('simulated delete success is restricted to the isolated fixture page', () =
       simulateDeleteSuccess: true,
     },
   )
+})
+
+test('fixture detection also covers the non-destructive cancel smoke path', () => {
+  assert.equal(isFixtureUrl('http://127.0.0.1:14173/?fixture'), true)
+  assert.equal(isFixtureUrl('http://127.0.0.1:14173/?fixture=1'), true)
+  assert.equal(isFixtureUrl('http://127.0.0.1:14173/'), false)
 })
 
 test('smoke test accepts a portable Chromium executable without mixing launch modes', () => {

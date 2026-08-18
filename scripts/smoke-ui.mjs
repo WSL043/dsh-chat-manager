@@ -52,12 +52,15 @@ export function parseArgs(argv) {
     throw new Error('use either --channel or --executable, not both')
   }
   if (result.simulateDeleteSuccess === true) {
-    const target = new URL(result.url)
-    if (!target.searchParams.has('fixture')) {
+    if (!isFixtureUrl(result.url)) {
       throw new Error('--simulate-delete-success requires a DSH fixture URL so it cannot target user sessions')
     }
   }
   return result
+}
+
+export function isFixtureUrl(url) {
+  return new URL(url).searchParams.has('fixture')
 }
 
 export function isIgnorableFixtureConsoleError(message) {
@@ -73,6 +76,7 @@ export function isIgnorableFixtureConsoleError(message) {
 export async function runSmoke(options) {
   const deleteRequests = []
   const consoleErrors = []
+  const fixture = isFixtureUrl(options.url)
   const browser = await chromium.launch({
     headless: !options.headed,
     ...(options.channel === undefined ? {} : { channel: options.channel }),
@@ -110,7 +114,7 @@ export async function runSmoke(options) {
     const documentToken = options.simulateDeleteSuccess === true
       ? await page.evaluate(() => globalThis.__dshDeleteSmokeDocumentToken)
       : undefined
-    if (options.simulateDeleteSuccess === true) {
+    if (fixture) {
       // Fixture mode cannot persist DSH's product-wide onboarding acknowledgement,
       // so clicking Continue immediately reopens the unrelated notice. Remove only
       // that exact fixture-only overlay; never mutate real settings or user pages.
@@ -180,7 +184,7 @@ export async function runSmoke(options) {
         throw new Error(`cancel path unexpectedly sent ${deleteRequests.length} delete request(s)`)
       }
     }
-    const blockingConsoleErrors = options.simulateDeleteSuccess === true
+    const blockingConsoleErrors = fixture
       ? consoleErrors.filter((message) => !isIgnorableFixtureConsoleError(message))
       : consoleErrors
     if (blockingConsoleErrors.length > 0) {

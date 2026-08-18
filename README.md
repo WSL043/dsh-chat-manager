@@ -13,9 +13,10 @@
 
 > **永久删除无法撤销。请确认目标会话，并按需提前备份。**
 
-当前版本只支持 DeepSeek Harness `0.1.0-rc.6` 的默认逐会话 JSONL 存储。它删除的是
-目标会话独占目录，并不清理其他插件、缓存、索引、备份或同步副本，因此不是安全擦除
-工具。你需要自行确认有权删除目标会话，并遵守适用的数据留存要求。
+当前版本支持 DeepSeek Harness `0.1.0-rc.6` 和 `0.1.0-rc.7` 的默认逐会话
+JSONL 存储。它删除的是目标会话独占目录，并不清理其他插件、缓存、索引、备份或同步
+副本，因此不是安全擦除工具。你需要自行确认有权删除目标会话，并遵守适用的数据留存
+要求。
 
 本项目是非官方社区插件。DSH 升级或替换同一 workspace 依赖位的其他插件可能导致
 不兼容；升级后请重新验证。软件按 [MIT 许可证](LICENSE)提供，不附带担保。
@@ -31,8 +32,9 @@
 
 ## 准备 DSH
 
-当前版本适配 DeepSeek Harness `0.1.0-rc.6` 的默认逐会话 JSONL 存储。插件采用
-严格的上游界面标记；DSH 界面结构变化时构建会直接失败，不会静默生成错误补丁。
+当前版本适配 DeepSeek Harness `0.1.0-rc.6` 和 `0.1.0-rc.7` 的默认逐会话
+JSONL 存储。插件采用严格的上游界面标记；DSH 界面结构变化时构建会直接失败，不会
+静默生成错误补丁。
 
 ## 安装
 
@@ -45,7 +47,7 @@ https://raw.githubusercontent.com/WSL043/dsh-session-delete/main/AGENTS.md
 ### 已有 `dsh` 命令
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.3/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.4/dsh-session-delete.tgz"
 ```
 
 ### Windows DSH-Portable
@@ -53,7 +55,7 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 在 DSH-Portable 文件夹中执行：
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.3/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.4/dsh-session-delete.tgz"
 ```
 
 安装器会让这个包占用 DSH 原生的
