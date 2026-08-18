@@ -6,8 +6,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const require = createRequire(import.meta.url)
 const here = dirname(fileURLToPath(import.meta.url))
 const output = resolve(here, '../lib/client.js')
-const SUPPORTED_UPSTREAM_VERSION = '0.1.0-rc.6'
-const MODIFIED_NOTICE = '// Modified from @deepseek-ai/dsh-client-ui-workspace 0.1.0-rc.6 by DSH Session Delete. See THIRD_PARTY_NOTICES.md.\n'
+const SUPPORTED_UPSTREAM_VERSION = '0.1.0-rc.7'
+const MODIFIED_NOTICE = '// Modified from @deepseek-ai/dsh-client-ui-workspace 0.1.0-rc.7 by DSH Session Delete. See THIRD_PARTY_NOTICES.md.\n'
 
 export const resolveUpstreamClient = () => require.resolve('@deepseek-ai/dsh-client-ui-workspace/client')
 export const resolveUpstreamManifest = () => require.resolve('@deepseek-ai/dsh-client-ui-workspace/package.json')

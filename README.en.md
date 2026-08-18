@@ -17,11 +17,11 @@ by DeepSeek.
 > backup first when needed.**
 
 This release supports only the default per-session JSONL storage in DeepSeek
-Harness `0.1.0-rc.6`. It deletes the target session-owned directory; data held
-by other plugins, caches, indexes, backups, or synchronized copies is outside
-its scope, so this is not a secure-erasure tool. You are responsible for having
-authority to delete the target session and for meeting applicable retention
-requirements.
+Harness `0.1.0-rc.6` and `0.1.0-rc.7`. It deletes the target session-owned
+directory; data held by other plugins, caches, indexes, backups, or synchronized
+copies is outside its scope, so this is not a secure-erasure tool. You are
+responsible for having authority to delete the target session and for meeting
+applicable retention requirements.
 
 This is an unofficial community plugin. DSH upgrades or another plugin using
 the same workspace dependency slot may be incompatible; revalidate after an
@@ -44,8 +44,9 @@ warranty.
 ## Prepare DSH
 
 This release supports the default per-session JSONL storage in DeepSeek Harness
-`0.1.0-rc.6`. Its build uses strict upstream UI markers, so an incompatible DSH
-UI change fails the build instead of silently producing a malformed patch.
+`0.1.0-rc.6` and `0.1.0-rc.7`. Its build uses strict upstream UI markers, so an
+incompatible DSH UI change fails the build instead of silently producing a
+malformed patch.
 
 ## Install
 
@@ -59,7 +60,7 @@ https://raw.githubusercontent.com/WSL043/dsh-session-delete/main/AGENTS.md
 ### Existing `dsh` command
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.3/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.4/dsh-session-delete.tgz"
 ```
 
 ### Windows DSH-Portable
@@ -67,7 +68,7 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 Run this inside the DSH-Portable folder:
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.3/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.4/dsh-session-delete.tgz"
 ```
 
 The package occupies DSH's native
