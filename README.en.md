@@ -30,13 +30,14 @@ Second confirmation · Running work is stopped safely · No full-page reload
 Open PowerShell and paste this one line:
 
 ```powershell
-$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.8'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw 'Download failed' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw 'Checksum mismatch' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
+$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.9'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw 'Download failed' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw 'Checksum mismatch' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
 ```
 
 Setup asks for Chinese or English, then finds standard DSH and
 [DSH-Portable](https://github.com/WSL043/DSH-Portable). If it finds more than one installation, it lists
-their paths for selection; an existing release is updated automatically. It remembers both the selected
-DSH and the previous workspace dependency so uninstall can restore the original value.
+their paths for selection; an existing release is updated automatically. Before installation it snapshots
+the selected profile's `package.json` and `pnpm-lock.yaml`. Uninstall or a failed install restores those
+bytes first, then asks DSH to rebuild dependency links from the original lockfile.
 
 No administrator access or system Node.js/pnpm install is required. Setup never stops work or restarts
 DSH; restart it manually when the operation finishes.
@@ -52,13 +53,13 @@ the version-pinned HTTPS Release URL, avoiding a redundant download during setup
 ### Let an Agent install it
 
 Give the Agent the
-[version-pinned AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.8/AGENTS.md).
+[version-pinned AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.9/AGENTS.md).
 It defines installation, update, uninstall, rollback, and acceptance boundaries.
 
 ### macOS, Linux, or an existing `dsh` command
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.8/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.9/dsh-session-delete.tgz"
 ```
 
 This universal command does not install the Windows manager. If the profile explicitly pinned an official
@@ -114,8 +115,9 @@ Windows guided-setup users only need:
 | Update | `dsh-session-delete update` |
 | Uninstall | `dsh-session-delete uninstall` |
 
-Update downloads and verifies the latest immutable manager. Uninstall restores the workspace dependency
-recorded before the first guided install. Neither action deletes sessions or restarts DSH.
+Update downloads and verifies the latest immutable manager. Uninstall restores the saved profile manifest
+and lockfile, then asks DSH to rebuild dependency links. This preserves integrity metadata needed by older
+release tarballs. Neither action deletes sessions or restarts DSH.
 
 For universal installations, update with the same `add` command from the new Release. Run the following
 only when no explicit workspace dependency existed before installation:
