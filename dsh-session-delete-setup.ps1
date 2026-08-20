@@ -607,7 +607,9 @@ function Invoke-ManagerProcess {
     $oldErrorAction = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        & powershell.exe @managerArguments *> $LogPath
+        & powershell.exe @managerArguments 2>&1 |
+            Tee-Object -FilePath $LogPath |
+            ForEach-Object { Write-Host ([string] $_) }
         return $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $oldErrorAction

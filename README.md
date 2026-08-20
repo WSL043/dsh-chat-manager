@@ -30,7 +30,7 @@
 打开 PowerShell，只复制这一行：
 
 ```powershell
-$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw '下载失败' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw '校验失败' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
+$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.7'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw '下载失败' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw '校验失败' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
 ```
 
 安装助手会先选择中文或 English，再自动寻找普通 DSH 和
@@ -42,19 +42,20 @@ $u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6'; $p="
 <details>
 <summary><strong>执行前手动校验安装助手</strong></summary>
 
-入口命令已经校验安装助手。安装助手还会校验其下载的管理器与插件包。
+入口命令已经校验安装助手，安装助手还会校验管理器。插件包由 DSH 直接从固定版本的
+HTTPS Release 地址安装，避免重复下载拖慢安装。
 
 </details>
 
 ### 交给 Agent
 
-把 [AGENTS.md 固定版本链接](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.6/AGENTS.md)
+把 [AGENTS.md 固定版本链接](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.7/AGENTS.md)
 发给 Agent；其中包含安装、更新、卸载、回滚和验收边界。
 
 ### macOS、Linux 或已有 `dsh` 命令
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.7/dsh-session-delete.tgz"
 ```
 
 这条通用命令不会安装管理助手；如果 profile 原本显式固定了官方 workspace 包，卸载前应
