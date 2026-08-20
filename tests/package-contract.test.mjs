@@ -4,11 +4,11 @@ import test from 'node:test'
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('public package metadata and native replacement identity remain intentional', async () => {
+test('public package is a standard DSH bundle with a unique identity', async () => {
   const manifest = JSON.parse(await read('package.json'))
 
-  assert.equal(manifest.name, 'dsh-session-delete')
-  assert.equal(manifest.version, '0.1.12')
+  assert.equal(manifest.name, 'dsh-native-session-delete')
+  assert.equal(manifest.version, '1.0.0')
   assert.equal(manifest.private, undefined)
   assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.repository.url, 'git+https://github.com/WSL043/dsh-session-delete.git')
@@ -21,13 +21,16 @@ test('public package metadata and native replacement identity remain intentional
     if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(version, '0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8')
   }
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-connection'))
+  assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml')
   for (const peer of Object.keys(manifest.peerDependencies)) {
     assert.equal(manifest.peerDependenciesMeta?.[peer]?.optional, true, `${peer} should be a host-provided optional peer`)
   }
   assert.equal(manifest.scripts['smoke:ui'], 'node scripts/smoke-ui.mjs')
   assert.ok(manifest.files.includes('scripts/smoke-ui.mjs'))
-  assert.ok(manifest.files.includes('dsh-session-delete.ps1'))
-  assert.ok(manifest.files.includes('dsh-session-delete-setup.ps1'))
+  assert.ok(manifest.files.includes('cordis.patch.yml'))
+  assert.ok(!manifest.files.some(file => file.startsWith('docs/')), 'documentation images must not inflate the runtime package')
+  assert.ok(!manifest.files.includes('dsh-session-delete.ps1'))
+  assert.ok(!manifest.files.includes('dsh-session-delete-setup.ps1'))
   assert.ok(manifest.files.includes('THIRD_PARTY_NOTICES.md'))
 })
 
@@ -49,8 +52,7 @@ test('public artifacts contain no local workspace paths', async () => {
     'src/host/delete-session.mjs',
     'scripts/build-client.mjs',
     'scripts/smoke-ui.mjs',
-    'dsh-session-delete.ps1',
-    'dsh-session-delete-setup.ps1',
+    'cordis.patch.yml',
   ]
   const contents = (await Promise.all(files.map(read))).join('\n')
 
@@ -58,7 +60,7 @@ test('public artifacts contain no local workspace paths', async () => {
   assert.doesNotMatch(contents, /Documents[\\/]Codex/i)
 })
 
-test('documentation pins the replacement slot, release asset, and second confirmation', async () => {
+test('documentation uses the standard one-command bundle lifecycle and second confirmation', async () => {
   const [chinese, english, agents] = await Promise.all([
     read('README.md'),
     read('README.en.md'),
@@ -66,7 +68,7 @@ test('documentation pins the replacement slot, release asset, and second confirm
   ])
 
   for (const document of [chinese, english, agents]) {
-    assert.match(document, /@deepseek-ai\/dsh-client-ui-workspace@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v0\.1\.12\/dsh-session-delete\.tgz/)
+    assert.match(document, /dsh-native-session-delete@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v1\.0\.0\/dsh-native-session-delete\.tgz/)
   }
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
@@ -75,22 +77,23 @@ test('documentation pins the replacement slot, release asset, and second confirm
   assert.match(english, /permanent deletion cannot be undone/i)
   assert.match(english, /docs\/assets\/confirm-delete\.en\.png/)
   assert.match(agents, /Never delete a session as an installation test/)
-  assert.match(agents, /not strictly read-only/i)
   assert.match(agents, /dsh\.bundle/)
-  assert.match(chinese, /SHA-256/)
-  assert.match(english, /SHA-256/)
   assert.match(chinese, /正在运行的任务会先安全停止/)
   assert.match(english, /running work is stopped safely/i)
   assert.match(chinese, /不重载整个 DSH 页面/)
   assert.match(english, /without reloading\s+the whole DSH page/i)
-  assert.match(chinese, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v0\.1\.12\/AGENTS\.md/)
-  assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v0\.1\.12\/AGENTS\.md/)
+  assert.match(chinese, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v1\.0\.0\/AGENTS\.md/)
+  assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v1\.0\.0\/AGENTS\.md/)
   assert.doesNotMatch(`${chinese}\n${english}`, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/main\/AGENTS\.md/)
   for (const document of [chinese, english]) {
-    assert.match(document, /releases\/download\/v0\.1\.12/u)
-    assert.match(document, /dsh-session-delete-setup\.ps1\.sha256/u)
-    assert.doesNotMatch(document, /releases\/latest\/download\/dsh-session-delete-setup\.ps1/u)
-    assert.match(document, /dsh-session-delete update/u)
-    assert.match(document, /dsh-session-delete uninstall/u)
+    assert.match(document, /releases\/download\/v1\.0\.0/u)
+    assert.match(document, /dsh plugin --profile web add/u)
+    assert.match(document, /dsh plugin --profile web remove/u)
   }
+})
+
+test('bundle disables the official workspace row and inserts the native replacement row', async () => {
+  const patch = await read('cordis.patch.yml')
+  assert.match(patch, /id:\s*ui-workspace[\s\S]*disabled:\s*true/)
+  assert.match(patch, /id:\s*ui-workspace-session-delete[\s\S]*name:\s*['"]?dsh-native-session-delete/)
 })

@@ -16,7 +16,8 @@ test('patches the official workspace client with a native confirmed delete flow'
   const patched = patchWorkspaceClient(source)
 
   assert.match(patched, /^\/\/ Modified from @deepseek-ai\/dsh-client-ui-workspace 0\.1\.0-rc\.8/)
-  assert.match(patched, /id: "@deepseek-ai\/dsh-client-ui-workspace"/)
+  assert.match(patched, /id: "dsh-native-session-delete"/)
+  assert.doesNotMatch(patched, /id: "@deepseek-ai\/dsh-client-ui-workspace"/)
   assert.match(patched, /id: "delete-session"/)
   assert.match(patched, /id: "delete-session",[\s\S]{0,240}danger: true/)
   assert.match(patched, /menu\.deleteSession/)
@@ -31,7 +32,6 @@ test('patches the official workspace client with a native confirmed delete flow'
   assert.doesNotMatch(patched, /already-opened sessions are refused/)
   assert.doesNotMatch(patched, /本次已打开的会话不会被删除/)
   assert.match(patched, /id: "archive"/)
-  assert.doesNotMatch(patched, /id: "dsh-session-delete"/)
   assert.match(patched, /typeof _deepseek_ai_dsh_client_runtime_client\.abbreviateHomePath === "function"/)
 })
 

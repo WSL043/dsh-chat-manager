@@ -56,7 +56,7 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 
   patch(
     'id: "@deepseek-ai/dsh-client-ui-workspace",',
-    'id: "@deepseek-ai/dsh-client-ui-workspace",',
+    'id: "dsh-native-session-delete",',
     'client module id',
   )
   patch(

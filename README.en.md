@@ -2,9 +2,9 @@
 
 # DSH Session Delete
 
-**Bring permanent deletion to the native DeepSeek Harness session menu.**
+**Bring permanent session deletion to the native DeepSeek Harness menu.**
 
-Second confirmation · Running work is stopped safely · No full-page reload
+Native dark menu · Second confirmation · Safe stop for running work · In-place list update
 
 [![Release](https://img.shields.io/github/v/release/WSL043/dsh-session-delete?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-session-delete/releases/latest)
 [![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-session-delete/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-session-delete/actions/workflows/ci.yml)
@@ -16,146 +16,111 @@ Second confirmation · Running work is stopped safely · No full-page reload
 </div>
 
 <p align="center">
-  <img src="docs/assets/hero.en.png" alt="Red Delete session action in the native DeepSeek Harness session menu in dark mode">
+  <img src="docs/assets/hero.en.png" alt="Red Delete session action in the native DeepSeek Harness dark-mode session menu">
 </p>
 
 | Native | Safe | Smooth |
 | --- | --- | --- |
-| Lives in the native session actions menu and keeps Archive available | Requires a second confirmation and safely stops running work | Refreshes session state in place without reloading the whole DSH page |
+| The action lives in the native session menu and keeps Archive available | A second confirmation is required; running work is stopped safely | The list updates in place without reloading the whole DSH page |
 
 ## Install
 
-### Windows guided setup (recommended)
+### Existing DSH installation
 
-Open PowerShell and paste this one line:
-
-```powershell
-$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.12'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw 'Download failed' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw 'Checksum mismatch' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
-```
-
-Setup asks for Chinese or English, then finds standard DSH and
-[DSH-Portable](https://github.com/WSL043/DSH-Portable). If it finds more than one installation, it lists
-their paths for selection; an existing release is updated automatically. Before installation it snapshots
-the selected profile's `package.json` and `pnpm-lock.yaml`. Uninstall or a failed install restores those
-bytes first, then asks DSH to rebuild dependency links from the original lockfile.
-
-No administrator access or system Node.js/pnpm install is required. Setup never stops work or restarts
-DSH; restart it manually when the operation finishes.
-
-<details>
-<summary><strong>Verify the setup helper before execution</strong></summary>
-
-The entry command verifies setup, and setup verifies the manager. DSH installs the package directly from
-the version-pinned HTTPS Release URL, avoiding a redundant download during setup.
-
-</details>
-
-### Let an Agent install it
-
-Give the Agent the
-[version-pinned AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.12/AGENTS.md).
-It defines installation, update, uninstall, rollback, and acceptance boundaries.
-
-### macOS, Linux, or an existing `dsh` command
+Install the fixed Release package with the official DSH plugin command:
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.12/dsh-session-delete.tgz"
+dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.0/dsh-native-session-delete.tgz"
 ```
 
-This universal command does not install the Windows manager. If the profile explicitly pinned an official
-workspace package before installation, record and restore that value during uninstall. Restart DSH manually.
+This is the only installation command. DSH owns profile changes, dependency resolution, and bundle
+composition; no PowerShell manager is installed, no setup script is downloaded twice, and DSH is not
+restarted automatically.
+
+### DSH-Portable
+
+From the `DSH-Portable` root in PowerShell, run the equivalent Portable command:
+
+```powershell
+.\dsh.exe plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.0/dsh-native-session-delete.tgz"
+```
+
+DSH-Portable: [WSL043/DSH-Portable](https://github.com/WSL043/DSH-Portable).
+
+When the command finishes, save your work and restart DSH once through its normal workflow so the new
+bundle configuration becomes active.
+
+### Agent installation
+
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v1.0.0/AGENTS.md).
+It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
+branch document as an installation contract.
 
 ## Use
 
-1. Open the actions menu beside the target session in the sidebar.
-2. Choose the red **Delete session** action.
-3. Check the session name, then select **Delete permanently**.
+1. Open the native actions menu beside the target session in the sidebar.
+2. Choose the red **Delete session…** action.
+3. Check the session name and select **Delete permanently** in the confirmation dialog, or select
+   **Cancel** to leave it unchanged.
 
 <p align="center">
-  <img src="docs/assets/confirm-delete.en.png" width="560" alt="English permanent deletion confirmation dialog">
-  <br><sub>Permanent deletion still requires a second confirmation</sub>
+  <img src="docs/assets/confirm-delete.en.png" width="560" alt="English dark-mode permanent deletion confirmation dialog">
+  <br><sub>Permanent deletion cannot be undone; the dialog identifies the target session.</sub>
 </p>
 
-Sessions opened through the standard Web UI after the plugin becomes active do not need to be closed
-manually. If work is still running, the plugin stops it through DSH's lifecycle capability, waits for
-quiescence, tears down the session, and then removes its local record.
+Once active, the plugin reuses DSH lifecycle and session-storage capabilities. If work is still running,
+it is stopped safely and allowed to settle before the target session is deleted. The session list then
+updates in place without reloading the whole DSH page.
 
 ## Safety boundary
 
 > [!WARNING]
-> Permanent deletion cannot be undone. Confirm the target session and make a backup when needed.
+> Permanent deletion cannot be undone. Check the session name before confirming and make a separate backup when needed.
 
-- Only the target session-owned directory in the default JSONL backend is deleted;
-- Other plugins, external attachments, caches, indexes, logs, backups, and synchronized copies are outside
-  its scope, so this is not a secure-erasure tool;
-- Non-JSONL storage and custom hosts without a safe stop capability are refused instead of force-deleted;
-- If the operating system refuses cleanup, the plugin reports that deletion could not be confirmed rather
-  than misreporting partial completion as success.
+The plugin is responsible for validating and removing only the explicitly confirmed session's dedicated
+directory within DSH's default per-session JSONL store and host lifecycle boundary. DSH currently exposes
+no public session-deletion API. The second confirmation is mandatory; cancelling sends no deletion request.
 
-This is an unofficial community plugin and is not affiliated with or endorsed by DeepSeek. You are
-responsible for having authority to delete the target data and for meeting applicable retention
-requirements. The software is provided under the [MIT License](LICENSE), without warranty.
+The following are outside the plugin's deletion scope and are not guaranteed to be removed:
+
+- Other sessions, other plugin data, external attachments, caches, indexes, logs, backups, or cloud/sync copies;
+- Non-JSONL storage or hosts without a safe stop capability; these are refused instead of force-deleted;
+- Additional copies created by the operating system, filesystem, host updates, or third-party sync services.
+
+If the operating system refuses cleanup, the plugin reports that deletion could not be confirmed rather
+than misreporting partial completion as success. You are responsible for having authority to delete the
+target data and for meeting applicable retention, audit, and privacy requirements. This is an unofficial
+community plugin, not affiliated with or endorsed by DeepSeek. It is provided under the [MIT License](LICENSE),
+without warranty.
 
 ## Compatibility
 
-This release supports the default per-session JSONL storage in DeepSeek Harness `0.1.0-rc.6`,
-`0.1.0-rc.7`, and `0.1.0-rc.8`. The package is built from the rc.8 client and retains tested fallbacks
-for rc.6 and rc.7 hosts.
+v1.0.0 targets the default per-session JSONL storage in DeepSeek Harness `0.1.0-rc.6`, `0.1.0-rc.7`,
+and `0.1.0-rc.8`. It uses a standard `dsh.bundle` profile layer that replaces the official workspace
+row with the uniquely identified native client `dsh-native-session-delete`; uninstalling restores the
+official workspace row.
 
-Dependency automation discovers future DSH versions, but they are not automatically claimed as compatible.
-A support release is published only after installation, startup, the native menu, second confirmation, and
-disposable-session deletion all pass.
+Future DSH updates are not automatically claimed as compatible. A new support release is published only
+after rebuilding and passing installation, startup, native-menu, second-confirmation, cancellation,
+no-reload, and disposable-session deletion acceptance checks.
 
 ## Update and uninstall
 
-Windows guided-setup users only need:
-
-| Action | Command |
-| --- | --- |
-| Update | `dsh-session-delete update` |
-| Uninstall | `dsh-session-delete uninstall` |
-
-Update downloads and verifies the latest immutable manager. Uninstall restores the saved profile manifest
-and lockfile, then asks DSH to rebuild dependency links. This preserves integrity metadata needed by older
-release tarballs. Neither action deletes sessions or restarts DSH.
-
-For universal installations, update with the same `add` command from the new Release. Run the following
-only when no explicit workspace dependency existed before installation:
-
-For a standard `web` profile:
+Update with the same `add` command using the new release. For v1.0.0, the repair/update command remains:
 
 ```sh
-dsh plugin --profile web remove @deepseek-ai/dsh-client-ui-workspace
+dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.0/dsh-native-session-delete.tgz"
 ```
 
-If the profile had an explicit workspace dependency, restore its recorded value with `add` instead of
-removing the key. Restart DSH afterward.
+Uninstall removes only this plugin's bundle layer and never deletes sessions:
 
-<details>
-<summary><strong>Messages you may see during installation</strong></summary>
+```sh
+dsh plugin --profile web remove dsh-native-session-delete
+```
 
-- `dsh plugin ... list` is non-destructive to session data, but its first run may migrate a Portable
-  profile, rebuild dependency links, or update a lockfile, so it is not strictly read-only on disk.
-- This plugin contributes only a `dsh.client` injection. A missing `dsh.bundle` notice is expected and is
-  not an installation failure.
-- DSH supplies the runtime peers. They are marked optional here; assess warnings from other packages by
-  package name.
-- Every Release includes `.sha256` files for the setup helper, manager, and plugin package; the entry command verifies its SHA-256 before execution.
-
-</details>
-
-<details>
-<summary><strong>Why does upstream provide Archive only?</strong></summary>
-
-The official implementation note records a product decision: the former Delete entry was only a visual
-placeholder and was replaced with non-destructive archive. The current JSONL persistence seam also has no
-session-deletion contract. This is best understood as the current safety choice and interface boundary,
-not as a claim that users should never be able to delete local data.
-
-[Official archive decision](https://github.com/deepseek-ai/deepseek-harness/blob/master/.agents/notes/implemented/feature/2026-07-31-session-archive-global-set.md)
-· [JSONL storage documentation](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/session/session-persistence-jsonl/README.md)
-
-</details>
+For DSH-Portable, use the corresponding `.\dsh.exe plugin --profile web add ...` or
+`.\dsh.exe plugin --profile web remove dsh-native-session-delete`. Restart DSH through its normal
+workflow after installing, updating, or uninstalling so the configuration is recomposed.
 
 ## Support and license
 
