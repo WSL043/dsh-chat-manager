@@ -42,6 +42,9 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 
 ### Windows DSH-Portable
 
+还没有 DSH-Portable？前往 [WSL043/DSH-Portable](https://github.com/WSL043/DSH-Portable)
+下载并查看使用说明。
+
 在 DSH-Portable 文件夹中执行：
 
 ```powershell
