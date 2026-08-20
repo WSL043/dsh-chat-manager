@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -7,7 +7,7 @@ import test from 'node:test'
 
 const root = new URL('..', import.meta.url)
 const installer = new URL('../install.ps1', import.meta.url)
-const packageSpec = 'dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/dsh-native-session-delete.tgz'
+const packageSpec = 'dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/dsh-native-session-delete.tgz'
 const windowsTest = process.platform === 'win32' ? test : test.skip
 
 test('installer remains a thin official-CLI launcher', async () => {
@@ -40,6 +40,33 @@ windowsTest('explicit DSH path invokes one official add operation', async t => {
   const reported = /(?:Installed in|安装完成（)\s*([\d.]+)\s*(?:seconds|秒)/i.exec(result.stdout)
   assert.ok(reported, `installer did not report official-command duration: ${result.stdout}`)
   assert.ok(Number(reported[1]) < 2, 'thin launcher should not scan disks or download components')
+  assert.equal((await readFile(log, 'utf8')).trim(), `plugin --profile web add ${packageSpec}`)
+})
+
+windowsTest('bounded discovery finds a Portable nested under the local temp directory', async t => {
+  const fixture = await mkdtemp(join(tmpdir(), 'dsh-thin-installer-'))
+  t.after(() => rm(fixture, { recursive: true, force: true }))
+  const localAppData = join(fixture, 'LocalAppData')
+  const portable = join(localAppData, 'Temp', 'opencode', 'zip-unpack-test', 'DSH-Portable')
+  const fake = join(portable, 'dsh.cmd')
+  const log = join(fixture, 'args.txt')
+  await mkdir(portable, { recursive: true })
+  await writeFile(fake, '@echo off\r\n> "%DSH_INSTALLER_TEST_LOG%" echo %*\r\nexit /b 0\r\n')
+
+  const result = spawnSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', installer.pathname.slice(1),
+  ], {
+    cwd: fixture,
+    env: {
+      ...process.env,
+      USERPROFILE: join(fixture, 'User'),
+      LOCALAPPDATA: localAppData,
+      DSH_INSTALLER_TEST_LOG: log,
+    },
+    encoding: 'utf8',
+  })
+
+  assert.equal(result.status, 0, result.stderr || result.stdout)
   assert.equal((await readFile(log, 'utf8')).trim(), `plugin --profile web add ${packageSpec}`)
 })
 

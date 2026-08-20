@@ -8,7 +8,7 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   const manifest = JSON.parse(await read('package.json'))
 
   assert.equal(manifest.name, 'dsh-native-session-delete')
-  assert.equal(manifest.version, '1.0.1')
+  assert.equal(manifest.version, '1.0.2')
   assert.equal(manifest.private, undefined)
   assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.repository.url, 'git+https://github.com/WSL043/dsh-session-delete.git')
@@ -69,7 +69,7 @@ test('documentation uses the standard one-command bundle lifecycle and second co
   ])
 
   for (const document of [chinese, english, agents]) {
-    assert.match(document, /dsh-native-session-delete@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v1\.0\.1\/dsh-native-session-delete\.tgz/)
+    assert.match(document, /dsh-native-session-delete@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v1\.0\.2\/dsh-native-session-delete\.tgz/)
   }
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
@@ -77,19 +77,19 @@ test('documentation uses the standard one-command bundle lifecycle and second co
   assert.match(english, /second confirmation/i)
   assert.match(english, /permanent deletion cannot be undone/i)
   assert.match(english, /docs\/assets\/confirm-delete\.en\.png/)
-  assert.match(chinese, /releases\/download\/v1\.0\.1\/install\.ps1/)
-  assert.match(english, /releases\/download\/v1\.0\.1\/install\.ps1/)
+  assert.match(chinese, /releases\/download\/v1\.0\.2\/install\.ps1/)
+  assert.match(english, /releases\/download\/v1\.0\.2\/install\.ps1/)
   assert.match(agents, /Never delete a session as an installation test/)
   assert.match(agents, /dsh\.bundle/)
   assert.match(chinese, /正在运行的任务会先安全停止/)
   assert.match(english, /running work is stopped safely/i)
   assert.match(chinese, /不重载整个 DSH 页面/)
   assert.match(english, /without reloading\s+the whole DSH page/i)
-  assert.match(chinese, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v1\.0\.1\/AGENTS\.md/)
-  assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v1\.0\.1\/AGENTS\.md/)
+  assert.match(chinese, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v1\.0\.2\/AGENTS\.md/)
+  assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v1\.0\.2\/AGENTS\.md/)
   assert.doesNotMatch(`${chinese}\n${english}`, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/main\/AGENTS\.md/)
   for (const document of [chinese, english]) {
-    assert.match(document, /releases\/download\/v1\.0\.1/u)
+    assert.match(document, /releases\/download\/v1\.0\.2/u)
     assert.match(document, /dsh plugin --profile web add/u)
     assert.match(document, /dsh plugin --profile web remove/u)
   }
