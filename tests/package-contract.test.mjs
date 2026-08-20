@@ -8,7 +8,7 @@ test('public package metadata and native replacement identity remain intentional
   const manifest = JSON.parse(await read('package.json'))
 
   assert.equal(manifest.name, 'dsh-session-delete')
-  assert.equal(manifest.version, '0.1.7')
+  assert.equal(manifest.version, '0.1.8')
   assert.equal(manifest.private, undefined)
   assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.repository.url, 'git+https://github.com/WSL043/dsh-session-delete.git')
@@ -66,7 +66,7 @@ test('documentation pins the replacement slot, release asset, and second confirm
   ])
 
   for (const document of [chinese, english, agents]) {
-    assert.match(document, /@deepseek-ai\/dsh-client-ui-workspace@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v0\.1\.7\/dsh-session-delete\.tgz/)
+    assert.match(document, /@deepseek-ai\/dsh-client-ui-workspace@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v0\.1\.8\/dsh-session-delete\.tgz/)
   }
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
@@ -83,11 +83,11 @@ test('documentation pins the replacement slot, release asset, and second confirm
   assert.match(english, /running work is stopped safely/i)
   assert.match(chinese, /不重载整个 DSH 页面/)
   assert.match(english, /without reloading\s+the whole DSH page/i)
-  assert.match(chinese, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v0\.1\.7\/AGENTS\.md/)
-  assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v0\.1\.7\/AGENTS\.md/)
+  assert.match(chinese, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v0\.1\.8\/AGENTS\.md/)
+  assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v0\.1\.8\/AGENTS\.md/)
   assert.doesNotMatch(`${chinese}\n${english}`, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/main\/AGENTS\.md/)
   for (const document of [chinese, english]) {
-    assert.match(document, /releases\/download\/v0\.1\.7/u)
+    assert.match(document, /releases\/download\/v0\.1\.8/u)
     assert.match(document, /dsh-session-delete-setup\.ps1\.sha256/u)
     assert.doesNotMatch(document, /releases\/latest\/download\/dsh-session-delete-setup\.ps1/u)
     assert.match(document, /dsh-session-delete update/u)
