@@ -27,7 +27,6 @@ windowsTest('explicit DSH path invokes one official add operation', async t => {
   const log = join(fixture, 'args.txt')
   await writeFile(fake, '@echo off\r\n> "%DSH_INSTALLER_TEST_LOG%" echo %*\r\nexit /b 0\r\n')
 
-  const started = performance.now()
   const result = spawnSync('powershell.exe', [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', installer.pathname.slice(1),
     '-DshPath', fake, '-Profile', 'web',
@@ -38,7 +37,9 @@ windowsTest('explicit DSH path invokes one official add operation', async t => {
   })
 
   assert.equal(result.status, 0, result.stderr || result.stdout)
-  assert.ok(performance.now() - started < 5_000, 'thin launcher should not scan disks or download components')
+  const reported = /(?:Installed in|安装完成（)\s*([\d.]+)\s*(?:seconds|秒)/i.exec(result.stdout)
+  assert.ok(reported, `installer did not report official-command duration: ${result.stdout}`)
+  assert.ok(Number(reported[1]) < 2, 'thin launcher should not scan disks or download components')
   assert.equal((await readFile(log, 'utf8')).trim(), `plugin --profile web add ${packageSpec}`)
 })
 
