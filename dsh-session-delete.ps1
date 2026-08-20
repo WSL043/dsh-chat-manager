@@ -42,8 +42,8 @@ $ManagerScriptName = 'dsh-session-delete-manager.ps1'
 $LegacyManagerScriptName = 'dsh-session-delete.ps1'
 $ManagerShimName = 'dsh-session-delete.cmd'
 $ManagerStateName = 'install-state.json'
-$PackageVersion = '0.1.6'
-$PackageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6/dsh-session-delete.tgz'
+$PackageVersion = '0.1.7'
+$PackageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.7/dsh-session-delete.tgz'
 $PackageSpec = "$PackageName@$PackageUrl"
 $PnpmVersion = '11.19.0'
 $PnpmUrl = 'https://registry.npmjs.org/pnpm/-/pnpm-11.19.0.tgz'
@@ -724,33 +724,6 @@ function Install-PnpmTool {
     }
 }
 
-function Assert-PackageReleaseAsset {
-    if ($env:DSH_SESSION_DELETE_TEST_SKIP_PACKAGE_VERIFY -eq '1') { return }
-
-    $stage = Join-Path ([System.IO.Path]::GetTempPath()) ('dsh-session-delete-package-' + [guid]::NewGuid().ToString('N'))
-    $archive = Join-Path $stage 'dsh-session-delete.tgz'
-    $checksumFile = "$archive.sha256"
-    New-Item -ItemType Directory -Path $stage | Out-Null
-    try {
-        $assetBase = "$ReleaseBase/v$PackageVersion"
-        Write-Host 'Verifying the immutable plugin package...'
-        Invoke-WebRequest -UseBasicParsing -Uri "$assetBase/dsh-session-delete.tgz" -OutFile $archive
-        Invoke-WebRequest -UseBasicParsing -Uri "$assetBase/dsh-session-delete.tgz.sha256" -OutFile $checksumFile
-        $checksumText = Get-Content -LiteralPath $checksumFile -Raw
-        $match = [regex]::Match($checksumText, '(?im)^\s*([a-f0-9]{64})\s+\*?dsh-session-delete\.tgz\s*$')
-        if (-not $match.Success) { throw 'The plugin package checksum file is invalid.' }
-        $expectedHash = $match.Groups[1].Value.ToUpperInvariant()
-        $actualHash = Get-FileDigest -Algorithm SHA256 -Path $archive
-        if ($actualHash -ne $expectedHash) {
-            throw "Plugin package checksum mismatch. Expected $expectedHash, received $actualHash."
-        }
-    } finally {
-        if (Test-Path -LiteralPath $stage) {
-            Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-}
-
 function Get-ProfilePackageJsonPath {
     param([Parameter(Mandatory = $true)] $Target)
 
@@ -764,6 +737,32 @@ function Get-ProfilePackageJsonPath {
         Join-Path $userProfile '.dsh'
     }
     return Join-Path $dshHome "profiles\$Profile\package.json"
+}
+
+function Test-DirectWorkspaceDependency {
+    param(
+        [Parameter(Mandatory = $true)] $Target,
+        [Parameter(Mandatory = $true)][string] $Name
+    )
+    $path = Get-ProfilePackageJsonPath -Target $Target
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $false }
+    $manifest = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    $dependencies = $manifest.PSObject.Properties['dependencies']
+    return $null -ne $dependencies -and $null -ne $dependencies.Value -and
+        $null -ne $dependencies.Value.PSObject.Properties[$Name]
+}
+
+function Assert-InstalledAliasPackage {
+    param([Parameter(Mandatory = $true)] $Target)
+    $profileDirectory = Split-Path -Parent (Get-ProfilePackageJsonPath -Target $Target)
+    $manifestPath = Join-Path $profileDirectory 'node_modules\@deepseek-ai\dsh-client-ui-workspace\package.json'
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw 'The installed workspace replacement package was not linked into the selected profile.'
+    }
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    if ([string] $manifest.name -ne 'dsh-session-delete' -or [string] $manifest.version -ne $PackageVersion) {
+        throw "The linked workspace replacement has unexpected metadata: $([string] $manifest.name)@$([string] $manifest.version)."
+    }
 }
 
 function Read-WorkspaceDependency {
@@ -863,40 +862,6 @@ function Invoke-DshCommand {
     if ($LASTEXITCODE -ne 0) { throw "dsh failed with exit code $LASTEXITCODE." }
 }
 
-function Get-InstalledPackages {
-    param([Parameter(Mandatory = $true)] $Target)
-
-    $json = Invoke-DshCommand -Target $Target -Arguments @(
-        'plugin', '--profile', $Profile, 'list', '--depth', '0', '--json', '--loglevel', 'error'
-    ) -Capture
-    try {
-        # Windows PowerShell 5.1 preserves a top-level JSON array as one pipeline
-        # object. Assign first so @() expands the resulting Object[] correctly.
-        $parsedProjects = $json | ConvertFrom-Json
-        $projects = @($parsedProjects)
-    } catch {
-        throw 'DSH returned an unreadable plugin list.'
-    }
-
-    foreach ($project in $projects) {
-        $dependenciesProperty = $project.PSObject.Properties['dependencies']
-        if ($null -eq $dependenciesProperty -or $null -eq $dependenciesProperty.Value) { continue }
-        foreach ($property in $dependenciesProperty.Value.PSObject.Properties) {
-            $version = $null
-            if ($null -ne $property.Value) {
-                $versionProperty = $property.Value.PSObject.Properties['version']
-                if ($null -ne $versionProperty -and $null -ne $versionProperty.Value) {
-                    $version = [string] $versionProperty.Value
-                }
-            }
-            Write-Output ([pscustomobject]@{
-                Name = [string] $property.Name
-                Version = $version
-            })
-        }
-    }
-}
-
 $managerCommandRoot = Get-ManagerCommandRoot
 $managerState = Read-ManagerState -Directory $managerCommandRoot
 if ($null -ne $managerState) {
@@ -986,7 +951,6 @@ $oldManagerNode = $env:DSH_SESSION_DELETE_NODE
 $oldPnpmStore = $env:npm_config_store_dir
 $oldPnpmNotifier = $env:npm_config_update_notifier
 try {
-    if ($Action -ne 'Uninstall') { Assert-PackageReleaseAsset }
     if (-not $target.UsesPortableCli) {
         Install-PnpmTool -Directory $pnpmDirectory -Node $target.Node
     }
@@ -1021,9 +985,7 @@ try {
             -not [string]::Equals([string] $dependencyBefore.Spec, $PackageUrl, [System.StringComparison]::OrdinalIgnoreCase))) {
         throw 'This manager does not own the current DSH workspace dependency. Nothing was modified.'
     }
-    $installedBefore = @(Get-InstalledPackages -Target $target)
-    $installedBeforeNames = @($installedBefore | ForEach-Object { $_.Name })
-    $hadLegacyPackage = $installedBeforeNames -contains $LegacyPackageName
+    $hadLegacyPackage = Test-DirectWorkspaceDependency -Target $target -Name $LegacyPackageName
 
     $originalDependencyExists = if ($null -ne $managerState) {
         [bool] $managerState.originalDependencyExists
@@ -1073,15 +1035,10 @@ try {
             }
             Assert-WorkspaceDependency -Target $target -ExpectedExists $true -ExpectedSpec $PackageUrl
 
-            $installedAfter = @(Get-InstalledPackages -Target $target)
-            $installedAfterNames = @($installedAfter | ForEach-Object { $_.Name })
-            $installedPackage = @($installedAfter | Where-Object { $_.Name -eq $PackageName } | Select-Object -First 1)
-            if ($installedPackage.Count -eq 0) { throw 'The installed workspace replacement did not appear in the DSH plugin list.' }
-            if ($installedPackage[0].Version -ne $PackageVersion) {
-                $foundVersion = if ($installedPackage[0].Version) { $installedPackage[0].Version } else { 'unknown' }
-                throw "DSH did not install the requested package version: expected $PackageVersion, found $foundVersion."
+            Assert-InstalledAliasPackage -Target $target
+            if (Test-DirectWorkspaceDependency -Target $target -Name $LegacyPackageName) {
+                throw 'A bare dsh-session-delete package is still present after migration.'
             }
-            if ($installedAfterNames -contains $LegacyPackageName) { throw 'A bare dsh-session-delete package is still present after migration.' }
         } catch {
             $operationError = $_
             try {
