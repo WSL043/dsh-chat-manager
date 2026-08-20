@@ -23,3 +23,13 @@ jobs:
       - run: pnpm run test
       - run: pnpm run build
       - run: pnpm pack --pack-destination .artifacts
+
+  windows-installer:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: node --test tests/windows-installer.test.mjs

@@ -41,8 +41,19 @@ jobs:
       - run: pnpm run build
       - run: git diff --exit-code -- lib
 
+  windows-installer:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: node --test tests/windows-installer.test.mjs
+
   release:
-    needs: [verify]
+    needs: [verify, windows-installer]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -86,10 +97,13 @@ jobs:
           package="$(find .artifacts -maxdepth 1 -type f -name '*.tgz' -print -quit)"
           test -n "$package"
           mv "$package" .artifacts/dsh-native-session-delete.tgz
+          cp install.ps1 .artifacts/install.ps1
           (cd .artifacts && sha256sum dsh-native-session-delete.tgz > dsh-native-session-delete.tgz.sha256)
-          for asset in dsh-native-session-delete.tgz dsh-native-session-delete.tgz.sha256; do
+          (cd .artifacts && sha256sum install.ps1 > install.ps1.sha256)
+          for asset in dsh-native-session-delete.tgz dsh-native-session-delete.tgz.sha256 install.ps1 install.ps1.sha256; do
             test -s ".artifacts/$asset"
           done
+          grep -F "releases/download/v${RELEASE_VERSION}/dsh-native-session-delete.tgz" .artifacts/install.ps1
           tar -xOf .artifacts/dsh-native-session-delete.tgz package/package.json \
             | jq -e --arg version "$RELEASE_VERSION" \
               '.name == "dsh-native-session-delete" and .version == $version and .dsh.bundle.patch == "./cordis.patch.yml"' >/dev/null
@@ -99,16 +113,16 @@ jobs:
           cat > .artifacts/release.md <<'NOTES'
           ## 安装体验 / Installation experience
 
-          - 改为标准 DSH bundle，由官方 CLI 一步完成安装与配置协调。
-          - 移除多层 PowerShell 安装器、重复下载和私有 profile 快照。
-          - 卸载 bundle 后，DSH 自动恢复官方 workspace 客户端。
+          - 新增秒级 Windows 薄安装助手，快速定位普通 DSH 或 DSH-Portable。
+          - 助手只调用一次官方 `dsh plugin add`，不扫盘、不装包管理器、不保存 profile 快照。
+          - 标准 DSH bundle 与卸载恢复机制保持不变。
 
-          - Ships as a standard DSH bundle installed and reconciled by the official CLI.
-          - Removes the multi-stage PowerShell installer, redundant downloads, and private profile snapshots.
-          - Removing the bundle automatically restores the official workspace client.
+          - Adds a fast, thin Windows helper for regular DSH and DSH-Portable discovery.
+          - Calls the official `dsh plugin add` exactly once, with no disk scan, package-manager bootstrap, or profile snapshot.
+          - Keeps the standard DSH bundle and uninstall restoration model unchanged.
 
           ```powershell
-          dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.0/dsh-native-session-delete.tgz"
+          irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/install.ps1' | iex
           ```
           NOTES
       - name: Publish immutable release
@@ -123,4 +137,6 @@ jobs:
             --title "DSH Session Delete $RELEASE_TAG" \
             --notes-file .artifacts/release.md \
             .artifacts/dsh-native-session-delete.tgz \
-            .artifacts/dsh-native-session-delete.tgz.sha256
+            .artifacts/dsh-native-session-delete.tgz.sha256 \
+            .artifacts/install.ps1 \
+            .artifacts/install.ps1.sha256
