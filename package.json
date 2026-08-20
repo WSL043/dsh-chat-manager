@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-delete",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "packageManager": "pnpm@11.19.0",
   "description": "Confirmed permanent deletion for DeepSeek Harness sessions",
   "type": "module",
