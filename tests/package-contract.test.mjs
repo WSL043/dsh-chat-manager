@@ -8,21 +8,33 @@ test('public package metadata and native replacement identity remain intentional
   const manifest = JSON.parse(await read('package.json'))
 
   assert.equal(manifest.name, 'dsh-session-delete')
-  assert.equal(manifest.version, '0.1.4')
+  assert.equal(manifest.version, '0.1.5')
   assert.equal(manifest.private, undefined)
   assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.repository.url, 'git+https://github.com/WSL043/dsh-session-delete.git')
-  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.0-rc.7')
+  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.0-rc.8')
+  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-primitives'], '0.1.0-rc.8')
+  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-slots'], '0.1.0-rc.8')
   assert.equal(manifest.devDependencies['dsh-ui-workspace-rc6'], 'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.0-rc.6')
+  assert.equal(manifest.devDependencies['dsh-ui-workspace-rc7'], 'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.0-rc.7')
   for (const [name, version] of Object.entries(manifest.peerDependencies)) {
-    if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(version, '0.1.0-rc.6 || 0.1.0-rc.7')
+    if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(version, '0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8')
   }
+  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-connection'))
   for (const peer of Object.keys(manifest.peerDependencies)) {
     assert.equal(manifest.peerDependenciesMeta?.[peer]?.optional, true, `${peer} should be a host-provided optional peer`)
   }
   assert.equal(manifest.scripts['smoke:ui'], 'node scripts/smoke-ui.mjs')
   assert.ok(manifest.files.includes('scripts/smoke-ui.mjs'))
   assert.ok(manifest.files.includes('THIRD_PARTY_NOTICES.md'))
+})
+
+test('dependency installs enforce a release-age gate outside the reviewed DSH cohort', async () => {
+  const workspace = await read('pnpm-workspace.yaml')
+
+  assert.match(workspace, /^minimumReleaseAge: 1440$/m)
+  assert.match(workspace, /@deepseek-ai\/dsh-client-ui-workspace@0\.1\.0-rc\.8/)
+  assert.doesNotMatch(workspace, /minimumReleaseAgeExclude:[\s\S]*['"]?@deepseek-ai\/\*['"]?\s*$/m)
 })
 
 test('public artifacts contain no local workspace paths', async () => {
@@ -50,7 +62,7 @@ test('documentation pins the replacement slot, release asset, and second confirm
   ])
 
   for (const document of [chinese, english, agents]) {
-    assert.match(document, /@deepseek-ai\/dsh-client-ui-workspace@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v0\.1\.4\/dsh-session-delete\.tgz/)
+    assert.match(document, /@deepseek-ai\/dsh-client-ui-workspace@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v0\.1\.5\/dsh-session-delete\.tgz/)
   }
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
@@ -67,4 +79,7 @@ test('documentation pins the replacement slot, release asset, and second confirm
   assert.match(english, /running work is stopped safely/i)
   assert.match(chinese, /不重载整个 DSH 页面/)
   assert.match(english, /without reloading\s+the whole DSH page/i)
+  assert.match(chinese, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v0\.1\.5\/AGENTS\.md/)
+  assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v0\.1\.5\/AGENTS\.md/)
+  assert.doesNotMatch(`${chinese}\n${english}`, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/main\/AGENTS\.md/)
 })

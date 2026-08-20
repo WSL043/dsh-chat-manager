@@ -17,7 +17,7 @@ by DeepSeek.
 > backup first when needed.**
 
 This release supports only the default per-session JSONL storage in DeepSeek
-Harness `0.1.0-rc.6` and `0.1.0-rc.7`. It deletes the target session-owned
+Harness `0.1.0-rc.6`, `0.1.0-rc.7`, and `0.1.0-rc.8`. It deletes the target session-owned
 directory; data held by other plugins, caches, indexes, backups, or synchronized
 copies is outside its scope, so this is not a secure-erasure tool. You are
 responsible for having authority to delete the target session and for meeting
@@ -33,20 +33,27 @@ warranty.
 - Places deletion in the native session actions menu using DSH's native red
   danger treatment;
 - Requires an explicit permanent-deletion confirmation;
-- Deletes opened sessions directly; running work is stopped safely before DSH
-  tears down the session in lifecycle order;
+- Deletes sessions opened through the standard Web flow after the plugin is
+  active; running work is stopped safely before DSH tears down the session in
+  lifecycle order;
 - Refreshes session and workspace state in place after success without reloading
   the whole DSH page;
-- Deletes only a standalone JSONL session directory whose identity, storage
-  root, real path, and file type have been verified;
+- Blocks the same session from reopening during deletion, rejects linked path
+  components, verifies file identity and the JSONL layout, then atomically
+  detaches the target directory before cleanup;
 - Accepts only a same-origin JSON POST with a dedicated confirmation header.
 
 ## Prepare DSH
 
 This release supports the default per-session JSONL storage in DeepSeek Harness
-`0.1.0-rc.6` and `0.1.0-rc.7`. Its build uses strict upstream UI markers, so an
-incompatible DSH UI change fails the build instead of silently producing a
-malformed patch.
+`0.1.0-rc.6`, `0.1.0-rc.7`, and `0.1.0-rc.8`. The package is built from the
+rc.8 client and retains tested compatibility fallbacks for rc.6 and rc.7 hosts.
+
+Future DSH versions are not claimed as automatically compatible. Dependency
+automation detects a new upstream version and runs CI; support is released only
+after strict upstream markers, installation, startup, the native menu, second
+confirmation, and disposable-session deletion all pass. Updates are discovered
+automatically without exposing users to an unverified destructive path.
 
 ## Install
 
@@ -55,12 +62,12 @@ malformed patch.
 Send this guide to your Agent. It includes install, update, uninstall, and
 verification boundaries:
 
-https://raw.githubusercontent.com/WSL043/dsh-session-delete/main/AGENTS.md
+https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.5/AGENTS.md
 
 ### Existing `dsh` command
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.4/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
 ```
 
 ### Windows DSH-Portable
@@ -68,7 +75,7 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 Run this inside the DSH-Portable folder:
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.4/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
 ```
 
 The package occupies DSH's native
@@ -86,9 +93,12 @@ Linux/macOS.
 Open a session's actions menu in the sidebar, choose the red **Delete session**, read
 the warning, and select **Delete permanently**.
 
-Opened sessions do not need to be closed manually. After confirmation, running
-work is stopped safely through DSH's lifecycle handle; the plugin waits for
-quiescence, tears down the session, and then removes its local record.
+Sessions opened through the standard Web flow after the plugin is active do not
+need to be closed manually. After confirmation, running work is stopped safely
+through DSH's lifecycle handle; the plugin waits for quiescence, tears down the
+session, and then removes its local record. If a custom host creates a session
+without exposing a safe lifecycle capability, the plugin refuses deletion
+instead of forcing it.
 
 ## Installation notes and acceptance check
 
@@ -151,6 +161,10 @@ The operation cannot be undone.
 This is not secure erasure. Data held by other plugins, external
 attachment directories, indexes, backups, synchronized copies, or logging
 systems is outside this plugin's scope. Non-JSONL storage backends are refused.
+
+If the operating system refuses cleanup after the directory has already been
+detached from DSH, the plugin reports that permanent deletion could not be
+confirmed. It does not misreport complete success or claim that no files changed.
 
 ## Why upstream provides archive instead
 

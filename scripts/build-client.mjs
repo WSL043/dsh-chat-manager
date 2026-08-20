@@ -6,8 +6,22 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const require = createRequire(import.meta.url)
 const here = dirname(fileURLToPath(import.meta.url))
 const output = resolve(here, '../lib/client.js')
-const SUPPORTED_UPSTREAM_VERSION = '0.1.0-rc.7'
-const MODIFIED_NOTICE = '// Modified from @deepseek-ai/dsh-client-ui-workspace 0.1.0-rc.7 by DSH Session Delete. See THIRD_PARTY_NOTICES.md.\n'
+const LATEST_UPSTREAM_VERSION = '0.1.0-rc.8'
+const SUPPORTED_UPSTREAM_VERSIONS = new Set([
+  '0.1.0-rc.6',
+  '0.1.0-rc.7',
+  LATEST_UPSTREAM_VERSION,
+])
+const SESSION_TREE_SIGNATURES = new Map([
+  ['0.1.0-rc.6', 'function SessionTree({ useSessions, startSession, open, forkSession, workspaces, archivedSessionIds, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, insertWorkspaceBefore, insertSessionBefore, orderBy, groupExpansion, setGroupExpanded, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t }) {'],
+  ['0.1.0-rc.7', 'function SessionTree({ useSessions, startSession, open, forkSession, workspaces, archivedSessionIds, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, insertWorkspaceBefore, insertSessionBefore, orderBy, groupExpansion, setGroupExpanded, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t }) {'],
+  ['0.1.0-rc.8', 'function SessionTree({ useSessions, startSession, open, forkSession, workspaces, archivedSessionIds, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, insertWorkspaceBefore, insertSessionBefore, orderBy, groupExpansion, setGroupExpanded, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, home, t }) {'],
+])
+const WORKSPACE_BROWSER_SIGNATURES = new Map([
+  ['0.1.0-rc.6', 'function WorkspaceBrowser({ wide, expandSidebar, useSessions, useWorkspaces, useStore, actions, startSession, open, renameSession, forkSession, renameWorkspace, deleteWorkspace, insertWorkspaceBefore, archiveSession, insertSessionBefore, createWorkspace, searchSessions, searchResultLimit, useDirectoryFlow, renderSlot, t }) {'],
+  ['0.1.0-rc.7', 'function WorkspaceBrowser({ wide, expandSidebar, useSessions, useWorkspaces, useStore, actions, startSession, open, renameSession, forkSession, renameWorkspace, deleteWorkspace, insertWorkspaceBefore, archiveSession, insertSessionBefore, createWorkspace, searchSessions, searchResultLimit, useDirectoryFlow, renderSlot, t }) {'],
+  ['0.1.0-rc.8', 'function WorkspaceBrowser({ wide, expandSidebar, useSessions, useWorkspaces, useStore, actions, startSession, open, renameSession, forkSession, renameWorkspace, deleteWorkspace, insertWorkspaceBefore, archiveSession, insertSessionBefore, createWorkspace, searchSessions, searchResultLimit, useDirectoryFlow, useHostDescription, renderSlot, t }) {'],
+])
 
 export const resolveUpstreamClient = () => require.resolve('@deepseek-ai/dsh-client-ui-workspace/client')
 export const resolveUpstreamManifest = () => require.resolve('@deepseek-ai/dsh-client-ui-workspace/package.json')
@@ -26,7 +40,15 @@ const replaceOnce = (source, before, after, label) => {
  * Exact markers turn upstream UI drift into a build failure instead of a
  * silently malformed client.
  */
-export function patchWorkspaceClient(upstream) {
+export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM_VERSION) {
+  if (!SUPPORTED_UPSTREAM_VERSIONS.has(upstreamVersion)) {
+    throw new Error(`unsupported @deepseek-ai/dsh-client-ui-workspace version: ${upstreamVersion}`)
+  }
+  const sessionTreeSignature = SESSION_TREE_SIGNATURES.get(upstreamVersion)
+  const workspaceBrowserSignature = WORKSPACE_BROWSER_SIGNATURES.get(upstreamVersion)
+  if (sessionTreeSignature === undefined || workspaceBrowserSignature === undefined) {
+    throw new Error(`missing patch signatures for @deepseek-ai/dsh-client-ui-workspace ${upstreamVersion}`)
+  }
   let source = upstream
   const patch = (before, after, label) => {
     source = replaceOnce(source, before, after, label)
@@ -53,8 +75,11 @@ export function patchWorkspaceClient(upstream) {
     'session delete menu selection',
   )
   patch(
-    'function SessionTree({ useSessions, startSession, open, forkSession, workspaces, archivedSessionIds, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, insertWorkspaceBefore, insertSessionBefore, orderBy, groupExpansion, setGroupExpanded, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t }) {',
-    'function SessionTree({ useSessions, startSession, open, forkSession, workspaces, archivedSessionIds, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, onSessionDelete, insertWorkspaceBefore, insertSessionBefore, orderBy, groupExpansion, setGroupExpanded, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t }) {',
+    sessionTreeSignature,
+    sessionTreeSignature.replace(
+      'onDeleteRequest, onSessionRename, onSessionArchive, insertWorkspaceBefore,',
+      'onDeleteRequest, onSessionRename, onSessionArchive, onSessionDelete, insertWorkspaceBefore,',
+    ),
     'session tree props',
   )
   patch(
@@ -73,8 +98,11 @@ export function patchWorkspaceClient(upstream) {
     'flat row delete prop',
   )
   patch(
-    'function WorkspaceBrowser({ wide, expandSidebar, useSessions, useWorkspaces, useStore, actions, startSession, open, renameSession, forkSession, renameWorkspace, deleteWorkspace, insertWorkspaceBefore, archiveSession, insertSessionBefore, createWorkspace, searchSessions, searchResultLimit, useDirectoryFlow, renderSlot, t }) {',
-    'function WorkspaceBrowser({ wide, expandSidebar, useSessions, useWorkspaces, useStore, actions, startSession, open, renameSession, forkSession, renameWorkspace, deleteWorkspace, insertWorkspaceBefore, archiveSession, deleteSession, insertSessionBefore, createWorkspace, searchSessions, searchResultLimit, useDirectoryFlow, renderSlot, t }) {',
+    workspaceBrowserSignature,
+    workspaceBrowserSignature.replace(
+      'deleteWorkspace, insertWorkspaceBefore, archiveSession, insertSessionBefore,',
+      'deleteWorkspace, insertWorkspaceBefore, archiveSession, deleteSession, insertSessionBefore,',
+    ),
     'workspace browser delete action prop',
   )
   patch(
@@ -109,21 +137,31 @@ export function patchWorkspaceClient(upstream) {
   )
   patch(
     `\t\t\t\tarchiveSession: async (sessionId) => {\n\t\t\t\t\tawait ctx.workspaces.archiveSession(sessionId);\n\t\t\t\t},\n`,
-    `\t\t\t\tarchiveSession: async (sessionId) => {\n\t\t\t\t\tawait ctx.workspaces.archiveSession(sessionId);\n\t\t\t\t},\n\t\t\t\tdeleteSession: async (sessionId) => {\n\t\t\t\t\tconst wasCurrent = ctx.sessions.list.getSnapshot().current === sessionId;\n\t\t\t\t\tconst response = await fetch("/plugins/dsh-session-delete/delete", {\n\t\t\t\t\t\tmethod: "POST",\n\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t"content-type": "application/json",\n\t\t\t\t\t\t\t"x-dsh-session-delete-confirmation": "delete-session"\n\t\t\t\t\t\t},\n\t\t\t\t\t\tbody: JSON.stringify({ sessionId })\n\t\t\t\t\t});\n\t\t\t\t\tconst payload = await response.json().catch(() => null);\n\t\t\t\t\tif (!response.ok || payload?.ok !== true) {\n\t\t\t\t\t\tthrow new Error(payload?.error?.message ?? \`Delete failed (HTTP \${response.status})\`);\n\t\t\t\t\t}\n\t\t\t\t\tif (wasCurrent) ctx.sessions.clear();\n\t\t\t\t\tconst refreshes = await Promise.allSettled([\n\t\t\t\t\t\tctx.sessions.refresh(),\n\t\t\t\t\t\tctx.workspaces.refresh()\n\t\t\t\t\t]);\n\t\t\t\t\tfor (const refresh of refreshes) {\n\t\t\t\t\t\tif (refresh.status === "rejected") console.warn("session deletion succeeded but runtime refresh failed:", refresh.reason);\n\t\t\t\t\t}\n\t\t\t\t},\n`,
+    `\t\t\t\tarchiveSession: async (sessionId) => {\n\t\t\t\t\tawait ctx.workspaces.archiveSession(sessionId);\n\t\t\t\t},\n\t\t\t\tdeleteSession: async (sessionId) => {\n\t\t\t\t\tconst response = await fetch("/plugins/dsh-session-delete/delete", {\n\t\t\t\t\t\tmethod: "POST",\n\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t"content-type": "application/json",\n\t\t\t\t\t\t\t"x-dsh-session-delete-confirmation": "delete-session"\n\t\t\t\t\t\t},\n\t\t\t\t\t\tbody: JSON.stringify({ sessionId })\n\t\t\t\t\t});\n\t\t\t\t\tconst payload = await response.json().catch(() => null);\n\t\t\t\t\tif (!response.ok || payload?.ok !== true) {\n\t\t\t\t\t\tthrow new Error(payload?.error?.message ?? \`Delete failed (HTTP \${response.status})\`);\n\t\t\t\t\t}\n\t\t\t\t\tif (ctx.sessions.list.getSnapshot().current === sessionId) ctx.sessions.clear();\n\t\t\t\t\tconst refreshes = await Promise.allSettled([\n\t\t\t\t\t\tctx.sessions.refresh(),\n\t\t\t\t\t\tctx.workspaces.refresh()\n\t\t\t\t\t]);\n\t\t\t\t\tfor (const refresh of refreshes) {\n\t\t\t\t\t\tif (refresh.status === "rejected") console.warn("session deletion succeeded but runtime refresh failed:", refresh.reason);\n\t\t\t\t\t}\n\t\t\t\t},\n`,
     'browser delete request',
   )
-  return `${MODIFIED_NOTICE}${source}`
+  const homePathCall = '(0, _deepseek_ai_dsh_client_runtime_client.abbreviateHomePath)(row.cwd, home)'
+  if (source.includes(homePathCall)) {
+    patch(
+      homePathCall,
+      'typeof _deepseek_ai_dsh_client_runtime_client.abbreviateHomePath === "function" ? (0, _deepseek_ai_dsh_client_runtime_client.abbreviateHomePath)(row.cwd, home) : row.cwd',
+      'home path compatibility fallback',
+    )
+  }
+
+  const notice = `// Modified from @deepseek-ai/dsh-client-ui-workspace ${upstreamVersion} by DSH Session Delete. See THIRD_PARTY_NOTICES.md.\n`
+  return `${notice}${source}`
 }
 
 export async function buildClient() {
   const manifest = JSON.parse(await readFile(resolveUpstreamManifest(), 'utf8'))
-  if (manifest.version !== SUPPORTED_UPSTREAM_VERSION) {
+  if (manifest.version !== LATEST_UPSTREAM_VERSION) {
     throw new Error(
       `unsupported @deepseek-ai/dsh-client-ui-workspace version: ${manifest.version ?? 'unknown'}`,
     )
   }
   const upstream = await readFile(resolveUpstreamClient(), 'utf8')
-  const patched = patchWorkspaceClient(upstream)
+  const patched = patchWorkspaceClient(upstream, manifest.version)
   await mkdir(dirname(output), { recursive: true })
   await writeFile(output, patched, 'utf8')
   return output

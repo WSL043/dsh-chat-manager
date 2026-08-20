@@ -13,7 +13,7 @@ export function apply(ctx) {
     throw new Error('dsh-session-delete requires the per-session JSONL persistence backend')
   }
 
-  const agentHandles = installAgentHandleTracker(ctx.agents)
+  const agentHandles = installAgentHandleTracker(ctx.agents, ctx.sessions)
   ctx.effect(() => () => agentHandles.release(), 'dsh-session-delete: agent lifecycle tracking')
 
   const handler = createDeleteRequestHandler({

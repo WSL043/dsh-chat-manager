@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -39,14 +39,23 @@ function dependencies({
   agentGet,
   disposeAgent,
   inspect,
+  listSessions,
+  reserve,
+  moveDirectory,
+  removeDirectory,
 }) {
   return {
     sessions: { get: sessionGet ?? (() => live ? { id: HEADER.id } : undefined) },
     agents: { get: agentGet ?? (() => agentLive ? { id: HEADER.id, status: 'idle' } : undefined) },
-    agentHandles: { dispose: disposeAgent ?? (async () => false) },
+    agentHandles: {
+      dispose: disposeAgent ?? (async () => false),
+      reserve: reserve ?? (() => () => {}),
+    },
+    ...(moveDirectory === undefined ? {} : { moveDirectory }),
+    ...(removeDirectory === undefined ? {} : { removeDirectory }),
     sessionPersistence: {
       supportsRawArtifacts,
-      list: async () => listed,
+      list: listSessions ?? (async () => listed),
       locate: () => ({ kind: 'jsonl', path: transcript }),
       readRaw: async () => ({ meta: rawMeta, filename: 'session.jsonl', content: 'fixture' }),
       inspect: inspect ?? (async () => ({ meta: rawMeta, events: [] })),
@@ -207,6 +216,51 @@ test('refuses a persistence location outside the configured session root', async
   assert.equal(await readFile(outsideTranscript, 'utf8'), 'outside\n')
 })
 
+test('refuses a same-root directory junction without deleting its target', async (t) => {
+  const paths = await fixture()
+  const targetDirectory = join(paths.root, '--C-workspace--', 'junction-target')
+  const targetTranscript = join(targetDirectory, 'session.jsonl')
+  await mkdir(targetDirectory, { recursive: true })
+  await writeFile(targetTranscript, `${JSON.stringify({ type: 'session', ...HEADER })}\n`, 'utf8')
+  await rm(paths.sessionDirectory, { recursive: true, force: true })
+  try {
+    await symlink(targetDirectory, paths.sessionDirectory, 'junction')
+  } catch (error) {
+    if (error?.code === 'EPERM') {
+      t.skip('creating a Windows junction is not permitted in this environment')
+      return
+    }
+    throw error
+  }
+  t.after(() => rm(paths.base, { recursive: true, force: true }))
+
+  const result = await deleteSessionSafely(
+    dependencies({ transcript: paths.transcript }),
+    { sessionRoot: paths.root, sessionId: HEADER.id },
+  )
+
+  assert.equal(result.error.code, 'unsafe-location')
+  assert.match(await readFile(targetTranscript, 'utf8'), /session-delete-test/)
+})
+
+test('does not report success when inspect loses the listing but the artifact remains', async (t) => {
+  const paths = await fixture()
+  let lists = 0
+  t.after(() => rm(paths.base, { recursive: true, force: true }))
+
+  const result = await deleteSessionSafely(
+    dependencies({
+      transcript: paths.transcript,
+      inspect: async () => { throw new Error('inspection failed') },
+      listSessions: async () => (++lists === 1 ? [HEADER] : []),
+    }),
+    { sessionRoot: paths.root, sessionId: HEADER.id },
+  )
+
+  assert.equal(result.error.code, 'storage-state-unknown')
+  assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
+})
+
 test('refuses an unexpected transcript filename inside the session directory', async (t) => {
   const paths = await fixture()
   const unexpected = join(paths.sessionDirectory, 'notes.jsonl')
@@ -269,6 +323,114 @@ test('tracks handles returned by agent create and resume and restores methods on
   tracker.release()
   assert.equal(registry.create, originalCreate)
   assert.equal(registry.resume, originalResume)
+})
+
+test('reserves a session against duplicate deletion and every session or agent re-entry path', async () => {
+  const originalSessionEnter = () => () => {}
+  const originalAgentEnter = () => () => {}
+  const sessions = { enter: originalSessionEnter }
+  const agents = {
+    create: async ({ sessionId }) => ({ agent: { id: sessionId }, dispose: async () => {} }),
+    resume: async ({ resumeSessionId }) => ({ agent: { id: resumeSessionId }, dispose: async () => {} }),
+    enter: originalAgentEnter,
+    get: () => undefined,
+  }
+  const tracker = installAgentHandleTracker(agents, sessions)
+  const release = tracker.reserve(HEADER.id)
+
+  assert.equal(typeof release, 'function')
+  assert.equal(tracker.reserve(HEADER.id), undefined)
+  assert.throws(() => sessions.enter({ id: HEADER.id }), /permanently deleted/)
+  assert.throws(() => agents.enter({ id: HEADER.id }), /permanently deleted/)
+  await assert.rejects(agents.create({ sessionId: HEADER.id }), /permanently deleted/)
+  await assert.rejects(agents.resume({ resumeSessionId: HEADER.id }), /permanently deleted/)
+  assert.doesNotThrow(() => sessions.enter({ id: 'unrelated' }))
+
+  release()
+  assert.doesNotThrow(() => sessions.enter({ id: HEADER.id }))
+  tracker.release()
+  assert.equal(sessions.enter, originalSessionEnter)
+  assert.equal(agents.enter, originalAgentEnter)
+})
+
+test('keeps an in-flight reservation active until asynchronous tracker release can finish', async () => {
+  const originalSessionEnter = () => () => {}
+  const sessions = { enter: originalSessionEnter }
+  const agents = {
+    create: async ({ sessionId }) => ({ agent: { id: sessionId }, dispose: async () => {} }),
+    resume: async ({ resumeSessionId }) => ({ agent: { id: resumeSessionId }, dispose: async () => {} }),
+    get: () => undefined,
+  }
+  const tracker = installAgentHandleTracker(agents, sessions)
+  const finishDeletion = tracker.reserve(HEADER.id)
+
+  const released = tracker.release()
+  assert.notEqual(sessions.enter, originalSessionEnter)
+  assert.throws(() => sessions.enter({ id: HEADER.id }), /permanently deleted/)
+  assert.equal(tracker.reserve('new-delete'), undefined)
+
+  finishDeletion()
+  await released
+  assert.equal(sessions.enter, originalSessionEnter)
+  assert.doesNotThrow(() => sessions.enter({ id: HEADER.id }))
+})
+
+test('refuses deletion when the detached transcript identity has changed', async (t) => {
+  const paths = await fixture()
+  t.after(() => rm(paths.base, { recursive: true, force: true }))
+
+  const result = await deleteSessionSafely(
+    dependencies({
+      transcript: paths.transcript,
+      moveDirectory: async (source, destination) => {
+        await rename(source, destination)
+        await rm(join(destination, 'session.jsonl'))
+        await writeFile(join(destination, 'session.jsonl'), 'replacement\n', 'utf8')
+      },
+    }),
+    { sessionRoot: paths.root, sessionId: HEADER.id },
+  )
+
+  assert.equal(result.error.code, 'unsafe-location')
+  assert.equal(await readFile(paths.transcript, 'utf8'), 'replacement\n')
+})
+
+test('reports an incomplete cleanup honestly after the live directory was atomically detached', async (t) => {
+  const paths = await fixture()
+  t.after(() => rm(paths.base, { recursive: true, force: true }))
+
+  const result = await deleteSessionSafely(
+    dependencies({
+      transcript: paths.transcript,
+      removeDirectory: async (directory) => {
+        await rm(join(directory, 'session.jsonl'))
+        throw new Error('simulated cleanup failure')
+      },
+    }),
+    { sessionRoot: paths.root, sessionId: HEADER.id },
+  )
+
+  assert.equal(result.error.code, 'storage-partial')
+  await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
+})
+
+test('recognizes a complete deletion even if the remover throws after cleanup', async (t) => {
+  const paths = await fixture()
+  t.after(() => rm(paths.base, { recursive: true, force: true }))
+
+  const result = await deleteSessionSafely(
+    dependencies({
+      transcript: paths.transcript,
+      removeDirectory: async (directory) => {
+        await rm(directory, { recursive: true, force: false })
+        throw new Error('late remover failure')
+      },
+    }),
+    { sessionRoot: paths.root, sessionId: HEADER.id },
+  )
+
+  assert.deepEqual(result, { ok: true, value: { deleted: true } })
+  await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
 })
 
 function request(body, headers = {}) {
