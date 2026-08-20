@@ -13,7 +13,7 @@ const setup = join(root, 'dsh-session-delete-setup.ps1')
 const packageName = '@deepseek-ai/dsh-client-ui-workspace'
 const packageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.10/dsh-session-delete.tgz'
 
-async function makeFixture({ original = '0.1.0-rc.8', initialized = true } = {}) {
+async function makeFixture({ original = '0.1.0-rc.8', initialized = true, lockfile = true } = {}) {
   const fixture = join(tmpdir(), `dsh-session-delete-manager-${crypto.randomUUID()}`)
   const portable = join(fixture, 'DSH-Portable')
   const nodeDir = join(portable, 'runtime', 'node')
@@ -33,7 +33,7 @@ async function makeFixture({ original = '0.1.0-rc.8', initialized = true } = {})
     await writeFile(profileFile, JSON.stringify({
       dependencies: original == null ? {} : { [packageName]: original },
     }, null, 2))
-    await writeFile(lockFile, 'original-lockfile\n')
+    if (lockfile) await writeFile(lockFile, 'original-lockfile\n')
   }
   await writeFile(dshBin, `
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -69,6 +69,7 @@ if (action === 'add') {
     writeFileSync(linked, JSON.stringify({ name: 'dsh-session-delete', version: '0.1.10' }))
   }
   if (process.env.DSH_TEST_FAIL_INSTALL === '1' && subject.includes('dsh-session-delete')) process.exit(9)
+  if (process.env.DSH_TEST_FAIL_RESTORE === '1' && !subject.includes('dsh-session-delete')) process.exit(8)
   process.exit(0)
 }
 if (action === 'remove') {
@@ -78,6 +79,7 @@ if (action === 'remove') {
   process.exit(0)
 }
 if (action === 'install') {
+  if (lockFile) writeFileSync(lockFile, 'reconciled-by-install\\n')
   process.exit(0)
 }
 console.error('unexpected arguments: ' + JSON.stringify(args))
@@ -218,6 +220,30 @@ windowsTest('schema 2 manager state migrates through update and remains uninstal
   }
 })
 
+windowsTest('failed schema 2 restore rolls back the managed profile exactly', async () => {
+  const target = await makeFixture({ original: '0.1.0-rc.8' })
+  try {
+    assert.equal(runManager(target, 'Install').status, 0)
+    const statePath = join(target.commandRoot, 'install-state.json')
+    const current = JSON.parse(await readFile(statePath, 'utf8'))
+    await writeFile(statePath, JSON.stringify({
+      schemaVersion: 2, mode: current.mode, portableRoot: current.portableRoot,
+      globalDsh: null, globalNode: null, globalDshHome: null, profile: current.profile,
+      pathOwned: current.pathOwned, originalDependencyExists: current.originalDependencyExists,
+      originalDependencySpec: current.originalDependencySpec, managedDependencySpec: current.managedDependencySpec,
+    }))
+    const beforeManifest = await readFile(target.profileFile, 'utf8')
+    const beforeLock = await readFile(target.lockFile, 'utf8')
+    const uninstall = runManager(target, 'Uninstall', { DSH_TEST_FAIL_RESTORE: '1' })
+    assert.notEqual(uninstall.status, 0)
+    assert.equal(await readFile(target.profileFile, 'utf8'), beforeManifest)
+    assert.equal(await readFile(target.lockFile, 'utf8'), beforeLock)
+    assert.equal(await dependency(target), packageUrl)
+  } finally {
+    await rm(target.fixture, { recursive: true, force: true })
+  }
+})
+
 windowsTest('uninstall refuses to overwrite unrelated profile changes', async () => {
   const target = await makeFixture()
   try {
@@ -246,6 +272,19 @@ windowsTest('a profile that did not exist is removed again on uninstall', async 
     const uninstall = runManager(target, 'Uninstall')
     assert.equal(uninstall.status, 0, uninstall.stderr || uninstall.stdout)
     await assert.rejects(readFile(target.profileFile, 'utf8'), /ENOENT/)
+    await assert.rejects(readFile(target.lockFile, 'utf8'), /ENOENT/)
+  } finally {
+    await rm(target.fixture, { recursive: true, force: true })
+  }
+})
+
+windowsTest('an originally absent lockfile remains absent after uninstall', async () => {
+  const target = await makeFixture({ original: '0.1.0-rc.8', lockfile: false })
+  try {
+    assert.equal(runManager(target, 'Install').status, 0)
+    const uninstall = runManager(target, 'Uninstall')
+    assert.equal(uninstall.status, 0, uninstall.stderr || uninstall.stdout)
+    assert.equal(await dependency(target), '0.1.0-rc.8')
     await assert.rejects(readFile(target.lockFile, 'utf8'), /ENOENT/)
   } finally {
     await rm(target.fixture, { recursive: true, force: true })
