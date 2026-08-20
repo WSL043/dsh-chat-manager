@@ -15,18 +15,9 @@ Second confirmation · Running work is stopped safely · No full-page reload
 
 </div>
 
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <img src="docs/assets/confirm-delete.en.png" alt="English permanent deletion confirmation dialog">
-      <br><sub>English UI</sub>
-    </td>
-    <td width="50%" align="center">
-      <img src="docs/assets/confirm-delete.png" alt="Chinese permanent deletion confirmation dialog">
-      <br><sub>中文界面</sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/assets/hero.en.png" alt="Red Delete session action in the native DeepSeek Harness session menu in dark mode">
+</p>
 
 | Native | Safe | Smooth |
 | --- | --- | --- |
@@ -77,6 +68,11 @@ workspace package before installation, record and restore that value during unin
 1. Open the actions menu beside the target session in the sidebar.
 2. Choose the red **Delete session** action.
 3. Check the session name, then select **Delete permanently**.
+
+<p align="center">
+  <img src="docs/assets/confirm-delete.en.png" width="560" alt="English permanent deletion confirmation dialog">
+  <br><sub>Permanent deletion still requires a second confirmation</sub>
+</p>
 
 Sessions opened through the standard Web UI after the plugin becomes active do not need to be closed
 manually. If work is still running, the plugin stops it through DSH's lifecycle capability, waits for

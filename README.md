@@ -15,18 +15,9 @@
 
 </div>
 
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <img src="docs/assets/confirm-delete.png" alt="中文永久删除二次确认弹窗">
-      <br><sub>中文界面</sub>
-    </td>
-    <td width="50%" align="center">
-      <img src="docs/assets/confirm-delete.en.png" alt="English permanent deletion confirmation dialog">
-      <br><sub>English UI</sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/assets/hero.png" alt="深色模式下 DeepSeek Harness 会话原生菜单中的红色删除会话选项">
+</p>
 
 | 原生 | 安全 | 顺滑 |
 | --- | --- | --- |
@@ -74,6 +65,11 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 1. 打开侧边栏中目标会话右侧的操作菜单。
 2. 选择红色的 **删除会话**。
 3. 核对会话名称，再点 **永久删除**。
+
+<p align="center">
+  <img src="docs/assets/confirm-delete.png" width="560" alt="中文永久删除二次确认弹窗">
+  <br><sub>删除前仍需二次确认</sub>
+</p>
 
 插件生效后通过标准 Web 界面打开的会话无需手动关闭。如果任务仍在运行，插件会先调用
 DSH 生命周期能力停止任务并等待收敛，再摘载会话并删除本地记录。
