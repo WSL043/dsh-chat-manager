@@ -796,6 +796,12 @@ function Restore-ProfileSnapshot {
         Invoke-DshCommand -Target $Target -Arguments @(
             'plugin', '--profile', $Profile, 'install', '--loglevel', 'error'
         )
+        [IO.File]::WriteAllBytes($Snapshot.ManifestPath, [Convert]::FromBase64String([string] $Snapshot.ManifestBase64))
+        if ($Snapshot.LockfileExists) {
+            [IO.File]::WriteAllBytes($Snapshot.LockfilePath, [Convert]::FromBase64String([string] $Snapshot.LockfileBase64))
+        } elseif (Test-Path -LiteralPath $Snapshot.LockfilePath -PathType Leaf) {
+            Remove-Item -LiteralPath $Snapshot.LockfilePath -Force
+        }
     }
 }
 
@@ -914,13 +920,25 @@ function Restore-LegacyDependencyState {
         [Parameter(Mandatory = $true)][bool] $OriginalExists,
         [AllowNull()][string] $OriginalSpec
     )
-    Invoke-DshCommand -Target $Target -Arguments @(
-        'plugin', '--profile', $Profile, 'remove', $PackageName, '--loglevel', 'error'
-    )
-    if ($OriginalExists) {
-        Invoke-DshCommand -Target $Target -Arguments @(
-            'plugin', '--profile', $Profile, 'add', "$PackageName@$OriginalSpec", '--loglevel', 'error'
-        )
+    $rollbackSnapshot = Get-ProfileSnapshot -Target $Target
+    try {
+        if ($OriginalExists) {
+            Invoke-DshCommand -Target $Target -Arguments @(
+                'plugin', '--profile', $Profile, 'add', "$PackageName@$OriginalSpec", '--loglevel', 'error'
+            )
+        } else {
+            Invoke-DshCommand -Target $Target -Arguments @(
+                'plugin', '--profile', $Profile, 'remove', $PackageName, '--loglevel', 'error'
+            )
+        }
+    } catch {
+        $operationError = $_
+        try {
+            Restore-ProfileSnapshot -Target $Target -Snapshot $rollbackSnapshot
+        } catch {
+            throw "Legacy state migration failed and rollback could not be confirmed. Original error: $($operationError.Exception.Message) Rollback error: $($_.Exception.Message)"
+        }
+        throw $operationError
     }
 }
 
