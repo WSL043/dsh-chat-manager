@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
@@ -237,8 +237,8 @@ windowsTest('explicit official DSH target uses its selected executable and offic
     assert.equal(await dependency(target), packageUrl)
     const state = JSON.parse(await readFile(join(target.commandRoot, 'install-state.json'), 'utf8'))
     assert.equal(state.mode, 'global')
-    assert.equal(state.globalDshHome.toLowerCase(), dshHome.toLowerCase())
-    assert.equal(state.globalDsh.toLowerCase(), globalDsh.toLowerCase())
+    assert.equal((await realpath(state.globalDshHome)).toLowerCase(), (await realpath(dshHome)).toLowerCase())
+    assert.equal((await realpath(state.globalDsh)).toLowerCase(), (await realpath(globalDsh)).toLowerCase())
   } finally {
     await rm(target.fixture, { recursive: true, force: true })
   }
