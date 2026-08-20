@@ -11,7 +11,7 @@ const root = new URL('..', import.meta.url).pathname.replace(/^\/(?:([A-Za-z]:))
 const manager = join(root, 'dsh-session-delete.ps1')
 const setup = join(root, 'dsh-session-delete-setup.ps1')
 const packageName = '@deepseek-ai/dsh-client-ui-workspace'
-const packageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.11/dsh-session-delete.tgz'
+const packageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.12/dsh-session-delete.tgz'
 
 async function makeFixture({ original = '0.1.0-rc.8', initialized = true, lockfile = true } = {}) {
   const fixture = join(tmpdir(), `dsh-session-delete-manager-${crypto.randomUUID()}`)
@@ -51,12 +51,13 @@ const subject = plugin >= 0 ? args[plugin + 4] : ''
 if (action === 'list') {
   const output = {}
   for (const [name, spec] of Object.entries(deps)) {
-    output[name] = { version: String(spec).includes('dsh-session-delete') ? '0.1.11' : String(spec).replace(/^[^0-9]*/, '') }
+    output[name] = { version: String(spec).includes('dsh-session-delete') ? '0.1.12' : String(spec).replace(/^[^0-9]*/, '') }
   }
   console.log(JSON.stringify([{ dependencies: output }]))
   process.exit(0)
 }
 if (action === 'add') {
+  if (process.env.DSH_TEST_REQUIRE_CLEAN_LOCK === '1' && lockFile && existsSync(lockFile)) process.exit(6)
   const aliasPrefix = '${packageName}@'
   const name = subject.startsWith(aliasPrefix) ? '${packageName}' : subject.slice(0, subject.lastIndexOf('@'))
   const spec = subject.startsWith(aliasPrefix) ? subject.slice(aliasPrefix.length) : subject.slice(subject.lastIndexOf('@') + 1)
@@ -66,7 +67,7 @@ if (action === 'add') {
   if (name === '${packageName}' && String(spec).includes('dsh-session-delete')) {
     const linked = new URL('./node_modules/@deepseek-ai/dsh-client-ui-workspace/package.json', 'file:///' + profileFile.replaceAll('\\\\', '/')).pathname.slice(1)
     mkdirSync(linked.slice(0, linked.lastIndexOf('/')), { recursive: true })
-    writeFileSync(linked, JSON.stringify({ name: 'dsh-session-delete', version: '0.1.11' }))
+    writeFileSync(linked, JSON.stringify({ name: 'dsh-session-delete', version: '0.1.12' }))
   }
   if (process.env.DSH_TEST_FAIL_INSTALL === '1' && subject.includes('dsh-session-delete')) process.exit(9)
   if (process.env.DSH_TEST_FAIL_RESTORE === '1' && !subject.includes('dsh-session-delete')) process.exit(8)
@@ -142,6 +143,17 @@ windowsTest('install performs one DSH plugin operation without redundant list ro
     const commands = (await readFile(target.commandLog, 'utf8')).trim().split('\n').map(JSON.parse)
     assert.equal(commands.length, 1)
     assert.equal(commands[0][3], 'add')
+  } finally {
+    await rm(target.fixture, { recursive: true, force: true })
+  }
+})
+
+windowsTest('install regenerates a stale profile lockfile before adding the release', async () => {
+  const target = await makeFixture()
+  try {
+    const install = runManager(target, 'Install', { DSH_TEST_REQUIRE_CLEAN_LOCK: '1' })
+    assert.equal(install.status, 0, install.stderr || install.stdout)
+    assert.equal(await dependency(target), packageUrl)
   } finally {
     await rm(target.fixture, { recursive: true, force: true })
   }
@@ -447,7 +459,7 @@ windowsTest('explicit official DSH target uses its selected executable and offic
 
 windowsTest('manager never starts or stops DSH and publishes immutable release URLs', async () => {
   const script = await readFile(manager, 'utf8')
-  assert.match(script, /releases\/download\/v0\.1\.11\/dsh-session-delete\.tgz/)
+  assert.match(script, /releases\/download\/v0\.1\.12\/dsh-session-delete\.tgz/)
   assert.match(script, /dsh-session-delete\.ps1\.sha256/)
   assert.doesNotMatch(script, /Assert-PackageReleaseAsset/)
   assert.doesNotMatch(script, /Stop-Process|taskkill|Restart-Service/i)

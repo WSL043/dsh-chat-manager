@@ -42,8 +42,8 @@ $ManagerScriptName = 'dsh-session-delete-manager.ps1'
 $LegacyManagerScriptName = 'dsh-session-delete.ps1'
 $ManagerShimName = 'dsh-session-delete.cmd'
 $ManagerStateName = 'install-state.json'
-$PackageVersion = '0.1.11'
-$PackageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.11/dsh-session-delete.tgz'
+$PackageVersion = '0.1.12'
+$PackageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.12/dsh-session-delete.tgz'
 $PackageSpec = "$PackageName@$PackageUrl"
 $PnpmVersion = '11.19.0'
 $PnpmUrl = 'https://registry.npmjs.org/pnpm/-/pnpm-11.19.0.tgz'
@@ -1175,6 +1175,12 @@ try {
         Write-Host $result
     } else {
         try {
+            # A stale URL tarball entry without integrity makes pnpm fail before
+            # it can repair the lock. The transaction snapshot above makes a
+            # clean lock regeneration reversible.
+            if (Test-Path -LiteralPath $profileSnapshot.LockfilePath -PathType Leaf) {
+                Remove-Item -LiteralPath $profileSnapshot.LockfilePath -Force
+            }
             Invoke-DshCommand -Target $target -Arguments $actionArguments
             if ($hadLegacyPackage) {
                 Invoke-DshCommand -Target $target -Arguments (
