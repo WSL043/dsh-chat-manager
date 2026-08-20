@@ -7,7 +7,8 @@ import test from 'node:test'
 
 const root = new URL('..', import.meta.url)
 const installer = new URL('../install.ps1', import.meta.url)
-const packageSpec = 'dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/dsh-native-session-delete.tgz'
+const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
+const packageSpec = `dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v${manifest.version}/dsh-native-session-delete.tgz`
 const windowsTest = process.platform === 'win32' ? test : test.skip
 
 test('installer remains a thin official-CLI launcher', async () => {

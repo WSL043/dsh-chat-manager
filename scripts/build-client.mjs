@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
@@ -6,22 +7,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const require = createRequire(import.meta.url)
 const here = dirname(fileURLToPath(import.meta.url))
 const output = resolve(here, '../lib/client.js')
-const LATEST_UPSTREAM_VERSION = '0.1.0-rc.8'
-const SUPPORTED_UPSTREAM_VERSIONS = new Set([
-  '0.1.0-rc.6',
-  '0.1.0-rc.7',
-  LATEST_UPSTREAM_VERSION,
-])
-const SESSION_TREE_SIGNATURES = new Map([
-  ['0.1.0-rc.6', 'function SessionTree({ useSessions, startSession, open, forkSession, workspaces, archivedSessionIds, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, insertWorkspaceBefore, insertSessionBefore, orderBy, groupExpansion, setGroupExpanded, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t }) {'],
-  ['0.1.0-rc.7', 'function SessionTree({ useSessions, startSession, open, forkSession, workspaces, archivedSessionIds, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, insertWorkspaceBefore, insertSessionBefore, orderBy, groupExpansion, setGroupExpanded, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t }) {'],
-  ['0.1.0-rc.8', 'function SessionTree({ useSessions, startSession, open, forkSession, workspaces, archivedSessionIds, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, insertWorkspaceBefore, insertSessionBefore, orderBy, groupExpansion, setGroupExpanded, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, home, t }) {'],
-])
-const WORKSPACE_BROWSER_SIGNATURES = new Map([
-  ['0.1.0-rc.6', 'function WorkspaceBrowser({ wide, expandSidebar, useSessions, useWorkspaces, useStore, actions, startSession, open, renameSession, forkSession, renameWorkspace, deleteWorkspace, insertWorkspaceBefore, archiveSession, insertSessionBefore, createWorkspace, searchSessions, searchResultLimit, useDirectoryFlow, renderSlot, t }) {'],
-  ['0.1.0-rc.7', 'function WorkspaceBrowser({ wide, expandSidebar, useSessions, useWorkspaces, useStore, actions, startSession, open, renameSession, forkSession, renameWorkspace, deleteWorkspace, insertWorkspaceBefore, archiveSession, insertSessionBefore, createWorkspace, searchSessions, searchResultLimit, useDirectoryFlow, renderSlot, t }) {'],
-  ['0.1.0-rc.8', 'function WorkspaceBrowser({ wide, expandSidebar, useSessions, useWorkspaces, useStore, actions, startSession, open, renameSession, forkSession, renameWorkspace, deleteWorkspace, insertWorkspaceBefore, archiveSession, insertSessionBefore, createWorkspace, searchSessions, searchResultLimit, useDirectoryFlow, useHostDescription, renderSlot, t }) {'],
-])
+const compatibility = JSON.parse(readFileSync(resolve(here, '../compatibility.json'), 'utf8'))
+const LATEST_UPSTREAM_VERSION = compatibility.latestTested
+const SUPPORTED_UPSTREAM_VERSIONS = new Set(compatibility.supported)
 
 export const resolveUpstreamClient = () => require.resolve('@deepseek-ai/dsh-client-ui-workspace/client')
 export const resolveUpstreamManifest = () => require.resolve('@deepseek-ai/dsh-client-ui-workspace/package.json')
@@ -34,6 +22,13 @@ const replaceOnce = (source, before, after, label) => {
   return `${source.slice(0, first)}${after}${source.slice(first + before.length)}`
 }
 
+const findFunctionSignature = (source, functionName) => {
+  const pattern = new RegExp(`function ${functionName}\\(\\{[^}]+\\}\\) \\{`, 'g')
+  const matches = [...source.matchAll(pattern)]
+  if (matches.length !== 1) throw new Error(`upstream marker mismatch: ${functionName} signature`)
+  return matches[0][0]
+}
+
 /**
  * Add one narrow feature to the shipped workspace client while preserving the
  * rest of the official bundle byte-for-byte after a modification notice.
@@ -44,10 +39,13 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
   if (!SUPPORTED_UPSTREAM_VERSIONS.has(upstreamVersion)) {
     throw new Error(`unsupported @deepseek-ai/dsh-client-ui-workspace version: ${upstreamVersion}`)
   }
-  const sessionTreeSignature = SESSION_TREE_SIGNATURES.get(upstreamVersion)
-  const workspaceBrowserSignature = WORKSPACE_BROWSER_SIGNATURES.get(upstreamVersion)
-  if (sessionTreeSignature === undefined || workspaceBrowserSignature === undefined) {
-    throw new Error(`missing patch signatures for @deepseek-ai/dsh-client-ui-workspace ${upstreamVersion}`)
+  const sessionTreeSignature = findFunctionSignature(upstream, 'SessionTree')
+  const workspaceBrowserSignature = findFunctionSignature(upstream, 'WorkspaceBrowser')
+  if (!sessionTreeSignature.includes('onDeleteRequest, onSessionRename, onSessionArchive, insertWorkspaceBefore,')) {
+    throw new Error('upstream marker mismatch: SessionTree delete insertion point')
+  }
+  if (!workspaceBrowserSignature.includes('deleteWorkspace, insertWorkspaceBefore, archiveSession, insertSessionBefore,')) {
+    throw new Error('upstream marker mismatch: WorkspaceBrowser delete insertion point')
   }
   let source = upstream
   const patch = (before, after, label) => {
