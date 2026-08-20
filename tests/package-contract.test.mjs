@@ -6,19 +6,22 @@ const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('public package is a standard DSH bundle with a unique identity', async () => {
   const manifest = JSON.parse(await read('package.json'))
+  const compatibility = JSON.parse(await read('compatibility.json'))
 
   assert.equal(manifest.name, 'dsh-native-session-delete')
-  assert.equal(manifest.version, '1.0.2')
+  assert.match(manifest.version, /^\d+\.\d+\.\d+$/)
   assert.equal(manifest.private, undefined)
   assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.repository.url, 'git+https://github.com/WSL043/dsh-session-delete.git')
-  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.0-rc.8')
-  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-primitives'], '0.1.0-rc.8')
-  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-slots'], '0.1.0-rc.8')
-  assert.equal(manifest.devDependencies['dsh-ui-workspace-rc6'], 'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.0-rc.6')
-  assert.equal(manifest.devDependencies['dsh-ui-workspace-rc7'], 'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.0-rc.7')
+  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], compatibility.latestTested)
+  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-primitives'], compatibility.latestTested)
+  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-slots'], compatibility.latestTested)
+  for (const [version, alias] of Object.entries(compatibility.workspaceFixtures)) {
+    assert.equal(manifest.devDependencies[alias], `npm:@deepseek-ai/dsh-client-ui-workspace@${version}`)
+  }
+  const supportedRange = compatibility.supported.join(' || ')
   for (const [name, version] of Object.entries(manifest.peerDependencies)) {
-    if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(version, '0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8')
+    if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(version, supportedRange)
   }
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-connection'))
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml')
@@ -27,6 +30,7 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   }
   assert.equal(manifest.scripts['smoke:ui'], 'node scripts/smoke-ui.mjs')
   assert.ok(manifest.files.includes('scripts/smoke-ui.mjs'))
+  assert.ok(manifest.files.includes('compatibility.json'))
   assert.ok(manifest.files.includes('cordis.patch.yml'))
   assert.ok(!manifest.files.some(file => file.startsWith('docs/')), 'documentation images must not inflate the runtime package')
   assert.ok(!manifest.files.includes('dsh-session-delete.ps1'))
@@ -35,11 +39,27 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   assert.ok(manifest.files.includes('THIRD_PARTY_NOTICES.md'))
 })
 
+test('compatibility autopilot is fail-closed and publishes only after both host lanes pass', async () => {
+  const workflow = await read('.github/workflows/upstream-compatibility.yml')
+
+  assert.match(workflow, /cron:\s*'17 \*\/6 \* \* \*'/)
+  assert.match(workflow, /repos\/deepseek-ai\/deepseek-harness\/releases\/tags\/dsh-v/)
+  assert.match(workflow, /\.draft == false and \.immutable == true/)
+  assert.match(workflow, /scripts\/accept-official-dsh\.mjs/)
+  assert.match(workflow, /runs-on:\s*windows-2025/)
+  assert.match(workflow, /needs:\s*\[preflight, windows-installer\]/)
+  assert.match(workflow, /git diff --binary \| sha256sum/)
+  assert.match(workflow, /test "\$\(git rev-parse origin\/main\)" = "\$GITHUB_SHA"/)
+  assert.match(workflow, /git push origin HEAD:main[\s\S]*gh release create/)
+  assert.doesNotMatch(workflow, /continue-on-error:\s*true/)
+})
+
 test('dependency installs enforce a release-age gate outside the reviewed DSH cohort', async () => {
   const workspace = await read('pnpm-workspace.yaml')
+  const compatibility = JSON.parse(await read('compatibility.json'))
 
   assert.match(workspace, /^minimumReleaseAge: 1440$/m)
-  assert.match(workspace, /@deepseek-ai\/dsh-client-ui-workspace@0\.1\.0-rc\.8/)
+  assert.match(workspace, new RegExp(`@deepseek-ai/dsh-client-ui-workspace@${compatibility.latestTested.replaceAll('.', '\\.')}`))
   assert.doesNotMatch(workspace, /minimumReleaseAgeExclude:[\s\S]*['"]?@deepseek-ai\/\*['"]?\s*$/m)
 })
 
@@ -67,9 +87,11 @@ test('documentation uses the standard one-command bundle lifecycle and second co
     read('README.en.md'),
     read('AGENTS.md'),
   ])
+  const manifest = JSON.parse(await read('package.json'))
+  const releaseVersion = manifest.version.replaceAll('.', '\\.')
 
   for (const document of [chinese, english, agents]) {
-    assert.match(document, /dsh-native-session-delete@https:\/\/github\.com\/WSL043\/dsh-session-delete\/releases\/download\/v1\.0\.2\/dsh-native-session-delete\.tgz/)
+    assert.match(document, new RegExp(`dsh-native-session-delete@https://github\\.com/WSL043/dsh-session-delete/releases/download/v${releaseVersion}/dsh-native-session-delete\\.tgz`))
   }
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
@@ -77,19 +99,19 @@ test('documentation uses the standard one-command bundle lifecycle and second co
   assert.match(english, /second confirmation/i)
   assert.match(english, /permanent deletion cannot be undone/i)
   assert.match(english, /docs\/assets\/confirm-delete\.en\.png/)
-  assert.match(chinese, /releases\/download\/v1\.0\.2\/install\.ps1/)
-  assert.match(english, /releases\/download\/v1\.0\.2\/install\.ps1/)
+  assert.match(chinese, new RegExp(`releases/download/v${releaseVersion}/install\\.ps1`))
+  assert.match(english, new RegExp(`releases/download/v${releaseVersion}/install\\.ps1`))
   assert.match(agents, /Never delete a session as an installation test/)
   assert.match(agents, /dsh\.bundle/)
   assert.match(chinese, /正在运行的任务会先安全停止/)
   assert.match(english, /running work is stopped safely/i)
   assert.match(chinese, /不重载整个 DSH 页面/)
   assert.match(english, /without reloading\s+the whole DSH page/i)
-  assert.match(chinese, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v1\.0\.2\/AGENTS\.md/)
-  assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/v1\.0\.2\/AGENTS\.md/)
+  assert.match(chinese, new RegExp(`raw\\.githubusercontent\\.com/WSL043/dsh-session-delete/v${releaseVersion}/AGENTS\\.md`))
+  assert.match(english, new RegExp(`raw\\.githubusercontent\\.com/WSL043/dsh-session-delete/v${releaseVersion}/AGENTS\\.md`))
   assert.doesNotMatch(`${chinese}\n${english}`, /raw\.githubusercontent\.com\/WSL043\/dsh-session-delete\/main\/AGENTS\.md/)
   for (const document of [chinese, english]) {
-    assert.match(document, /releases\/download\/v1\.0\.2/u)
+    assert.match(document, new RegExp(`releases/download/v${releaseVersion}`, 'u'))
     assert.match(document, /dsh plugin --profile web add/u)
     assert.match(document, /dsh plugin --profile web remove/u)
   }

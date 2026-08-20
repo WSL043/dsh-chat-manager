@@ -8,7 +8,7 @@
 
 [![Release](https://img.shields.io/github/v/release/WSL043/dsh-session-delete?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-session-delete/releases/latest)
 [![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-session-delete/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-session-delete/actions/workflows/ci.yml)
-[![DSH](https://img.shields.io/badge/DSH-rc.6%E2%80%93rc.8-2f81f7?style=flat-square)](#兼容性)
+[![DSH](https://img.shields.io/badge/DSH-auto--tested-2f81f7?style=flat-square)](#兼容性)
 [![License](https://img.shields.io/github/license/WSL043/dsh-session-delete?style=flat-square)](LICENSE)
 
 [English](README.en.md) · [安装](#安装) · [使用](#使用) · [安全边界](#安全边界)
@@ -30,7 +30,7 @@
 打开 PowerShell，复制这一行：
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.3/install.ps1' | iex
 ```
 
 助手依次检查当前目录、PATH、`DSH_PORTABLE_ROOT`、下载/桌面/文档目录，以及这些目录和
@@ -41,13 +41,13 @@ irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/insta
 如果 DSH-Portable 不在常见位置，可明确指定，仍然不会扫描磁盘：
 
 ```powershell
-& ([scriptblock]::Create((irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/install.ps1'))) -DshPath 'D:\DSH-Portable\dsh.exe'
+& ([scriptblock]::Create((irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.3/install.ps1'))) -DshPath 'D:\DSH-Portable\dsh.exe'
 ```
 
 ### 官方 CLI（macOS、Linux 或希望直接审阅命令）
 
 ```sh
-dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/dsh-native-session-delete.tgz"
+dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.3/dsh-native-session-delete.tgz"
 ```
 
 助手和这条命令使用的是同一个标准 bundle 安装机制；助手只是 Windows 入口，不接管安装事务。
@@ -56,7 +56,7 @@ dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL04
 
 ### 交给 Agent
 
-请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v1.0.2/AGENTS.md)，
+请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v1.0.3/AGENTS.md)，
 其中写明了安装、更新、验收、卸载和安全边界。不要把 `main` 分支文档当作安装依据。
 
 ## 使用
@@ -93,19 +93,24 @@ dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL04
 
 ## 兼容性
 
-v1.0.2 面向 DeepSeek Harness `0.1.0-rc.6`、`0.1.0-rc.7` 和 `0.1.0-rc.8` 的默认逐会话
-JSONL 存储。插件使用标准 `dsh.bundle` profile 层，将官方 workspace 行替换为唯一的
+<!-- dsh-compatibility -->
+已自动验收：`0.1.0-rc.6`、`0.1.0-rc.7`、`0.1.0-rc.8`。新版本只有通过隔离安装、构建、测试和官方 Web UI 冒烟验收后才会加入此列表。
+<!-- /dsh-compatibility -->
+
+插件面向 DSH 默认逐会话 JSONL 存储，使用标准 `dsh.bundle` profile 层，将官方 workspace 行替换为唯一的
 `dsh-native-session-delete` 原生客户端；卸载后 DSH 会恢复官方 workspace 行。
 
-后续 DSH 更新不会被本插件自动宣称兼容。只有重新构建并通过安装、启动、原生菜单、二次确认、
-取消、无整页刷新和一次性测试会话删除验收后，才会发布新的支持版本。
+GitHub Actions 每 6 小时读取 DSH registry 的完整版本序列，并与官方不可变 Release 交叉验证。发现最早一个尚未覆盖的新版本后，会在隔离
+profile 中重新安装官方 DSH 和待发布插件，验证构建、单元测试、原生菜单、红色删除项、二次确认、
+取消不发请求及无整页刷新；全部通过才自动增加兼容范围并发布新的不可变补丁版本。任何检查失败都会
+停止发布，现有兼容声明保持不变。上游发生结构性改动时仍需要代码修复，自动化不会猜测性修改删除逻辑。
 
 ## 更新与卸载
 
-更新可重新运行快速安装助手，或使用新版本的同一条 `add` 命令。v1.0.2 的直接命令是：
+更新可重新运行快速安装助手，或使用新版本的同一条 `add` 命令。v1.0.3 的直接命令是：
 
 ```sh
-dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/dsh-native-session-delete.tgz"
+dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.3/dsh-native-session-delete.tgz"
 ```
 
 卸载只移除这个插件的 bundle 层，不删除任何会话：

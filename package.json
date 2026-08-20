@@ -1,6 +1,6 @@
 {
   "name": "dsh-native-session-delete",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "packageManager": "pnpm@11.19.0",
   "description": "Confirmed permanent deletion for DeepSeek Harness sessions",
   "type": "module",
@@ -11,6 +11,7 @@
     "./package.json": "./package.json"
   },
   "files": [
+    "compatibility.json",
     "cordis.patch.yml",
     "lib/client.js",
     "scripts/build-client.mjs",
