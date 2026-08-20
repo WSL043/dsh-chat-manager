@@ -30,12 +30,13 @@
 打开 PowerShell，只复制这一行：
 
 ```powershell
-$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.8'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw '下载失败' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw '校验失败' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
+$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.9'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw '下载失败' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw '校验失败' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
 ```
 
 安装助手会先选择中文或 English，再自动寻找普通 DSH 和
 [DSH-Portable](https://github.com/WSL043/DSH-Portable)。检测到多个安装时会列出路径供选择；
-检测到旧版本时会自动更新。它会记住目标 DSH 和安装前的 workspace 依赖，卸载时恢复原值。
+检测到旧版本时会自动更新。安装前会保存所选 profile 的 `package.json` 与
+`pnpm-lock.yaml`；卸载或安装失败时先原样恢复，再让 DSH 依据原锁文件重建依赖链接。
 
 不需要管理员权限，也不会安装系统 Node.js/pnpm、结束任务或擅自重启 DSH。完成后手动重启一次。
 
@@ -49,13 +50,13 @@ HTTPS Release 地址安装，避免重复下载拖慢安装。
 
 ### 交给 Agent
 
-把 [AGENTS.md 固定版本链接](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.8/AGENTS.md)
+把 [AGENTS.md 固定版本链接](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.9/AGENTS.md)
 发给 Agent；其中包含安装、更新、卸载、回滚和验收边界。
 
 ### macOS、Linux 或已有 `dsh` 命令
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.8/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.9/dsh-session-delete.tgz"
 ```
 
 这条通用命令不会安装管理助手；如果 profile 原本显式固定了官方 workspace 包，卸载前应
@@ -105,7 +106,8 @@ Windows 安装助手用户以后只需要：
 | 更新 | `dsh-session-delete update` |
 | 卸载 | `dsh-session-delete uninstall` |
 
-更新会先下载并校验最新 Release 安装器；卸载会恢复首次安装前记录的 workspace 依赖。
+更新会先下载并校验最新 Release 安装器；卸载会恢复首次安装前保存的 profile 清单和锁文件，
+再由 DSH 重建依赖链接，避免旧版本包的完整性信息在反向安装时丢失。
 两项操作都不会删除会话或自动重启 DSH。
 
 使用通用命令安装时，可用新 Release 的同一条 `add` 命令更新。仅当安装前没有显式
