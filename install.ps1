@@ -6,7 +6,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$PackageSpec = 'dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/dsh-native-session-delete.tgz'
+$PackageSpec = 'dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/dsh-native-session-delete.tgz'
 $Chinese = [Globalization.CultureInfo]::CurrentUICulture.Name -like 'zh-*'
 
 function Say([string]$ChineseText, [string]$EnglishText) {
@@ -41,7 +41,39 @@ function Resolve-DshCommand {
             return (Resolve-Path -LiteralPath $candidate).Path
         }
     }
-    throw 'DSH was not found. Run this command in the DSH-Portable folder, add dsh to PATH, or pass -DshPath.'
+
+    # Portable archives are often unpacked below a generated folder such as
+    # LocalAppData\Temp\opencode\<name>\DSH-Portable. Probe only a few known
+    # user roots and at most three directory levels; never recurse over a disk.
+    $roots = [Collections.Generic.List[string]]::new()
+    if ($env:USERPROFILE) {
+        $roots.Add((Join-Path $env:USERPROFILE 'Downloads'))
+        $roots.Add((Join-Path $env:USERPROFILE 'Desktop'))
+        $roots.Add((Join-Path $env:USERPROFILE 'Documents'))
+    }
+    if ($env:LOCALAPPDATA) { $roots.Add((Join-Path $env:LOCALAPPDATA 'Temp')) }
+
+    $discovered = [Collections.Generic.List[string]]::new()
+    foreach ($root in $roots) {
+        if (-not (Test-Path -LiteralPath $root -PathType Container)) { continue }
+        foreach ($depth in 0..3) {
+            $parts = [Collections.Generic.List[string]]::new()
+            foreach ($unused in 1..$depth) { if ($depth -gt 0) { $parts.Add('*') } }
+            foreach ($name in @('dsh.exe', 'dsh.cmd')) {
+                $partsWithName = @($parts) + $name
+                $pattern = Join-Path $root ($partsWithName -join '\')
+                Get-Item -Path $pattern -ErrorAction SilentlyContinue | ForEach-Object {
+                    if (-not $discovered.Contains($_.FullName)) { $discovered.Add($_.FullName) }
+                }
+            }
+        }
+    }
+
+    if ($discovered.Count -eq 1) { return $discovered[0] }
+    if ($discovered.Count -gt 1) {
+        throw "Multiple DSH installations were found. Pass -DshPath with the intended dsh.exe:`n$($discovered -join "`n")"
+    }
+    throw 'DSH was not found in PATH or common Portable locations. Run this command in the DSH-Portable folder or pass -DshPath.'
 }
 
 $dsh = Resolve-DshCommand

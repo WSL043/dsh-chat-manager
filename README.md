@@ -30,23 +30,24 @@
 打开 PowerShell，复制这一行：
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/install.ps1' | iex
 ```
 
-助手只检查当前目录、PATH 和几个常见的 DSH-Portable 目录，找到后立即调用一次 DSH 官方
-`plugin add`；它不会递归扫盘、安装包管理器、保存 profile 快照、创建常驻命令或重复下载插件。
-普通 DSH 和 [DSH-Portable](https://github.com/WSL043/DSH-Portable) 都支持。
+助手依次检查当前目录、PATH、`DSH_PORTABLE_ROOT`、下载/桌面/文档目录，以及这些目录和
+`LocalAppData\Temp` 下最多三层的 Portable 解压目录；找到后立即调用一次 DSH 官方 `plugin add`。
+它不会递归扫盘、安装包管理器、保存 profile 快照、创建常驻命令或重复下载插件。普通 DSH 和
+[DSH-Portable](https://github.com/WSL043/DSH-Portable) 都支持；如果发现多个 DSH，会停止并要求明确选择。
 
 如果 DSH-Portable 不在常见位置，可明确指定，仍然不会扫描磁盘：
 
 ```powershell
-& ([scriptblock]::Create((irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/install.ps1'))) -DshPath 'D:\DSH-Portable\dsh.exe'
+& ([scriptblock]::Create((irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/install.ps1'))) -DshPath 'D:\DSH-Portable\dsh.exe'
 ```
 
 ### 官方 CLI（macOS、Linux 或希望直接审阅命令）
 
 ```sh
-dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/dsh-native-session-delete.tgz"
+dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/dsh-native-session-delete.tgz"
 ```
 
 助手和这条命令使用的是同一个标准 bundle 安装机制；助手只是 Windows 入口，不接管安装事务。
@@ -55,7 +56,7 @@ dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL04
 
 ### 交给 Agent
 
-请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v1.0.1/AGENTS.md)，
+请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v1.0.2/AGENTS.md)，
 其中写明了安装、更新、验收、卸载和安全边界。不要把 `main` 分支文档当作安装依据。
 
 ## 使用
@@ -92,7 +93,7 @@ dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL04
 
 ## 兼容性
 
-v1.0.1 面向 DeepSeek Harness `0.1.0-rc.6`、`0.1.0-rc.7` 和 `0.1.0-rc.8` 的默认逐会话
+v1.0.2 面向 DeepSeek Harness `0.1.0-rc.6`、`0.1.0-rc.7` 和 `0.1.0-rc.8` 的默认逐会话
 JSONL 存储。插件使用标准 `dsh.bundle` profile 层，将官方 workspace 行替换为唯一的
 `dsh-native-session-delete` 原生客户端；卸载后 DSH 会恢复官方 workspace 行。
 
@@ -101,10 +102,10 @@ JSONL 存储。插件使用标准 `dsh.bundle` profile 层，将官方 workspace
 
 ## 更新与卸载
 
-更新可重新运行快速安装助手，或使用新版本的同一条 `add` 命令。v1.0.1 的直接命令是：
+更新可重新运行快速安装助手，或使用新版本的同一条 `add` 命令。v1.0.2 的直接命令是：
 
 ```sh
-dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/dsh-native-session-delete.tgz"
+dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/dsh-native-session-delete.tgz"
 ```
 
 卸载只移除这个插件的 bundle 层，不删除任何会话：

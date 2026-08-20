@@ -112,16 +112,16 @@ jobs:
           cat > .artifacts/release.md <<'NOTES'
           ## 安装体验 / Installation experience
 
-          - 新增秒级 Windows 薄安装助手，快速定位普通 DSH 或 DSH-Portable。
-          - 助手只调用一次官方 `dsh plugin add`，不扫盘、不装包管理器、不保存 profile 快照。
+          - 修复嵌套解压目录中的 DSH-Portable 无法自动发现的问题。
+          - 助手只在常用用户目录和临时目录内做最多三层的有限搜索，不递归扫盘。
           - 标准 DSH bundle 与卸载恢复机制保持不变。
 
-          - Adds a fast, thin Windows helper for regular DSH and DSH-Portable discovery.
-          - Calls the official `dsh plugin add` exactly once, with no disk scan, package-manager bootstrap, or profile snapshot.
+          - Fixes automatic discovery for DSH-Portable copies nested inside extracted temporary folders.
+          - Searches at most three levels below bounded user and temporary roots, never recursively scanning a disk.
           - Keeps the standard DSH bundle and uninstall restoration model unchanged.
 
           ```powershell
-          irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/install.ps1' | iex
+          irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.2/install.ps1' | iex
           ```
           NOTES
       - name: Publish immutable release
