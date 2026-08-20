@@ -42,8 +42,8 @@ $ManagerScriptName = 'dsh-session-delete-manager.ps1'
 $LegacyManagerScriptName = 'dsh-session-delete.ps1'
 $ManagerShimName = 'dsh-session-delete.cmd'
 $ManagerStateName = 'install-state.json'
-$PackageVersion = '0.1.10'
-$PackageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.10/dsh-session-delete.tgz'
+$PackageVersion = '0.1.11'
+$PackageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.11/dsh-session-delete.tgz'
 $PackageSpec = "$PackageName@$PackageUrl"
 $PnpmVersion = '11.19.0'
 $PnpmUrl = 'https://registry.npmjs.org/pnpm/-/pnpm-11.19.0.tgz'
@@ -793,14 +793,17 @@ function Restore-ProfileSnapshot {
         Remove-Item -LiteralPath $Snapshot.LockfilePath -Force
     }
     if ($Snapshot.ManifestExists) {
-        Invoke-DshCommand -Target $Target -Arguments @(
-            'plugin', '--profile', $Profile, 'install', '--loglevel', 'error'
-        )
-        [IO.File]::WriteAllBytes($Snapshot.ManifestPath, [Convert]::FromBase64String([string] $Snapshot.ManifestBase64))
-        if ($Snapshot.LockfileExists) {
-            [IO.File]::WriteAllBytes($Snapshot.LockfilePath, [Convert]::FromBase64String([string] $Snapshot.LockfileBase64))
-        } elseif (Test-Path -LiteralPath $Snapshot.LockfilePath -PathType Leaf) {
-            Remove-Item -LiteralPath $Snapshot.LockfilePath -Force
+        try {
+            Invoke-DshCommand -Target $Target -Arguments @(
+                'plugin', '--profile', $Profile, 'install', '--loglevel', 'error'
+            )
+        } finally {
+            [IO.File]::WriteAllBytes($Snapshot.ManifestPath, [Convert]::FromBase64String([string] $Snapshot.ManifestBase64))
+            if ($Snapshot.LockfileExists) {
+                [IO.File]::WriteAllBytes($Snapshot.LockfilePath, [Convert]::FromBase64String([string] $Snapshot.LockfileBase64))
+            } elseif (Test-Path -LiteralPath $Snapshot.LockfilePath -PathType Leaf) {
+                Remove-Item -LiteralPath $Snapshot.LockfilePath -Force
+            }
         }
     }
 }

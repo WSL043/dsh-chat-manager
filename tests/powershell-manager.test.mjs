@@ -11,7 +11,7 @@ const root = new URL('..', import.meta.url).pathname.replace(/^\/(?:([A-Za-z]:))
 const manager = join(root, 'dsh-session-delete.ps1')
 const setup = join(root, 'dsh-session-delete-setup.ps1')
 const packageName = '@deepseek-ai/dsh-client-ui-workspace'
-const packageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.10/dsh-session-delete.tgz'
+const packageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.11/dsh-session-delete.tgz'
 
 async function makeFixture({ original = '0.1.0-rc.8', initialized = true, lockfile = true } = {}) {
   const fixture = join(tmpdir(), `dsh-session-delete-manager-${crypto.randomUUID()}`)
@@ -51,7 +51,7 @@ const subject = plugin >= 0 ? args[plugin + 4] : ''
 if (action === 'list') {
   const output = {}
   for (const [name, spec] of Object.entries(deps)) {
-    output[name] = { version: String(spec).includes('dsh-session-delete') ? '0.1.10' : String(spec).replace(/^[^0-9]*/, '') }
+    output[name] = { version: String(spec).includes('dsh-session-delete') ? '0.1.11' : String(spec).replace(/^[^0-9]*/, '') }
   }
   console.log(JSON.stringify([{ dependencies: output }]))
   process.exit(0)
@@ -66,7 +66,7 @@ if (action === 'add') {
   if (name === '${packageName}' && String(spec).includes('dsh-session-delete')) {
     const linked = new URL('./node_modules/@deepseek-ai/dsh-client-ui-workspace/package.json', 'file:///' + profileFile.replaceAll('\\\\', '/')).pathname.slice(1)
     mkdirSync(linked.slice(0, linked.lastIndexOf('/')), { recursive: true })
-    writeFileSync(linked, JSON.stringify({ name: 'dsh-session-delete', version: '0.1.10' }))
+    writeFileSync(linked, JSON.stringify({ name: 'dsh-session-delete', version: '0.1.11' }))
   }
   if (process.env.DSH_TEST_FAIL_INSTALL === '1' && subject.includes('dsh-session-delete')) process.exit(9)
   if (process.env.DSH_TEST_FAIL_RESTORE === '1' && !subject.includes('dsh-session-delete')) process.exit(8)
@@ -80,6 +80,7 @@ if (action === 'remove') {
 }
 if (action === 'install') {
   if (lockFile) writeFileSync(lockFile, 'reconciled-by-install\\n')
+  if (process.env.DSH_TEST_FAIL_RECONCILE === '1') process.exit(7)
   process.exit(0)
 }
 console.error('unexpected arguments: ' + JSON.stringify(args))
@@ -302,6 +303,23 @@ windowsTest('a failed install restores the exact dependency that was present bef
   }
 })
 
+windowsTest('a failed DSH reconcile still reasserts rollback bytes', async () => {
+  const target = await makeFixture({ original: '0.1.0-rc.8' })
+  try {
+    const beforeManifest = await readFile(target.profileFile, 'utf8')
+    const beforeLock = await readFile(target.lockFile, 'utf8')
+    const result = runManager(target, 'Install', {
+      DSH_TEST_FAIL_INSTALL: '1',
+      DSH_TEST_FAIL_RECONCILE: '1',
+    })
+    assert.notEqual(result.status, 0)
+    assert.equal(await readFile(target.profileFile, 'utf8'), beforeManifest)
+    assert.equal(await readFile(target.lockFile, 'utf8'), beforeLock)
+  } finally {
+    await rm(target.fixture, { recursive: true, force: true })
+  }
+})
+
 windowsTest('managed uninstall refuses to overwrite a dependency changed by the user', async () => {
   const target = await makeFixture()
   try {
@@ -429,7 +447,7 @@ windowsTest('explicit official DSH target uses its selected executable and offic
 
 windowsTest('manager never starts or stops DSH and publishes immutable release URLs', async () => {
   const script = await readFile(manager, 'utf8')
-  assert.match(script, /releases\/download\/v0\.1\.10\/dsh-session-delete\.tgz/)
+  assert.match(script, /releases\/download\/v0\.1\.11\/dsh-session-delete\.tgz/)
   assert.match(script, /dsh-session-delete\.ps1\.sha256/)
   assert.doesNotMatch(script, /Assert-PackageReleaseAsset/)
   assert.doesNotMatch(script, /Stop-Process|taskkill|Restart-Service/i)
