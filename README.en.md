@@ -25,34 +25,40 @@ Native dark menu · Second confirmation · Safe stop for running work · In-plac
 
 ## Install
 
-### Existing DSH installation
+### Windows quick install (recommended)
 
-Install the fixed Release package with the official DSH plugin command:
-
-```sh
-dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.0/dsh-native-session-delete.tgz"
-```
-
-This is the only installation command. DSH owns profile changes, dependency resolution, and bundle
-composition; no PowerShell manager is installed, no setup script is downloaded twice, and DSH is not
-restarted automatically.
-
-### DSH-Portable
-
-From the `DSH-Portable` root in PowerShell, run the equivalent Portable command:
+Open PowerShell and paste one line:
 
 ```powershell
-.\dsh.exe plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.0/dsh-native-session-delete.tgz"
+irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/install.ps1' | iex
 ```
 
-DSH-Portable: [WSL043/DSH-Portable](https://github.com/WSL043/DSH-Portable).
+The helper checks only the current directory, PATH, and a few common DSH-Portable locations, then calls
+the official DSH `plugin add` command once. It does not scan disks recursively, install a package manager,
+snapshot profiles, create a resident command, or download the plugin twice. It supports regular DSH and
+[DSH-Portable](https://github.com/WSL043/DSH-Portable).
+
+For a Portable copy in a custom location, provide its executable explicitly without a disk scan:
+
+```powershell
+& ([scriptblock]::Create((irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/install.ps1'))) -DshPath 'D:\DSH-Portable\dsh.exe'
+```
+
+### Official CLI (macOS, Linux, or direct review)
+
+```sh
+dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/dsh-native-session-delete.tgz"
+```
+
+The helper and direct command use the same standard bundle mechanism. The helper is only a Windows entry
+point; DSH still owns the installation transaction.
 
 When the command finishes, save your work and restart DSH once through its normal workflow so the new
 bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v1.0.0/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v1.0.1/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -95,7 +101,7 @@ without warranty.
 
 ## Compatibility
 
-v1.0.0 targets the default per-session JSONL storage in DeepSeek Harness `0.1.0-rc.6`, `0.1.0-rc.7`,
+v1.0.1 targets the default per-session JSONL storage in DeepSeek Harness `0.1.0-rc.6`, `0.1.0-rc.7`,
 and `0.1.0-rc.8`. It uses a standard `dsh.bundle` profile layer that replaces the official workspace
 row with the uniquely identified native client `dsh-native-session-delete`; uninstalling restores the
 official workspace row.
@@ -106,10 +112,10 @@ no-reload, and disposable-session deletion acceptance checks.
 
 ## Update and uninstall
 
-Update with the same `add` command using the new release. For v1.0.0, the repair/update command remains:
+Update by rerunning the quick installer or using the new release in the same `add` command. For v1.0.1:
 
 ```sh
-dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.0/dsh-native-session-delete.tgz"
+dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.1/dsh-native-session-delete.tgz"
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:
