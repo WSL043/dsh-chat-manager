@@ -23,10 +23,10 @@ This plugin must replace the dependency key
 or installing it under the name `dsh-session-delete`, does not prove that the
 native workspace menu was replaced.
 
-The fixed v0.1.5 package spec is:
+The fixed v0.1.6 package spec is:
 
 ```text
-@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz
+@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6/dsh-session-delete.tgz
 ```
 
 ## Detect DSH
@@ -58,24 +58,39 @@ snapshot the selected profile's relevant metadata before invoking it.
 
 ## Install or update
 
+On Windows, prefer the checksum-verifying guided manager unless the user asks
+for the raw DSH command. It detects standard DSH and DSH-Portable, records the
+selected target and the exact pre-install workspace dependency, and installs a
+per-user `dsh-session-delete` command without administrator access:
+
+```powershell
+$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw 'Download failed' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw 'Checksum mismatch' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
+```
+
+For non-interactive Agent use, download `dsh-session-delete.ps1` and its
+`.sha256` sidecar from the same immutable v0.1.6 Release, verify the script,
+then execute `-Action Install` with an explicit target when more than one DSH
+installation exists. Do not bypass checksum verification by fetching a moving
+branch copy.
+
 With an existing `dsh` command:
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6/dsh-session-delete.tgz"
 ```
 
 With DSH-Portable, run from its root:
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6/dsh-session-delete.tgz"
 ```
 
-Use the same command for v0.1.5 update or repair. Do not restart DSH
+Use the same command for v0.1.6 update or repair. Do not restart DSH
 automatically.
 
-The Release includes `dsh-session-delete.tgz.sha256`. When downloading assets
-before installation, verify the tarball's SHA-256 against that sidecar. Do not
-treat a hash copied from an unrelated page or prior version as evidence.
+The Release includes `.sha256` sidecars for the setup helper, manager, and
+tarball. Verify the matching same-version asset before execution or install.
+Do not treat a hash copied from an unrelated page or prior version as evidence.
 
 ## Verify
 
@@ -88,10 +103,10 @@ dsh plugin --profile web list @deepseek-ai/dsh-client-ui-workspace --depth 0
 Static success requires all of the following:
 
 1. The dependency appears exactly once under the requested profile.
-2. The direct dependency spec is the fixed v0.1.5 Release URL.
+2. The direct dependency spec is the fixed v0.1.6 Release URL.
 3. The installed alias directory
    `node_modules/@deepseek-ai/dsh-client-ui-workspace/package.json` reports
-   `name: "dsh-session-delete"` and `version: "0.1.5"`.
+   `name: "dsh-session-delete"` and `version: "0.1.6"`.
 4. No unrelated dependency, profile patch, or running DSH process changed.
 
 A live UI check requires permission to restart DSH. After restart, open the
@@ -147,6 +162,16 @@ the compatibility tests plus the installation, startup, native-menu,
 confirmation, no-reload, and disposable-session deletion checks first.
 
 ## Uninstall
+
+For an installation made by the Windows guided manager, use:
+
+```powershell
+dsh-session-delete uninstall
+```
+
+The manager restores the exact dependency recorded before the first guided
+install, or removes the key only when no original dependency existed. It must
+not guess or replace that state with the newest official package.
 
 For a standard profile with no prior explicit workspace dependency:
 
