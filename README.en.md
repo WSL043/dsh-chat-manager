@@ -1,70 +1,40 @@
+<div align="center">
+
 # DSH Session Delete
 
-[中文](README.md)
+**Bring permanent deletion to the native DeepSeek Harness session menu.**
 
-Adds **Delete session** to the native DeepSeek Harness session menu. Deletion
-always requires a second confirmation in a modal, while the existing archive
-action remains available.
+Second confirmation · Running work is stopped safely · No full-page reload
 
-This is an unofficial community plugin and is not affiliated with or endorsed
-by DeepSeek.
+[![Release](https://img.shields.io/github/v/release/WSL043/dsh-session-delete?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-session-delete/releases/latest)
+[![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-session-delete/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-session-delete/actions/workflows/ci.yml)
+[![DSH](https://img.shields.io/badge/DSH-rc.6%E2%80%93rc.8-2f81f7?style=flat-square)](#compatibility)
+[![License](https://img.shields.io/github/license/WSL043/dsh-session-delete?style=flat-square)](LICENSE)
 
-![DSH Session Delete confirmation dialog](docs/assets/confirm-delete.en.png)
+[中文](README.md) · [Install](#install) · [Use](#use) · [Safety boundary](#safety-boundary)
 
-## Before deleting
+</div>
 
-> **Permanent deletion cannot be undone. Confirm the target session and make a
-> backup first when needed.**
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/assets/confirm-delete.en.png" alt="English permanent deletion confirmation dialog">
+      <br><sub>English UI</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/assets/confirm-delete.png" alt="Chinese permanent deletion confirmation dialog">
+      <br><sub>中文界面</sub>
+    </td>
+  </tr>
+</table>
 
-This release supports only the default per-session JSONL storage in DeepSeek
-Harness `0.1.0-rc.6`, `0.1.0-rc.7`, and `0.1.0-rc.8`. It deletes the target session-owned
-directory; data held by other plugins, caches, indexes, backups, or synchronized
-copies is outside its scope, so this is not a secure-erasure tool. You are
-responsible for having authority to delete the target session and for meeting
-applicable retention requirements.
-
-This is an unofficial community plugin. DSH upgrades or another plugin using
-the same workspace dependency slot may be incompatible; revalidate after an
-upgrade. The software is provided under the [MIT License](LICENSE), without
-warranty.
-
-## What it does
-
-- Places deletion in the native session actions menu using DSH's native red
-  danger treatment;
-- Requires an explicit permanent-deletion confirmation;
-- Deletes sessions opened through the standard Web flow after the plugin is
-  active; running work is stopped safely before DSH tears down the session in
-  lifecycle order;
-- Refreshes session and workspace state in place after success without reloading
-  the whole DSH page;
-- Blocks the same session from reopening during deletion, rejects linked path
-  components, verifies file identity and the JSONL layout, then atomically
-  detaches the target directory before cleanup;
-- Accepts only a same-origin JSON POST with a dedicated confirmation header.
-
-## Prepare DSH
-
-This release supports the default per-session JSONL storage in DeepSeek Harness
-`0.1.0-rc.6`, `0.1.0-rc.7`, and `0.1.0-rc.8`. The package is built from the
-rc.8 client and retains tested compatibility fallbacks for rc.6 and rc.7 hosts.
-
-Future DSH versions are not claimed as automatically compatible. Dependency
-automation detects a new upstream version and runs CI; support is released only
-after strict upstream markers, installation, startup, the native menu, second
-confirmation, and disposable-session deletion all pass. Updates are discovered
-automatically without exposing users to an unverified destructive path.
+| Native | Safe | Smooth |
+| --- | --- | --- |
+| Lives in the native session actions menu and keeps Archive available | Requires a second confirmation and safely stops running work | Refreshes session state in place without reloading the whole DSH page |
 
 ## Install
 
-### Let an Agent install it
-
-Send this guide to your Agent. It includes install, update, uninstall, and
-verification boundaries:
-
-https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.5/AGENTS.md
-
-### Existing `dsh` command
+### DSH
 
 ```sh
 dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
@@ -78,67 +48,52 @@ Run this inside the DSH-Portable folder:
 .\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
 ```
 
-The package occupies DSH's native
-`@deepseek-ai/dsh-client-ui-workspace` dependency slot. This is what makes the
-new action part of the native menu rather than a separate page or browser
-userscript. The command does not restart DSH; restart it manually afterward.
+The command does not restart DSH. Restart it once after installation.
 
-Each Release also provides `dsh-session-delete.tgz.sha256`. Download both files
-and verify the SHA-256 with `Get-FileHash .\dsh-session-delete.tgz -Algorithm
-SHA256` on Windows or `sha256sum -c dsh-session-delete.tgz.sha256` on
-Linux/macOS.
+You can also give an Agent the
+[version-pinned AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.5/AGENTS.md),
+which defines the install, update, uninstall, and acceptance boundaries.
 
 ## Use
 
-Open a session's actions menu in the sidebar, choose the red **Delete session**, read
-the warning, and select **Delete permanently**.
+1. Open the actions menu beside the target session in the sidebar.
+2. Choose the red **Delete session** action.
+3. Check the session name, then select **Delete permanently**.
 
-Sessions opened through the standard Web flow after the plugin is active do not
-need to be closed manually. After confirmation, running work is stopped safely
-through DSH's lifecycle handle; the plugin waits for quiescence, tears down the
-session, and then removes its local record. If a custom host creates a session
-without exposing a safe lifecycle capability, the plugin refuses deletion
-instead of forcing it.
+Sessions opened through the standard Web UI after the plugin becomes active do not need to be closed
+manually. If work is still running, the plugin stops it through DSH's lifecycle capability, waits for
+quiescence, tears down the session, and then removes its local record.
 
-## Installation notes and acceptance check
+## Safety boundary
 
-- `dsh plugin ... list` is non-destructive to session data, but it is not
-  strictly read-only on disk. Its first run may migrate a Portable profile,
-  rebuild dependency links, or update a lockfile.
-- This is a `dsh.client` injection and does not contribute a configuration patch
-  layer. A missing `dsh.bundle` notice is expected, is not an installation
-  failure, and should not be silenced with an empty bundle.
-- DSH supplies the runtime peers. Since v0.1.1 they are optional so host injection
-  is not misreported as a plugin defect. If other profile packages still emit
-  peer warnings, assess them by package name.
+> [!WARNING]
+> Permanent deletion cannot be undone. Confirm the target session and make a backup when needed.
 
-From a source checkout, install dependencies and run `pnpm exec playwright
-install chromium`, then check one explicitly named existing session without
-deleting it:
+- Only the target session-owned directory in the default JSONL backend is deleted;
+- Other plugins, external attachments, caches, indexes, logs, backups, and synchronized copies are outside
+  its scope, so this is not a secure-erasure tool;
+- Non-JSONL storage and custom hosts without a safe stop capability are refused instead of force-deleted;
+- If the operating system refuses cleanup, the plugin reports that deletion could not be confirmed rather
+  than misreporting partial completion as success.
 
-```sh
-pnpm smoke:ui -- --url http://127.0.0.1:14171 --session "Exact session title"
-```
+This is an unofficial community plugin and is not affiliated with or endorsed by DeepSeek. You are
+responsible for having authority to delete the target data and for meeting applicable retention
+requirements. The software is provided under the [MIT License](LICENSE), without warranty.
 
-The script verifies **Archive session**, **Delete session**, the second
-confirmation, and cancellation. It never clicks **Delete permanently** and
-does not start, stop, or restart DSH.
+## Compatibility
 
-To check the successful no-flash path, intercept deletion inside DSH's isolated
-fixture:
+This release supports the default per-session JSONL storage in DeepSeek Harness `0.1.0-rc.6`,
+`0.1.0-rc.7`, and `0.1.0-rc.8`. The package is built from the rc.8 client and retains tested fallbacks
+for rc.6 and rc.7 hosts.
 
-```sh
-pnpm smoke:ui -- --url "http://127.0.0.1:14171/?fixture" --session "Fixture 历史会话" --simulate-delete-success
-```
-
-This mode is restricted to a URL containing `?fixture`. It returns a simulated
-success and asserts that the main page was not reloaded; no request reaches the
-Host and no real session is deleted.
+Dependency automation discovers future DSH versions, but they are not automatically claimed as compatible.
+A support release is published only after installation, startup, the native menu, second confirmation, and
+disposable-session deletion all pass.
 
 ## Update and uninstall
 
-To update, run the same `add` command from the new fixed Release. Updating does
-not delete sessions or restart DSH.
+To update, run the same `add` command from the new Release and restart DSH manually. Updating does not
+delete sessions.
 
 For a standard `web` profile:
 
@@ -146,47 +101,40 @@ For a standard `web` profile:
 dsh plugin --profile web remove @deepseek-ai/dsh-client-ui-workspace
 ```
 
-Use `.\dsh.exe` with the same arguments for DSH-Portable. Uninstall removes
-only the plugin and does not delete any session. Restart DSH manually. If a
-custom profile explicitly pinned the official workspace package before
-installation, restore that original dependency instead of removing it; an Agent
-can follow `AGENTS.md`.
+Use `.\dsh.exe` with the same arguments for DSH-Portable. Uninstall removes only the plugin and never
+deletes a session; restart DSH afterward. If a custom profile previously pinned the official workspace
+package, restore that original dependency value.
 
-## Deletion scope
+<details>
+<summary><strong>Messages you may see during installation</strong></summary>
 
-The plugin deletes the session-owned directory in the default JSONL backend,
-including the main transcript and session-owned files stored in that directory.
-The operation cannot be undone.
+- `dsh plugin ... list` is non-destructive to session data, but its first run may migrate a Portable
+  profile, rebuild dependency links, or update a lockfile, so it is not strictly read-only on disk.
+- This plugin contributes only a `dsh.client` injection. A missing `dsh.bundle` notice is expected and is
+  not an installation failure.
+- DSH supplies the runtime peers. They are marked optional here; assess warnings from other packages by
+  package name.
+- Every Release includes `dsh-session-delete.tgz.sha256` for SHA-256 verification.
 
-This is not secure erasure. Data held by other plugins, external
-attachment directories, indexes, backups, synchronized copies, or logging
-systems is outside this plugin's scope. Non-JSONL storage backends are refused.
+</details>
 
-If the operating system refuses cleanup after the directory has already been
-detached from DSH, the plugin reports that permanent deletion could not be
-confirmed. It does not misreport complete success or claim that no files changed.
+<details>
+<summary><strong>Why does upstream provide Archive only?</strong></summary>
 
-## Why upstream provides archive instead
+The official implementation note records a product decision: the former Delete entry was only a visual
+placeholder and was replaced with non-destructive archive. The current JSONL persistence seam also has no
+session-deletion contract. This is best understood as the current safety choice and interface boundary,
+not as a claim that users should never be able to delete local data.
 
-The official implementation note records a product choice: the former Delete
-entry was only a visual placeholder and was replaced with non-destructive
-archive. Session logs and workspace accounting stay intact, so the native
-archive action does not need destructive styling or confirmation. The current
-JSONL persistence seam also has no session-deletion contract. This is best
-understood as the current product safety choice and interface boundary, not as a
-claim that users should never be able to delete local data.
+[Official archive decision](https://github.com/deepseek-ai/deepseek-harness/blob/master/.agents/notes/implemented/feature/2026-07-31-session-archive-global-set.md)
+· [JSONL storage documentation](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/session/session-persistence-jsonl/README.md)
 
-References:
-[official archive decision](https://github.com/deepseek-ai/deepseek-harness/blob/master/.agents/notes/implemented/feature/2026-07-31-session-archive-global-set.md) ·
-[JSONL storage documentation](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/session/session-persistence-jsonl/README.md)
+</details>
 
-## Support
+## Support and license
 
-Open a [GitHub Issue](https://github.com/WSL043/dsh-session-delete/issues) for
-ordinary problems. Report security issues privately as described in
-[SECURITY.md](SECURITY.md).
+Open a [GitHub Issue](https://github.com/WSL043/dsh-session-delete/issues) for ordinary problems. Report
+security issues privately as described in [SECURITY.md](SECURITY.md).
 
-## License
-
-MIT. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the modified
-upstream client and its license notice.
+MIT. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the modified upstream client and its license
+notice.
