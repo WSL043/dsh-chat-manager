@@ -42,8 +42,8 @@ $ManagerScriptName = 'dsh-session-delete-manager.ps1'
 $LegacyManagerScriptName = 'dsh-session-delete.ps1'
 $ManagerShimName = 'dsh-session-delete.cmd'
 $ManagerStateName = 'install-state.json'
-$PackageVersion = '0.1.7'
-$PackageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.7/dsh-session-delete.tgz'
+$PackageVersion = '0.1.8'
+$PackageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.8/dsh-session-delete.tgz'
 $PackageSpec = "$PackageName@$PackageUrl"
 $PnpmVersion = '11.19.0'
 $PnpmUrl = 'https://registry.npmjs.org/pnpm/-/pnpm-11.19.0.tgz'
@@ -990,8 +990,7 @@ try {
     $originalDependencyExists = if ($null -ne $managerState) {
         [bool] $managerState.originalDependencyExists
     } else {
-        [bool] $dependencyBefore.Exists -and
-            ([string] $dependencyBefore.Spec -notmatch '(?i)github\.com/WSL043/dsh-session-delete/releases/download/v')
+        [bool] $dependencyBefore.Exists
     }
     $originalDependencySpec = if ($null -ne $managerState -and $managerState.originalDependencyExists) {
         [string] $managerState.originalDependencySpec
