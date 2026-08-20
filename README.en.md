@@ -30,7 +30,7 @@ Second confirmation · Running work is stopped safely · No full-page reload
 Open PowerShell and paste this one line:
 
 ```powershell
-$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw 'Download failed' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw 'Checksum mismatch' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
+$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.7'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw 'Download failed' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw 'Checksum mismatch' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
 ```
 
 Setup asks for Chinese or English, then finds standard DSH and
@@ -44,20 +44,21 @@ DSH; restart it manually when the operation finishes.
 <details>
 <summary><strong>Verify the setup helper before execution</strong></summary>
 
-The entry command already verifies setup. Setup also verifies the manager and plugin package it downloads.
+The entry command verifies setup, and setup verifies the manager. DSH installs the package directly from
+the version-pinned HTTPS Release URL, avoiding a redundant download during setup.
 
 </details>
 
 ### Let an Agent install it
 
 Give the Agent the
-[version-pinned AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.6/AGENTS.md).
+[version-pinned AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.7/AGENTS.md).
 It defines installation, update, uninstall, rollback, and acceptance boundaries.
 
 ### macOS, Linux, or an existing `dsh` command
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.7/dsh-session-delete.tgz"
 ```
 
 This universal command does not install the Windows manager. If the profile explicitly pinned an official
