@@ -1,5 +1,5 @@
-import { lstat, realpath, rm } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, relative, sep } from 'node:path'
+import { lstat, mkdtemp, realpath, rename, rm } from 'node:fs/promises'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 const failure = (code, message) => ({ ok: false, error: { code, message } })
 const MAX_REQUEST_BYTES = 8 * 1024
@@ -10,10 +10,19 @@ const MAX_REQUEST_BYTES = 8 * 1024
  * original handle so the host can cancel, drain, unregister, and detach in its
  * own supported order.
  */
-export function installAgentHandleTracker(agents) {
+export function installAgentHandleTracker(agents, sessions) {
   const handles = new Map()
+  const reservations = new Set()
   const originalCreate = agents.create
   const originalResume = agents.resume
+  const originalAgentEnter = agents.enter
+  const originalSessionEnter = sessions?.enter
+
+  const assertAvailable = (sessionId) => {
+    if (typeof sessionId === 'string' && reservations.has(sessionId)) {
+      throw new Error(`session "${sessionId}" is being permanently deleted`)
+    }
+  }
 
   const track = (handle) => {
     if (handle?.agent?.id !== undefined && typeof handle.dispose === 'function') {
@@ -22,17 +31,58 @@ export function installAgentHandleTracker(agents) {
     return handle
   }
   const wrappedCreate = async function (...args) {
+    assertAvailable(args[0]?.sessionId)
     return track(await Reflect.apply(originalCreate, this, args))
   }
   const wrappedResume = async function (...args) {
+    assertAvailable(args[0]?.resumeSessionId)
     return track(await Reflect.apply(originalResume, this, args))
   }
+  const wrappedAgentEnter = typeof originalAgentEnter === 'function'
+    ? function (...args) {
+        assertAvailable(args[0]?.id)
+        return Reflect.apply(originalAgentEnter, this, args)
+      }
+    : undefined
+  const wrappedSessionEnter = typeof originalSessionEnter === 'function'
+    ? function (...args) {
+        assertAvailable(args[0]?.id)
+        return Reflect.apply(originalSessionEnter, this, args)
+      }
+    : undefined
 
   agents.create = wrappedCreate
   agents.resume = wrappedResume
+  if (wrappedAgentEnter !== undefined) agents.enter = wrappedAgentEnter
+  if (wrappedSessionEnter !== undefined) sessions.enter = wrappedSessionEnter
+  let releaseStarted = false
   let released = false
+  let resolveRelease
+  let releaseTask
+
+  const finishRelease = () => {
+    if (!releaseStarted || released || reservations.size !== 0) return
+    released = true
+    handles.clear()
+    if (agents.create === wrappedCreate) agents.create = originalCreate
+    if (agents.resume === wrappedResume) agents.resume = originalResume
+    if (wrappedAgentEnter !== undefined && agents.enter === wrappedAgentEnter) agents.enter = originalAgentEnter
+    if (wrappedSessionEnter !== undefined && sessions.enter === wrappedSessionEnter) sessions.enter = originalSessionEnter
+    resolveRelease?.()
+  }
 
   return {
+    reserve(sessionId) {
+      if (releaseStarted || reservations.has(sessionId)) return undefined
+      reservations.add(sessionId)
+      let active = true
+      return () => {
+        if (!active) return
+        active = false
+        reservations.delete(sessionId)
+        finishRelease()
+      }
+    },
     async dispose(sessionId) {
       const handle = handles.get(sessionId)
       if (handle === undefined || agents.get(sessionId) !== handle.agent) {
@@ -44,11 +94,13 @@ export function installAgentHandleTracker(agents) {
       return true
     },
     release() {
-      if (released) return
-      released = true
-      handles.clear()
-      if (agents.create === wrappedCreate) agents.create = originalCreate
-      if (agents.resume === wrappedResume) agents.resume = originalResume
+      if (released) return releaseTask
+      if (!releaseStarted) {
+        releaseStarted = true
+        releaseTask = new Promise(resolve => { resolveRelease = resolve })
+        finishRelease()
+      }
+      return releaseTask
     },
   }
 }
@@ -79,11 +131,78 @@ const sameHeader = (left, right) => (
   && left?.version === right?.version
   && left?.createdAt === right?.createdAt
   && left?.cwd === right?.cwd
+  && left?.parentSession === right?.parentSession
+  && left?.seedLength === right?.seedLength
+  && left?.origin === right?.origin
+  && (left?.delegationDepth ?? 0) === (right?.delegationDepth ?? 0)
+  && left?.agentPreset === right?.agentPreset
 )
 
 const inside = (root, target) => {
   const path = relative(root, target)
   return path !== '' && !path.startsWith(`..${sep}`) && path !== '..' && !isAbsolute(path)
+}
+
+const missing = error => error?.code === 'ENOENT'
+
+const sameFile = (left, right) => (
+  left.dev === right.dev
+  && left.ino === right.ino
+  && left.mode === right.mode
+)
+
+const locationPaths = (sessionRoot, location) => {
+  if (location?.kind !== 'jsonl' || typeof location.path !== 'string') return undefined
+  const root = resolve(sessionRoot)
+  const transcript = resolve(location.path)
+  if (!isAbsolute(root) || !isAbsolute(transcript) || !inside(root, transcript)) return undefined
+  const parts = relative(root, transcript).split(sep).filter(Boolean)
+  if (parts.length !== 3 || !['session.jsonl', 'session.jsonl.zstd'].includes(parts[2])) return undefined
+  return {
+    root,
+    projectDirectory: join(root, parts[0]),
+    sessionDirectory: join(root, parts[0], parts[1]),
+    transcript,
+  }
+}
+
+const validateExistingLocation = async (paths) => {
+  const [root, project, directory, transcript] = await Promise.all([
+    realpath(paths.root),
+    lstat(paths.projectDirectory, { bigint: true }),
+    lstat(paths.sessionDirectory, { bigint: true }),
+    lstat(paths.transcript, { bigint: true }),
+  ])
+  if (
+    !project.isDirectory()
+    || project.isSymbolicLink()
+    || !directory.isDirectory()
+    || directory.isSymbolicLink()
+    || !transcript.isFile()
+    || transcript.isSymbolicLink()
+  ) return undefined
+
+  const [resolvedProject, resolvedDirectory, resolvedTranscript] = await Promise.all([
+    realpath(paths.projectDirectory),
+    realpath(paths.sessionDirectory),
+    realpath(paths.transcript),
+  ])
+  if (
+    !inside(root, resolvedProject)
+    || !inside(root, resolvedDirectory)
+    || dirname(resolvedTranscript) !== resolvedDirectory
+  ) return undefined
+  return { root, resolvedDirectory, directory, transcript }
+}
+
+const pathExists = async (path) => {
+  try {
+    await lstat(path)
+    return true
+  } catch (error) {
+    if (missing(error)) return false
+    throw error
+  }
 }
 
 /**
@@ -96,6 +215,19 @@ export async function deleteSessionSafely(deps, { sessionRoot, sessionId }) {
     return failure('unsupported-backend', '当前会话存储不是可逐会话删除的 JSONL 后端。')
   }
 
+  const releaseReservation = deps.agentHandles.reserve?.(sessionId)
+  if (typeof deps.agentHandles.reserve === 'function' && releaseReservation === undefined) {
+    return failure('deletion-in-progress', '该会话正在删除中，请等待当前操作完成。')
+  }
+
+  try {
+    return await deleteReservedSession(deps, { sessionRoot, sessionId })
+  } finally {
+    releaseReservation?.()
+  }
+}
+
+async function deleteReservedSession(deps, { sessionRoot, sessionId }) {
   let header = (await deps.sessionPersistence.list()).find(item => item.id === sessionId)
     ?? deps.sessions.get(sessionId)?.header
   if (header === undefined) return failure('session-not-found', '会话不存在或已经删除。')
@@ -127,51 +259,87 @@ export async function deleteSessionSafely(deps, { sessionRoot, sessionId }) {
   } catch (error) {
     const stillStored = (await deps.sessionPersistence.list()).some(item => item.id === sessionId)
     if (!stillStored && deps.sessions.get(sessionId) === undefined && deps.agents.get(sessionId) === undefined) {
-      return { ok: true, value: { deleted: true } }
+      const missingPaths = locationPaths(sessionRoot, deps.sessionPersistence.locate(header))
+      if (missingPaths !== undefined && !await pathExists(missingPaths.sessionDirectory)) {
+        return { ok: true, value: { deleted: true } }
+      }
+      return failure('storage-state-unknown', 'DSH 已摘载会话，但无法确认其存储是否已删除。')
     }
-    throw error
+    return failure('storage-state-unknown', '无法确认会话存储状态，未继续删除。')
   }
 
   const location = deps.sessionPersistence.locate(header)
   const raw = await deps.sessionPersistence.readRaw(sessionId)
-  if (location?.kind !== 'jsonl' || raw === undefined || !sameHeader(header, raw.meta)) {
+  const paths = locationPaths(sessionRoot, location)
+  if (paths === undefined || raw === undefined || !sameHeader(header, raw.meta)) {
     return failure('unsafe-location', '无法验证该会话的独立 JSONL 存储位置。')
   }
 
+  let validated
   try {
-    const [resolvedRoot, resolvedTranscript] = await Promise.all([
-      realpath(sessionRoot),
-      realpath(location.path),
-    ])
-    const sessionDirectory = dirname(resolvedTranscript)
-    const transcriptName = basename(resolvedTranscript)
-    const relativeDirectory = relative(resolvedRoot, sessionDirectory)
-    const depth = relativeDirectory.split(sep).filter(Boolean).length
-    const [directoryInfo, transcriptInfo] = await Promise.all([
-      lstat(sessionDirectory),
-      lstat(location.path),
-    ])
-
-    if (
-      !inside(resolvedRoot, sessionDirectory)
-      || depth < 2
-      || !['session.jsonl', 'session.jsonl.zstd'].includes(transcriptName)
-      || !directoryInfo.isDirectory()
-      || directoryInfo.isSymbolicLink()
-      || !transcriptInfo.isFile()
-      || transcriptInfo.isSymbolicLink()
-    ) {
-      return failure('unsafe-location', '会话存储位置未通过安全校验，未删除任何文件。')
-    }
-
-    if (deps.sessions.get(sessionId) !== undefined || deps.agents.get(sessionId) !== undefined) {
-      return failure('session-reopened', '该会话在删除过程中被重新打开，已取消删除。')
-    }
-
-    await rm(sessionDirectory, { recursive: true, force: false })
-    return { ok: true, value: { deleted: true } }
+    validated = await validateExistingLocation(paths)
   } catch (error) {
     if (error?.code === 'ENOENT') return failure('session-not-found', '会话不存在或已经删除。')
+    return failure('storage-error', '读取会话存储失败，未删除任何文件。')
+  }
+  if (validated === undefined) {
+    return failure('unsafe-location', '会话存储位置未通过安全校验，未删除任何文件。')
+  }
+  if (deps.sessions.get(sessionId) !== undefined || deps.agents.get(sessionId) !== undefined) {
+    return failure('session-reopened', '该会话在删除过程中被重新打开，已取消删除。')
+  }
+
+  let quarantineRoot
+  let quarantinedDirectory
+  let detached = false
+  try {
+    const moveDirectory = deps.moveDirectory ?? rename
+    quarantineRoot = await mkdtemp(join(dirname(validated.root), '.dsh-session-delete-'))
+    quarantinedDirectory = join(quarantineRoot, basename(validated.resolvedDirectory))
+    await moveDirectory(validated.resolvedDirectory, quarantinedDirectory)
+    detached = true
+
+    const quarantinedTranscript = join(quarantinedDirectory, basename(paths.transcript))
+    const [directoryAfter, transcriptAfter] = await Promise.all([
+      lstat(quarantinedDirectory, { bigint: true }),
+      lstat(quarantinedTranscript, { bigint: true }),
+    ])
+    if (
+      directoryAfter.isSymbolicLink()
+      || transcriptAfter.isSymbolicLink()
+      || !sameFile(validated.directory, directoryAfter)
+      || !sameFile(validated.transcript, transcriptAfter)
+    ) {
+      await moveDirectory(quarantinedDirectory, validated.resolvedDirectory)
+      detached = false
+      await rm(quarantineRoot, { recursive: true, force: true })
+      return failure('unsafe-location', '会话目录在删除期间发生了身份变化，未删除任何文件。')
+    }
+
+    const removeDirectory = deps.removeDirectory
+      ?? (directory => rm(directory, { recursive: true, force: false }))
+    await removeDirectory(quarantinedDirectory)
+    if (await pathExists(quarantinedDirectory)) {
+      return failure('storage-partial', '会话已从 DSH 摘载，但存储清理未完成，不能确认永久删除成功。')
+    }
+    await rm(quarantineRoot, { recursive: true, force: true })
+    return { ok: true, value: { deleted: true } }
+  } catch (error) {
+    if (detached && quarantinedDirectory !== undefined) {
+      let remains = true
+      try {
+        remains = await pathExists(quarantinedDirectory)
+      } catch {
+        // Inaccessible storage is not proof of cleanup; retain the quarantine.
+      }
+      if (remains) {
+        return failure('storage-partial', '会话已从 DSH 摘载，但存储清理未完成，不能确认永久删除成功。')
+      }
+      if (quarantineRoot !== undefined) await rm(quarantineRoot, { recursive: true, force: true }).catch(() => undefined)
+      return { ok: true, value: { deleted: true } }
+    }
+    if (quarantineRoot !== undefined) await rm(quarantineRoot, { recursive: true, force: true }).catch(() => undefined)
+    if (missing(error)) return failure('session-not-found', '会话不存在或已经删除。')
     return failure('storage-error', '存储删除失败，未删除任何文件。')
   }
 }

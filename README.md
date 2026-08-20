@@ -13,7 +13,7 @@
 
 > **永久删除无法撤销。请确认目标会话，并按需提前备份。**
 
-当前版本支持 DeepSeek Harness `0.1.0-rc.6` 和 `0.1.0-rc.7` 的默认逐会话
+当前版本支持 DeepSeek Harness `0.1.0-rc.6`、`0.1.0-rc.7` 和 `0.1.0-rc.8` 的默认逐会话
 JSONL 存储。它删除的是目标会话独占目录，并不清理其他插件、缓存、索引、备份或同步
 副本，因此不是安全擦除工具。你需要自行确认有权删除目标会话，并遵守适用的数据留存
 要求。
@@ -25,16 +25,22 @@ JSONL 存储。它删除的是目标会话独占目录，并不清理其他插�
 
 - 删除入口直接出现在原生会话操作菜单中，并使用 DSH 原生红色危险态；
 - 使用明确的永久删除弹窗，不会单击菜单后立即删除；
-- 已打开的会话可直接删除；正在运行的任务会先安全停止，再由 DSH 有序摘载会话；
+- 标准 Web 界面在插件生效后打开的会话可直接删除；正在运行的任务会先安全停止，再由
+  DSH 有序摘载会话；
 - 删除成功后原地刷新会话与 workspace 状态，不重载整个 DSH 页面；
-- 只删除经过会话 ID、存储根目录、真实路径和文件类型校验的独立 JSONL 会话目录；
+- 删除期间阻止同一会话重新打开，并在校验原始路径无连接、文件身份和 JSONL 布局后，
+  先原子摘走目标目录再清理；
 - 请求必须是同源 JSON POST，并带有专用确认请求头。
 
 ## 准备 DSH
 
-当前版本适配 DeepSeek Harness `0.1.0-rc.6` 和 `0.1.0-rc.7` 的默认逐会话
-JSONL 存储。插件采用严格的上游界面标记；DSH 界面结构变化时构建会直接失败，不会
-静默生成错误补丁。
+当前版本适配 DeepSeek Harness `0.1.0-rc.6`、`0.1.0-rc.7` 和 `0.1.0-rc.8` 的默认
+逐会话 JSONL 存储。发布包基于 rc.8 客户端构建，并为 rc.6/rc.7 宿主保留经过测试的
+兼容回退。
+
+后续 DSH 版本不会被自动宣称为兼容。依赖更新机器人会发现新版本并触发 CI；只有在
+严格上游标记、安装、启动、原生菜单、二次确认和一次性测试会话删除全部通过后，才会
+发布新的支持版本。这样可自动发现更新，但不会把未经验证的破坏性功能交给用户。
 
 ## 安装
 
@@ -42,12 +48,12 @@ JSONL 存储。插件采用严格的上游界面标记；DSH 界面结构变化�
 
 把下面的文档链接发给 Agent。文档包含安装、更新、卸载和验收边界：
 
-https://raw.githubusercontent.com/WSL043/dsh-session-delete/main/AGENTS.md
+https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.5/AGENTS.md
 
 ### 已有 `dsh` 命令
 
 ```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.4/dsh-session-delete.tgz"
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
 ```
 
 ### Windows DSH-Portable
@@ -55,7 +61,7 @@ dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://githu
 在 DSH-Portable 文件夹中执行：
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.4/dsh-session-delete.tgz"
+.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
 ```
 
 安装器会让这个包占用 DSH 原生的
@@ -71,8 +77,9 @@ Release 同时提供 `dsh-session-delete.tgz.sha256`。下载两个文件后，�
 在侧边栏会话右侧打开操作菜单，选择红色的 **删除会话**，阅读永久删除提示后再点
 **永久删除**。
 
-已打开的会话无需手动关闭。确认永久删除后，如果目标会话正在运行，插件会先调用
-DSH 的生命周期句柄停止并等待任务收敛，再摘载会话并删除本地记录。
+标准 Web 界面在插件生效后打开的会话无需手动关闭。确认永久删除后，如果目标会话正在
+运行，插件会先调用 DSH 的生命周期句柄停止并等待任务收敛，再摘载会话并删除本地记录。
+若自定义宿主直接创建会话却不提供可安全停止的生命周期能力，插件会拒绝删除，不会强删。
 
 ## 安装提示与验收
 
@@ -124,6 +131,9 @@ session-owned 文件。操作不可撤销。
 
 这不是安全擦除。其他插件、外部附件目录、索引、备份、同步副本或日志系统中的
 数据不在本插件的删除范围内。非 JSONL 存储后端也不会被尝试删除。
+
+若操作系统在目录已经从 DSH 摘载后拒绝清理剩余文件，插件会明确报告“不能确认永久删除
+成功”，不会误报为完整成功或声称没有文件发生变化。
 
 ## 为什么 DSH 原生只有归档
 
