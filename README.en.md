@@ -34,28 +34,43 @@ Second confirmation · Running work is stopped safely · No full-page reload
 
 ## Install
 
-### DSH
+### Windows guided setup (recommended)
 
-```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
-```
-
-### Windows DSH-Portable
-
-Need DSH-Portable? Visit [WSL043/DSH-Portable](https://github.com/WSL043/DSH-Portable)
-for downloads and usage instructions.
-
-Run this inside the DSH-Portable folder:
+Open PowerShell and paste this one line:
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
+$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw 'Download failed' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw 'Checksum mismatch' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
 ```
 
-The command does not restart DSH. Restart it once after installation.
+Setup asks for Chinese or English, then finds standard DSH and
+[DSH-Portable](https://github.com/WSL043/DSH-Portable). If it finds more than one installation, it lists
+their paths for selection; an existing release is updated automatically. It remembers both the selected
+DSH and the previous workspace dependency so uninstall can restore the original value.
 
-You can also give an Agent the
-[version-pinned AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.5/AGENTS.md),
-which defines the install, update, uninstall, and acceptance boundaries.
+No administrator access or system Node.js/pnpm install is required. Setup never stops work or restarts
+DSH; restart it manually when the operation finishes.
+
+<details>
+<summary><strong>Verify the setup helper before execution</strong></summary>
+
+The entry command already verifies setup. Setup also verifies the manager and plugin package it downloads.
+
+</details>
+
+### Let an Agent install it
+
+Give the Agent the
+[version-pinned AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.6/AGENTS.md).
+It defines installation, update, uninstall, rollback, and acceptance boundaries.
+
+### macOS, Linux, or an existing `dsh` command
+
+```sh
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6/dsh-session-delete.tgz"
+```
+
+This universal command does not install the Windows manager. If the profile explicitly pinned an official
+workspace package before installation, record and restore that value during uninstall. Restart DSH manually.
 
 ## Use
 
@@ -95,8 +110,18 @@ disposable-session deletion all pass.
 
 ## Update and uninstall
 
-To update, run the same `add` command from the new Release and restart DSH manually. Updating does not
-delete sessions.
+Windows guided-setup users only need:
+
+| Action | Command |
+| --- | --- |
+| Update | `dsh-session-delete update` |
+| Uninstall | `dsh-session-delete uninstall` |
+
+Update downloads and verifies the latest immutable manager. Uninstall restores the workspace dependency
+recorded before the first guided install. Neither action deletes sessions or restarts DSH.
+
+For universal installations, update with the same `add` command from the new Release. Run the following
+only when no explicit workspace dependency existed before installation:
 
 For a standard `web` profile:
 
@@ -104,9 +129,8 @@ For a standard `web` profile:
 dsh plugin --profile web remove @deepseek-ai/dsh-client-ui-workspace
 ```
 
-Use `.\dsh.exe` with the same arguments for DSH-Portable. Uninstall removes only the plugin and never
-deletes a session; restart DSH afterward. If a custom profile previously pinned the official workspace
-package, restore that original dependency value.
+If the profile had an explicit workspace dependency, restore its recorded value with `add` instead of
+removing the key. Restart DSH afterward.
 
 <details>
 <summary><strong>Messages you may see during installation</strong></summary>
@@ -117,7 +141,7 @@ package, restore that original dependency value.
   not an installation failure.
 - DSH supplies the runtime peers. They are marked optional here; assess warnings from other packages by
   package name.
-- Every Release includes `dsh-session-delete.tgz.sha256` for SHA-256 verification.
+- Every Release includes `.sha256` files for the setup helper, manager, and plugin package; the entry command verifies its SHA-256 before execution.
 
 </details>
 

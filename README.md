@@ -34,27 +34,40 @@
 
 ## 安装
 
-### DSH
+### Windows 安装助手（推荐）
 
-```sh
-dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
-```
-
-### Windows DSH-Portable
-
-还没有 DSH-Portable？前往 [WSL043/DSH-Portable](https://github.com/WSL043/DSH-Portable)
-下载并查看使用说明。
-
-在 DSH-Portable 文件夹中执行：
+打开 PowerShell，只复制这一行：
 
 ```powershell
-.\dsh.exe plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.5/dsh-session-delete.tgz"
+$u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw '下载失败' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw '校验失败' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
 ```
 
-命令不会自动重启 DSH。安装完成后手动重启一次即可。
+安装助手会先选择中文或 English，再自动寻找普通 DSH 和
+[DSH-Portable](https://github.com/WSL043/DSH-Portable)。检测到多个安装时会列出路径供选择；
+检测到旧版本时会自动更新。它会记住目标 DSH 和安装前的 workspace 依赖，卸载时恢复原值。
 
-也可以把 [AGENTS.md 固定版本链接](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.5/AGENTS.md)
-交给 Agent；其中包含安装、更新、卸载和验收边界。
+不需要管理员权限，也不会安装系统 Node.js/pnpm、结束任务或擅自重启 DSH。完成后手动重启一次。
+
+<details>
+<summary><strong>执行前手动校验安装助手</strong></summary>
+
+入口命令已经校验安装助手。安装助手还会校验其下载的管理器与插件包。
+
+</details>
+
+### 交给 Agent
+
+把 [AGENTS.md 固定版本链接](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v0.1.6/AGENTS.md)
+发给 Agent；其中包含安装、更新、卸载、回滚和验收边界。
+
+### macOS、Linux 或已有 `dsh` 命令
+
+```sh
+dsh plugin --profile web add "@deepseek-ai/dsh-client-ui-workspace@https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.6/dsh-session-delete.tgz"
+```
+
+这条通用命令不会安装管理助手；如果 profile 原本显式固定了官方 workspace 包，卸载前应
+记录并恢复原值。安装完成后手动重启 DSH。
 
 ## 使用
 
@@ -88,7 +101,18 @@ DSH 生命周期能力停止任务并等待收敛，再摘载会话并删除本�
 
 ## 更新与卸载
 
-更新时运行新 Release 中的同一条 `add` 命令，然后手动重启 DSH。更新不会删除会话。
+Windows 安装助手用户以后只需要：
+
+| 操作 | 命令 |
+| --- | --- |
+| 更新 | `dsh-session-delete update` |
+| 卸载 | `dsh-session-delete uninstall` |
+
+更新会先下载并校验最新 Release 安装器；卸载会恢复首次安装前记录的 workspace 依赖。
+两项操作都不会删除会话或自动重启 DSH。
+
+使用通用命令安装时，可用新 Release 的同一条 `add` 命令更新。仅当安装前没有显式
+workspace 依赖时，才直接执行：
 
 普通 `web` profile 卸载：
 
@@ -96,8 +120,8 @@ DSH 生命周期能力停止任务并等待收敛，再摘载会话并删除本�
 dsh plugin --profile web remove @deepseek-ai/dsh-client-ui-workspace
 ```
 
-DSH-Portable 使用 `.\dsh.exe` 执行同一组参数。卸载只移除插件，不会删除任何会话；
-完成后手动重启。自定义 profile 若原本固定了官方 workspace 包，应恢复原依赖值。
+若原本存在显式 workspace 依赖，请用 `add` 恢复记录的原值，不要直接 remove。完成后
+手动重启 DSH。
 
 <details>
 <summary><strong>安装时可能看到的提示</strong></summary>
@@ -107,7 +131,7 @@ DSH-Portable 使用 `.\dsh.exe` 执行同一组参数。卸载只移除插件，
 - 本插件只有 `dsh.client` 客户端注入；缺少 `dsh.bundle` 的提示是预期信息，不代表失败。
 - DSH 宿主负责提供运行时 peer。本插件已将这些 peer 标为 optional；若其他包仍有警告，
   应按包名分别判断。
-- Release 同时提供 `dsh-session-delete.tgz.sha256`，可用于校验下载包的 SHA-256。
+- Release 同时提供安装助手、管理器和插件包各自的 `.sha256`，入口命令会先做 SHA-256 校验再执行。
 
 </details>
 
