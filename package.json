@@ -1,6 +1,6 @@
 {
-  "name": "dsh-session-delete",
-  "version": "0.1.12",
+  "name": "dsh-native-session-delete",
+  "version": "1.0.0",
   "packageManager": "pnpm@11.19.0",
   "description": "Confirmed permanent deletion for DeepSeek Harness sessions",
   "type": "module",
@@ -11,12 +11,10 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "docs/assets/*.png",
+    "cordis.patch.yml",
     "lib/client.js",
     "scripts/build-client.mjs",
     "scripts/smoke-ui.mjs",
-    "dsh-session-delete.ps1",
-    "dsh-session-delete-setup.ps1",
     "src/index.js",
     "src/host/delete-session.mjs",
     "README.md",
@@ -27,6 +25,9 @@
     "THIRD_PARTY_NOTICES.md"
   ],
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-connection",

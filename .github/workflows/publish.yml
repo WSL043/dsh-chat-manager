@@ -41,25 +41,8 @@ jobs:
       - run: pnpm run build
       - run: git diff --exit-code -- lib
 
-  windows:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-2022, windows-2025]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          package-manager-cache: false
-      - name: Verify guided installer lifecycle
-        shell: powershell
-        run: node --test tests/powershell-manager.test.mjs tests/powershell-setup.test.mjs
-
   release:
-    needs: [verify, windows]
+    needs: [verify]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -102,39 +85,30 @@ jobs:
           pnpm pack --pack-destination .artifacts
           package="$(find .artifacts -maxdepth 1 -type f -name '*.tgz' -print -quit)"
           test -n "$package"
-          mv "$package" .artifacts/dsh-session-delete.tgz
-          cp dsh-session-delete.ps1 .artifacts/dsh-session-delete.ps1
-          cp dsh-session-delete-setup.ps1 .artifacts/dsh-session-delete-setup.ps1
-          (cd .artifacts && sha256sum dsh-session-delete.tgz > dsh-session-delete.tgz.sha256)
-          (cd .artifacts && sha256sum dsh-session-delete.ps1 > dsh-session-delete.ps1.sha256)
-          (cd .artifacts && sha256sum dsh-session-delete-setup.ps1 > dsh-session-delete-setup.ps1.sha256)
-          for asset in dsh-session-delete.tgz dsh-session-delete.tgz.sha256 \
-            dsh-session-delete.ps1 dsh-session-delete.ps1.sha256 \
-            dsh-session-delete-setup.ps1 dsh-session-delete-setup.ps1.sha256; do
+          mv "$package" .artifacts/dsh-native-session-delete.tgz
+          (cd .artifacts && sha256sum dsh-native-session-delete.tgz > dsh-native-session-delete.tgz.sha256)
+          for asset in dsh-native-session-delete.tgz dsh-native-session-delete.tgz.sha256; do
             test -s ".artifacts/$asset"
           done
-          tar -xOf .artifacts/dsh-session-delete.tgz package/package.json \
-            | jq -e --arg version "$RELEASE_VERSION" '.version == $version' >/dev/null
+          tar -xOf .artifacts/dsh-native-session-delete.tgz package/package.json \
+            | jq -e --arg version "$RELEASE_VERSION" \
+              '.name == "dsh-native-session-delete" and .version == $version and .dsh.bundle.patch == "./cordis.patch.yml"' >/dev/null
       - name: Write release notes
         shell: bash
         run: |
           cat > .artifacts/release.md <<'NOTES'
           ## 安装体验 / Installation experience
 
-          - 新增 Windows 一行安装助手，自动发现普通 DSH 与 DSH-Portable。
-          - 安装器会校验下载的管理脚本、记录目标 DSH，并在卸载时恢复原 workspace 依赖。
-          - 安装后可用 `dsh-session-delete update` 和 `dsh-session-delete uninstall`。
-          - 安装只调用一次 DSH 插件操作，并实时显示进度，不再重复下载插件包或执行多次列表扫描。
-          - 不需要管理员权限，不会安装系统 Node.js/pnpm，也不会自动重启 DSH。
+          - 改为标准 DSH bundle，由官方 CLI 一步完成安装与配置协调。
+          - 移除多层 PowerShell 安装器、重复下载和私有 profile 快照。
+          - 卸载 bundle 后，DSH 自动恢复官方 workspace 客户端。
 
-          - Adds a one-line Windows guided setup for standard DSH and DSH-Portable.
-          - Verifies the downloaded manager, remembers the target, and restores the previous workspace dependency on uninstall.
-          - Adds `dsh-session-delete update` and `dsh-session-delete uninstall` commands.
-          - Uses one DSH plugin operation and streams progress instead of downloading the package twice or repeatedly listing plugins.
-          - Requires no administrator access or system Node.js/pnpm install and never restarts DSH automatically.
+          - Ships as a standard DSH bundle installed and reconciled by the official CLI.
+          - Removes the multi-stage PowerShell installer, redundant downloads, and private profile snapshots.
+          - Removing the bundle automatically restores the official workspace client.
 
           ```powershell
-          $u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.12'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw 'Download failed' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw 'Checksum mismatch' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
+          dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.0/dsh-native-session-delete.tgz"
           ```
           NOTES
       - name: Publish immutable release
@@ -148,9 +122,5 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "DSH Session Delete $RELEASE_TAG" \
             --notes-file .artifacts/release.md \
-            .artifacts/dsh-session-delete.tgz \
-            .artifacts/dsh-session-delete.tgz.sha256 \
-            .artifacts/dsh-session-delete.ps1 \
-            .artifacts/dsh-session-delete.ps1.sha256 \
-            .artifacts/dsh-session-delete-setup.ps1 \
-            .artifacts/dsh-session-delete-setup.ps1.sha256
+            .artifacts/dsh-native-session-delete.tgz \
+            .artifacts/dsh-native-session-delete.tgz.sha256
