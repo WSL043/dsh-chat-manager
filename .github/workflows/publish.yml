@@ -134,7 +134,7 @@ jobs:
           - Requires no administrator access or system Node.js/pnpm install and never restarts DSH automatically.
 
           ```powershell
-          $u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.9'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw 'Download failed' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw 'Checksum mismatch' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
+          $u='https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.10'; $p="$env:TEMP\dsh-session-delete-setup.ps1"; curl.exe -fL "$u/dsh-session-delete-setup.ps1" -o $p; curl.exe -fL "$u/dsh-session-delete-setup.ps1.sha256" -o "$p.sha256"; if ($LASTEXITCODE -ne 0) { throw 'Download failed' }; $want=((Get-Content "$p.sha256" -Raw) -split '\s+')[0]; if ((Get-FileHash $p -Algorithm SHA256).Hash -ne $want) { throw 'Checksum mismatch' }; powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
           ```
           NOTES
       - name: Publish immutable release

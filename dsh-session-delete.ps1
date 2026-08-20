@@ -42,8 +42,8 @@ $ManagerScriptName = 'dsh-session-delete-manager.ps1'
 $LegacyManagerScriptName = 'dsh-session-delete.ps1'
 $ManagerShimName = 'dsh-session-delete.cmd'
 $ManagerStateName = 'install-state.json'
-$PackageVersion = '0.1.9'
-$PackageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.9/dsh-session-delete.tgz'
+$PackageVersion = '0.1.10'
+$PackageUrl = 'https://github.com/WSL043/dsh-session-delete/releases/download/v0.1.10/dsh-session-delete.tgz'
 $PackageSpec = "$PackageName@$PackageUrl"
 $PnpmVersion = '11.19.0'
 $PnpmUrl = 'https://registry.npmjs.org/pnpm/-/pnpm-11.19.0.tgz'
@@ -368,14 +368,22 @@ function Read-ManagerState {
     } catch {
         throw 'The saved dsh-session-delete installation target is unreadable. Re-run setup and choose DSH again.'
     }
-    if ($state.schemaVersion -ne 3 -or $state.mode -notin @('portable', 'global') -or
+    if ($state.schemaVersion -notin @(2, 4) -or $state.mode -notin @('portable', 'global') -or
         [string] $state.profile -notmatch '^[A-Za-z0-9._-]+$' -or
         $state.pathOwned -isnot [bool] -or $state.originalDependencyExists -isnot [bool] -or
         ($state.originalDependencyExists -and -not [string] $state.originalDependencySpec) -or
-        -not [string] $state.managedDependencySpec -or
-        -not [string] $state.profileManifestBase64 -or
-        $state.profileLockfileExists -isnot [bool] -or
-        ($state.profileLockfileExists -and -not [string] $state.profileLockfileBase64)) {
+        -not [string] $state.managedDependencySpec) {
+        throw 'The saved dsh-session-delete installation state is invalid. Re-run setup and choose DSH again.'
+    }
+    if ($state.schemaVersion -eq 4 -and
+        ($state.profileManifestExists -isnot [bool] -or
+         ($state.profileManifestExists -and -not [string] $state.profileManifestBase64) -or
+         $state.profileLockfileExists -isnot [bool] -or
+         ($state.profileLockfileExists -and -not [string] $state.profileLockfileBase64) -or
+         $state.managedManifestExists -isnot [bool] -or
+         ($state.managedManifestExists -and -not [string] $state.managedManifestBase64) -or
+         $state.managedLockfileExists -isnot [bool] -or
+         ($state.managedLockfileExists -and -not [string] $state.managedLockfileBase64))) {
         throw 'The saved dsh-session-delete installation state is invalid. Re-run setup and choose DSH again.'
     }
     if ($state.mode -eq 'portable' -and -not [string] $state.portableRoot) {
@@ -398,13 +406,14 @@ function Write-ManagerState {
         [Parameter(Mandatory = $true)][bool] $PathOwned,
         [Parameter(Mandatory = $true)][bool] $OriginalDependencyExists,
         [AllowNull()][string] $OriginalDependencySpec,
-        [Parameter(Mandatory = $true)] $ProfileSnapshot
+        [Parameter(Mandatory = $true)] $ProfileSnapshot,
+        [Parameter(Mandatory = $true)] $ManagedSnapshot
     )
 
     $path = Join-Path $Directory $ManagerStateName
     $staged = Join-Path $Directory ('.install-state-' + [guid]::NewGuid().ToString('N') + '.json')
     $state = [ordered]@{
-        schemaVersion = 3
+        schemaVersion = 4
         mode = $Target.Mode
         portableRoot = if ($Target.Mode -eq 'portable') { $Target.Layout.Root } else { $null }
         globalDsh = if ($Target.Mode -eq 'global') { Resolve-FullPath $Target.Executable } else { $null }
@@ -415,9 +424,14 @@ function Write-ManagerState {
         originalDependencyExists = $OriginalDependencyExists
         originalDependencySpec = if ($OriginalDependencyExists) { $OriginalDependencySpec } else { $null }
         managedDependencySpec = $PackageUrl
-        profileManifestBase64 = $ProfileSnapshot.ManifestBase64
+        profileManifestExists = [bool] $ProfileSnapshot.ManifestExists
+        profileManifestBase64 = if ($ProfileSnapshot.ManifestExists) { $ProfileSnapshot.ManifestBase64 } else { $null }
         profileLockfileExists = [bool] $ProfileSnapshot.LockfileExists
         profileLockfileBase64 = if ($ProfileSnapshot.LockfileExists) { $ProfileSnapshot.LockfileBase64 } else { $null }
+        managedManifestExists = [bool] $ManagedSnapshot.ManifestExists
+        managedManifestBase64 = if ($ManagedSnapshot.ManifestExists) { $ManagedSnapshot.ManifestBase64 } else { $null }
+        managedLockfileExists = [bool] $ManagedSnapshot.LockfileExists
+        managedLockfileBase64 = if ($ManagedSnapshot.LockfileExists) { $ManagedSnapshot.LockfileBase64 } else { $null }
     } | ConvertTo-Json -Compress
     try {
         [System.IO.File]::WriteAllText($staged, $state, $Utf8NoBom)
@@ -749,14 +763,13 @@ function Get-ProfilePackageJsonPath {
 function Get-ProfileSnapshot {
     param([Parameter(Mandatory = $true)] $Target)
     $manifestPath = Get-ProfilePackageJsonPath -Target $Target
-    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
-        throw "The selected profile package.json does not exist: $manifestPath"
-    }
+    $manifestExists = Test-Path -LiteralPath $manifestPath -PathType Leaf
     $lockfilePath = Join-Path (Split-Path -Parent $manifestPath) 'pnpm-lock.yaml'
     $lockfileExists = Test-Path -LiteralPath $lockfilePath -PathType Leaf
     return [pscustomobject]@{
         ManifestPath = $manifestPath
-        ManifestBase64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($manifestPath))
+        ManifestExists = $manifestExists
+        ManifestBase64 = if ($manifestExists) { [Convert]::ToBase64String([IO.File]::ReadAllBytes($manifestPath)) } else { $null }
         LockfilePath = $lockfilePath
         LockfileExists = $lockfileExists
         LockfileBase64 = if ($lockfileExists) { [Convert]::ToBase64String([IO.File]::ReadAllBytes($lockfilePath)) } else { $null }
@@ -768,15 +781,22 @@ function Restore-ProfileSnapshot {
         [Parameter(Mandatory = $true)] $Target,
         [Parameter(Mandatory = $true)] $Snapshot
     )
-    [IO.File]::WriteAllBytes($Snapshot.ManifestPath, [Convert]::FromBase64String([string] $Snapshot.ManifestBase64))
+    if ([bool] $Snapshot.ManifestExists) {
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Snapshot.ManifestPath) | Out-Null
+        [IO.File]::WriteAllBytes($Snapshot.ManifestPath, [Convert]::FromBase64String([string] $Snapshot.ManifestBase64))
+    } elseif (Test-Path -LiteralPath $Snapshot.ManifestPath -PathType Leaf) {
+        Remove-Item -LiteralPath $Snapshot.ManifestPath -Force
+    }
     if ([bool] $Snapshot.LockfileExists) {
         [IO.File]::WriteAllBytes($Snapshot.LockfilePath, [Convert]::FromBase64String([string] $Snapshot.LockfileBase64))
     } elseif (Test-Path -LiteralPath $Snapshot.LockfilePath -PathType Leaf) {
         Remove-Item -LiteralPath $Snapshot.LockfilePath -Force
     }
-    Invoke-DshCommand -Target $Target -Arguments @(
-        'plugin', '--profile', $Profile, 'install', '--loglevel', 'error'
-    )
+    if ($Snapshot.ManifestExists) {
+        Invoke-DshCommand -Target $Target -Arguments @(
+            'plugin', '--profile', $Profile, 'install', '--loglevel', 'error'
+        )
+    }
 }
 
 function Get-StateProfileSnapshot {
@@ -787,11 +807,36 @@ function Get-StateProfileSnapshot {
     $manifestPath = Get-ProfilePackageJsonPath -Target $Target
     return [pscustomobject]@{
         ManifestPath = $manifestPath
+        ManifestExists = [bool] $State.profileManifestExists
         ManifestBase64 = [string] $State.profileManifestBase64
         LockfilePath = Join-Path (Split-Path -Parent $manifestPath) 'pnpm-lock.yaml'
         LockfileExists = [bool] $State.profileLockfileExists
         LockfileBase64 = [string] $State.profileLockfileBase64
     }
+}
+
+function Get-StateManagedSnapshot {
+    param(
+        [Parameter(Mandatory = $true)] $Target,
+        [Parameter(Mandatory = $true)] $State
+    )
+    $manifestPath = Get-ProfilePackageJsonPath -Target $Target
+    return [pscustomobject]@{
+        ManifestPath = $manifestPath
+        ManifestExists = [bool] $State.managedManifestExists
+        ManifestBase64 = [string] $State.managedManifestBase64
+        LockfilePath = Join-Path (Split-Path -Parent $manifestPath) 'pnpm-lock.yaml'
+        LockfileExists = [bool] $State.managedLockfileExists
+        LockfileBase64 = [string] $State.managedLockfileBase64
+    }
+}
+
+function Test-SnapshotEqual {
+    param([Parameter(Mandatory = $true)] $Left, [Parameter(Mandatory = $true)] $Right)
+    return ([bool] $Left.ManifestExists -eq [bool] $Right.ManifestExists) -and
+        ([string] $Left.ManifestBase64 -ceq [string] $Right.ManifestBase64) -and
+        ([bool] $Left.LockfileExists -eq [bool] $Right.LockfileExists) -and
+        ([string] $Left.LockfileBase64 -ceq [string] $Right.LockfileBase64)
 }
 
 function Test-DirectWorkspaceDependency {
@@ -863,6 +908,22 @@ function Assert-WorkspaceDependency {
     }
 }
 
+function Restore-LegacyDependencyState {
+    param(
+        [Parameter(Mandatory = $true)] $Target,
+        [Parameter(Mandatory = $true)][bool] $OriginalExists,
+        [AllowNull()][string] $OriginalSpec
+    )
+    Invoke-DshCommand -Target $Target -Arguments @(
+        'plugin', '--profile', $Profile, 'remove', $PackageName, '--loglevel', 'error'
+    )
+    if ($OriginalExists) {
+        Invoke-DshCommand -Target $Target -Arguments @(
+            'plugin', '--profile', $Profile, 'add', "$PackageName@$OriginalSpec", '--loglevel', 'error'
+        )
+    }
+}
+
 function Get-ActionArguments {
     param(
         [Parameter(Mandatory = $true)][string] $SelectedAction,
@@ -903,6 +964,10 @@ function Invoke-DshCommand {
 $managerCommandRoot = Get-ManagerCommandRoot
 $managerState = Read-ManagerState -Directory $managerCommandRoot
 if ($null -ne $managerState) {
+    if ($PSBoundParameters.ContainsKey('Profile') -and
+        -not [string]::Equals($Profile, [string] $managerState.profile, [System.StringComparison]::Ordinal)) {
+        throw 'The selected profile differs from the profile owned by this manager. Uninstall from the recorded profile before selecting another one.'
+    }
     if ($PSBoundParameters.ContainsKey('PortableRoot')) {
         if ($managerState.mode -ne 'portable' -or
             -not (Test-SamePath -Left $PortableRoot -Right ([string] $managerState.portableRoot))) {
@@ -1012,6 +1077,13 @@ try {
     $profileSnapshot = Get-ProfileSnapshot -Target $target
     $dependencyBefore = Read-WorkspaceDependency -Target $target
 
+    if ($null -ne $managerState -and $managerState.schemaVersion -eq 4) {
+        $expectedManagedSnapshot = Get-StateManagedSnapshot -Target $target -State $managerState
+        if (-not (Test-SnapshotEqual -Left $profileSnapshot -Right $expectedManagedSnapshot)) {
+            throw 'The selected DSH profile changed after this manager installed the plugin. Nothing was modified; review those profile changes before updating or uninstalling.'
+        }
+    }
+
     if (($Action -eq 'Update' -or $Action -eq 'Uninstall') -and
         $null -ne $managerState -and
         ((-not [bool] $dependencyBefore.Exists) -or
@@ -1037,11 +1109,25 @@ try {
     } else {
         $null
     }
+    $persistentSnapshot = if ($null -ne $managerState -and $managerState.schemaVersion -eq 4) {
+        Get-StateProfileSnapshot -Target $target -State $managerState
+    } else {
+        $profileSnapshot
+    }
+
+    if ($null -ne $managerState -and $managerState.schemaVersion -eq 2 -and $Action -ne 'Uninstall') {
+        Restore-LegacyDependencyState -Target $target -OriginalExists $originalDependencyExists `
+            -OriginalSpec $originalDependencySpec
+        $persistentSnapshot = Get-ProfileSnapshot -Target $target
+    }
 
     if ($Action -eq 'Uninstall') {
-        if ($null -ne $managerState) {
+        if ($null -ne $managerState -and $managerState.schemaVersion -eq 4) {
             $savedSnapshot = Get-StateProfileSnapshot -Target $target -State $managerState
             Restore-ProfileSnapshot -Target $target -Snapshot $savedSnapshot
+        } elseif ($null -ne $managerState -and $managerState.schemaVersion -eq 2) {
+            Restore-LegacyDependencyState -Target $target -OriginalExists $originalDependencyExists `
+                -OriginalSpec $originalDependencySpec
         } else {
             Invoke-DshCommand -Target $target -Arguments @(
                 'plugin', '--profile', $Profile, 'remove', $PackageName, '--loglevel', 'error'
@@ -1080,6 +1166,7 @@ try {
             if (Test-DirectWorkspaceDependency -Target $target -Name $LegacyPackageName) {
                 throw 'A bare dsh-session-delete package is still present after migration.'
             }
+            $managedSnapshot = Get-ProfileSnapshot -Target $target
         } catch {
             $operationError = $_
             try {
@@ -1098,7 +1185,8 @@ try {
                 $legacyManagedPathOwned -or [bool] $addedPath
             Write-ManagerState -Directory $managerCommandRoot -Target $target -SelectedProfile $Profile `
                 -PathOwned $pathOwned -OriginalDependencyExists $originalDependencyExists `
-                -OriginalDependencySpec $originalDependencySpec -ProfileSnapshot $profileSnapshot
+                -OriginalDependencySpec $originalDependencySpec -ProfileSnapshot $persistentSnapshot `
+                -ManagedSnapshot $managedSnapshot
         } catch {
             $managerError = $_
             try {
