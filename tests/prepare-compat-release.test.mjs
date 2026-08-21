@@ -3,10 +3,12 @@ import test from 'node:test'
 
 import {
   compareDshVersions,
+  extractDeepSeekReleaseAgeSelectors,
   planCompatibilityUpdate,
   rewriteCompatibilityBlock,
   rewriteDshVersion,
   rewriteReleaseVersion,
+  rewriteReleaseAgeCohort,
   selectNextUntestedVersion,
   selectNewestPublishedTag,
 } from '../scripts/prepare-compat-release.mjs'
@@ -105,4 +107,40 @@ test('rewrites every release-version reference in bounded public artifacts and g
     () => rewriteDshVersion('unrelated notice', '0.1.0-rc.8', '0.1.0-rc.9'),
     /was not found/,
   )
+})
+
+test('regenerates the exact release-age exceptions from the accepted lock graph', () => {
+  const lockfile = [
+    'lockfileVersion: 9.0',
+    '',
+    'packages:',
+    '',
+    "  '@deepseek-ai/dsh-client-ui-workspace@0.1.1-rc.2':",
+    '    resolution: {integrity: sha512-test}',
+    '',
+    "  '@deepseek-ai/cordis@4.0.1':",
+    '    resolution: {integrity: sha512-test}',
+    '',
+    'snapshots:',
+    '',
+  ].join('\n')
+  const selectors = extractDeepSeekReleaseAgeSelectors(lockfile)
+  assert.deepEqual(selectors, [
+    '@deepseek-ai/cordis@4.0.1',
+    '@deepseek-ai/dsh-client-ui-workspace@0.1.1-rc.2',
+  ])
+
+  const workspace = [
+    'minimumReleaseAge: 1440',
+    '# dsh-compat-release-age-start',
+    'minimumReleaseAgeExclude:',
+    "  - '@deepseek-ai/dsh-client-ui-workspace@0.1.1-rc.1'",
+    '# dsh-compat-release-age-end',
+    '',
+  ].join('\n')
+  const rewritten = rewriteReleaseAgeCohort(workspace, selectors)
+  assert.match(rewritten, /@deepseek-ai\/dsh-client-ui-workspace@0\.1\.1-rc\.2/u)
+  assert.match(rewritten, /@deepseek-ai\/cordis@4\.0\.1/u)
+  assert.doesNotMatch(rewritten, /0\.1\.1-rc\.1/u)
+  assert.doesNotMatch(rewritten, /@deepseek-ai\/\*/u)
 })

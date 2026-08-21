@@ -2,6 +2,9 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+const RELEASE_AGE_START = '# dsh-compat-release-age-start'
+const RELEASE_AGE_END = '# dsh-compat-release-age-end'
+
 const VERSION_RE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?$/
 
 function parseVersion(version) {
@@ -133,11 +136,47 @@ export function rewriteCompatibilityBlock(source, supported, language) {
   return source.replace(marker, `<!-- dsh-compatibility -->\n${body}\n<!-- /dsh-compatibility -->`)
 }
 
+export function extractDeepSeekReleaseAgeSelectors(lockfile) {
+  const packagesStart = lockfile.indexOf('\npackages:\n')
+  const snapshotsStart = lockfile.indexOf('\nsnapshots:\n')
+  if (packagesStart === -1 || snapshotsStart === -1 || snapshotsStart <= packagesStart) {
+    throw new Error('pnpm lockfile does not contain packages and snapshots sections')
+  }
+  const packages = lockfile.slice(packagesStart, snapshotsStart)
+  const selectors = [...packages.matchAll(/^  '(@deepseek-ai\/[^']+@[^']+)':$/gmu)].map(match => match[1])
+  if (selectors.length === 0) throw new Error('pnpm lockfile contains no @deepseek-ai package selectors')
+  return [...new Set(selectors)].sort()
+}
+
+export function rewriteReleaseAgeCohort(workspace, selectors) {
+  const start = workspace.indexOf(RELEASE_AGE_START)
+  const end = workspace.indexOf(RELEASE_AGE_END)
+  if (start === -1 || end === -1 || end <= start) throw new Error('missing bounded DSH release-age markers')
+  const block = [
+    RELEASE_AGE_START,
+    'minimumReleaseAgeExclude:',
+    ...selectors.map(selector => `  - '${selector}'`),
+    RELEASE_AGE_END,
+  ].join('\n')
+  return `${workspace.slice(0, start)}${block}${workspace.slice(end + RELEASE_AGE_END.length)}`
+}
+
+async function refreshReleaseAge(root) {
+  const [workspace, lockfile] = await Promise.all([
+    readFile(resolve(root, 'pnpm-workspace.yaml'), 'utf8'),
+    readFile(resolve(root, 'pnpm-lock.yaml'), 'utf8'),
+  ])
+  const selectors = extractDeepSeekReleaseAgeSelectors(lockfile)
+  await writeFile(resolve(root, 'pnpm-workspace.yaml'), rewriteReleaseAgeCohort(workspace, selectors))
+  return { changed: true, selectors: selectors.length }
+}
+
 async function main() {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+  if (process.argv.includes('--refresh-release-age')) return refreshReleaseAge(root)
   const candidateIndex = process.argv.indexOf('--dsh-version')
   const candidate = candidateIndex === -1 ? undefined : process.argv[candidateIndex + 1]
   if (candidate === undefined) throw new Error('--dsh-version is required')
-  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
   const compatibilityPath = resolve(root, 'compatibility.json')
   const manifestPath = resolve(root, 'package.json')
   const [compatibility, manifest] = await Promise.all([

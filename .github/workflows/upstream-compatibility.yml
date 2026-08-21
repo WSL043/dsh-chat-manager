@@ -113,7 +113,8 @@ jobs:
             plugin_version="$(node -p "require('./package.json').version")"
           fi
           echo "plugin_version=$plugin_version" >> "$GITHUB_OUTPUT"
-          pnpm install --lockfile-only
+          pnpm --config.minimum-release-age=0 install --lockfile-only
+          node scripts/prepare-compat-release.mjs --refresh-release-age
           pnpm install --frozen-lockfile
       - name: Verify candidate source and package
         if: steps.candidate.outputs.publish_needed == 'true'
@@ -148,7 +149,11 @@ jobs:
   windows-installer:
     needs: preflight
     if: needs.preflight.outputs.publish_needed == 'true'
-    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
@@ -164,7 +169,8 @@ jobs:
           cache: pnpm
       - if: needs.preflight.outputs.changed == 'true'
         run: node scripts/prepare-compat-release.mjs --dsh-version '${{ needs.preflight.outputs.dsh_version }}'
-      - run: pnpm install --lockfile-only
+      - run: pnpm --config.minimum-release-age=0 install --lockfile-only
+      - run: node scripts/prepare-compat-release.mjs --refresh-release-age
       - run: pnpm install --frozen-lockfile
       - run: node --test tests/windows-installer.test.mjs
 
@@ -200,7 +206,8 @@ jobs:
           if [ "$CHANGED" = true ]; then
             node scripts/prepare-compat-release.mjs --dsh-version "$DSH_VERSION"
           fi
-          pnpm install --lockfile-only
+          pnpm --config.minimum-release-age=0 install --lockfile-only
+          node scripts/prepare-compat-release.mjs --refresh-release-age
           pnpm install --frozen-lockfile
           pnpm test
           pnpm run build
