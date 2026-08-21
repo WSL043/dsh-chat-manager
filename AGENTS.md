@@ -6,7 +6,7 @@ or remove `dsh-native-session-delete` in a selected DeepSeek Harness profile.
 ## Safety and responsibility boundary
 
 - Confirm the target DSH installation and profile. Use `web` only when it is the user's target.
-- Use the fixed v1.0.6 package below; never substitute a moving branch or an unreviewed source.
+- Use the fixed v1.0.7 package below; never substitute a moving branch or an unreviewed source.
 - Do not print session contents, full profile files, transcript paths, credentials, or other private data.
 - Do not start, stop, or restart DSH without explicit permission.
 - Preserve all sessions, unrelated plugins, and user-owned profile changes.
@@ -22,16 +22,16 @@ requirements. A cancelled confirmation is the safe default and must not send a d
 
 ## Fixed package and standard bundle
 
-The v1.0.6 package is a standard DSH bundle with a `dsh.bundle` profile patch. Its exact package spec is:
+The v1.0.7 package is a standard DSH bundle with a `dsh.bundle` profile patch. Its exact package spec is:
 
 ```text
-dsh-native-session-delete@1.0.6
+dsh-native-session-delete@1.0.7
 ```
 
 The bundle disables the official workspace row while installed and inserts a uniquely identified native
 workspace row. Removing `dsh-native-session-delete` removes that layer, allowing DSH to restore the official
 workspace row. Do not install the tarball under `@deepseek-ai/dsh-client-ui-workspace`; that old aliasing
-approach is not the v1.0.6 contract.
+approach is not the v1.0.7 contract.
 
 ## Detect the target DSH
 
@@ -56,13 +56,13 @@ record the selected profile's relevant metadata before invoking it, without prin
 With an existing `dsh` command, run exactly:
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.0.6
+dsh plugin --profile web add dsh-native-session-delete@1.0.7
 ```
 
 With DSH-Portable, run from its root:
 
 ```powershell
-.\dsh.exe plugin --profile web add dsh-native-session-delete@1.0.6
+.\dsh.exe plugin --profile web add dsh-native-session-delete@1.0.7
 ```
 
 Use the same `add` command to update or repair. On Windows, `install.ps1` from the same fixed Release may
@@ -86,7 +86,7 @@ dsh plugin --profile web list dsh-native-session-delete --depth 0
 Use `.\dsh.exe` in place of `dsh` for DSH-Portable. Static acceptance requires:
 
 1. The `dsh-native-session-delete` bundle appears exactly once in the requested profile.
-2. Its direct package spec is the fixed `dsh-native-session-delete@1.0.6` npm version above.
+2. Its direct package spec is the fixed `dsh-native-session-delete@1.0.7` npm version above.
 3. The profile contains the bundle patch and no duplicate official workspace row from this plugin.
 4. No unrelated dependency, profile patch, or session data was changed by the operation.
 
