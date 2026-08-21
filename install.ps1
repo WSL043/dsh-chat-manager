@@ -106,17 +106,63 @@ function Resolve-DshCommand {
     throw 'DSH was not found in PATH or common Portable locations. Run this command in the DSH-Portable folder or pass -DshPath.'
 }
 
+function Invoke-DshAdd([string]$Command) {
+    $lines = [Collections.Generic.List[string]]::new()
+    $previousErrorAction = $ErrorActionPreference
+    try {
+        # Windows PowerShell represents native stderr as ErrorRecord objects.
+        # Keep the CLI output visible while retaining plain text for one exact
+        # compatibility recovery decision below.
+        $ErrorActionPreference = 'Continue'
+        & $Command plugin --profile $Profile add $PackageSpec 2>&1 | ForEach-Object {
+            $line = $_.ToString()
+            $lines.Add($line)
+            Write-Host $line
+        }
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorAction
+    }
+    return [PSCustomObject]@{
+        ExitCode = $exitCode
+        Output = ($lines -join "`n")
+    }
+}
+
 $dsh = Resolve-DshCommand
 $timer = [Diagnostics.Stopwatch]::StartNew()
 Say "目标：$dsh" "Target: $dsh"
 Say "正在通过 DSH 官方插件命令安装…" "Installing through the official DSH plugin command..."
 
 # Equivalent to: dsh plugin --profile web add <fixed Release package>
-& $dsh plugin --profile $Profile add $PackageSpec
-$code = $LASTEXITCODE
+$result = Invoke-DshAdd $dsh
+
+# A moved Portable profile can contain a dependency that was already locked
+# before pnpm's release-age window elapsed. The Portable launcher then fails
+# while rebuilding its links, before this package is considered. Retry only
+# that recognized failure once, with a process-local override that disappears
+# when this installer exits; no user or profile setting is changed.
+if ($result.ExitCode -ne 0 -and $result.Output -match 'ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION') {
+    Say 'DSH 的现有依赖触发了发布时间限制，正在对同一固定版本进行一次兼容重试…' 'An existing DSH dependency hit the release-age policy; retrying the same pinned install once...'
+    $previousReleaseAge = [Environment]::GetEnvironmentVariable('PNPM_CONFIG_MINIMUM_RELEASE_AGE', 'Process')
+    try {
+        $env:PNPM_CONFIG_MINIMUM_RELEASE_AGE = '0'
+        $result = Invoke-DshAdd $dsh
+    }
+    finally {
+        if ($null -eq $previousReleaseAge) {
+            [Environment]::SetEnvironmentVariable('PNPM_CONFIG_MINIMUM_RELEASE_AGE', $null, 'Process')
+        }
+        else {
+            $env:PNPM_CONFIG_MINIMUM_RELEASE_AGE = $previousReleaseAge
+        }
+    }
+}
+
 $timer.Stop()
-if ($code -ne 0) {
-    throw "DSH plugin command failed with exit code $code."
+if ($result.ExitCode -ne 0) {
+    throw "DSH plugin command failed with exit code $($result.ExitCode)."
 }
 
 Say "安装完成（$([Math]::Round($timer.Elapsed.TotalSeconds, 1)) 秒）。请保存工作并按正常方式重启 DSH。" "Installed in $([Math]::Round($timer.Elapsed.TotalSeconds, 1)) seconds. Save your work and restart DSH normally."
