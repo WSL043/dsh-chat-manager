@@ -150,6 +150,46 @@ windowsTest('PATH discovery is sufficient and command failures are preserved', a
   assert.match(`${result.stderr}\n${result.stdout}`, /exit code 23/i)
 })
 
+windowsTest('release-age failures receive one process-local retry', async t => {
+  const fixture = await mkdtemp(join(tmpdir(), 'dsh-thin-installer-'))
+  t.after(() => rm(fixture, { recursive: true, force: true }))
+  const fake = join(fixture, 'dsh.cmd')
+  const state = join(fixture, 'attempt.txt')
+  const log = join(fixture, 'args.txt')
+  await writeFile(fake, [
+    '@echo off',
+    'if not exist "%DSH_INSTALLER_TEST_STATE%" (',
+    '  > "%DSH_INSTALLER_TEST_STATE%" echo first',
+    '  >> "%DSH_INSTALLER_TEST_LOG%" echo first:%PNPM_CONFIG_MINIMUM_RELEASE_AGE%:%*',
+    '  >&2 echo ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION package is too new',
+    '  exit /b 1',
+    ')',
+    '>> "%DSH_INSTALLER_TEST_LOG%" echo second:%PNPM_CONFIG_MINIMUM_RELEASE_AGE%:%*',
+    'if not "%PNPM_CONFIG_MINIMUM_RELEASE_AGE%"=="0" exit /b 24',
+    'exit /b 0',
+    '',
+  ].join('\r\n'))
+
+  const result = spawnSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', installer.pathname.slice(1),
+    '-DshPath', fake,
+  ], {
+    cwd: fixture,
+    env: {
+      ...process.env,
+      DSH_INSTALLER_TEST_STATE: state,
+      DSH_INSTALLER_TEST_LOG: log,
+    },
+    encoding: 'utf8',
+  })
+
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+  const attempts = (await readFile(log, 'utf8')).trim().split(/\r?\n/)
+  assert.equal(attempts.length, 2)
+  assert.match(attempts[0], new RegExp(`^first::plugin --profile web add ${packageSpec}$`))
+  assert.match(attempts[1], new RegExp(`^second:0:plugin --profile web add ${packageSpec}$`))
+})
+
 windowsTest('download-pipe style execution remains non-interactive', async t => {
   const fixture = await mkdtemp(join(tmpdir(), 'dsh-thin-installer-'))
   t.after(() => rm(fixture, { recursive: true, force: true }))
