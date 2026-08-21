@@ -138,6 +138,24 @@ test('documentation uses the standard one-command bundle lifecycle and second co
   }
 })
 
+test('public-facing copy describes the product without exposing maintenance mechanics', async () => {
+  const [chinese, english, publishWorkflow] = await Promise.all([
+    read('README.md'),
+    read('README.en.md'),
+    read('.github/workflows/publish.yml'),
+  ])
+  const releaseNotes = publishWorkflow.match(/cat > \.artifacts\/release\.md <<NOTES([\s\S]*?)\n\s*NOTES/)?.[1]
+
+  assert.ok(releaseNotes, 'publish workflow must define release notes')
+  for (const document of [chinese, english, releaseNotes]) {
+    assert.doesNotMatch(document, /GitHub Actions|每\s*6\s*小时|every six hours|隔离安装|isolated install|smoke acceptance|fail[- ]closed|自动兼容|Compatibility autopilot/i)
+  }
+  assert.match(chinese, /支持 DeepSeek Harness/)
+  assert.match(english, /Supports DeepSeek Harness/)
+  assert.match(releaseNotes, /永久删除不可撤销/)
+  assert.match(releaseNotes, /Permanent deletion cannot be undone/)
+})
+
 test('bundle disables the official workspace row and inserts the native replacement row', async () => {
   const patch = await read('cordis.patch.yml')
   assert.match(patch, /id:\s*ui-workspace[\s\S]*disabled:\s*true/)

@@ -1,6 +1,6 @@
 {
   "name": "dsh-native-session-delete",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "packageManager": "pnpm@11.19.0",
   "description": "Permanent session deletion in the native DeepSeek Harness menu",
   "type": "module",
