@@ -137,13 +137,23 @@ jobs:
           set -euo pipefail
           package=.artifacts/dsh-native-session-delete.tgz
           spec="dsh-native-session-delete@$RELEASE_VERSION"
-          local_integrity="sha512-$(openssl dgst -sha512 -binary "$package" | base64 -w0)"
           remote_integrity="$(npm view "$spec" dist.integrity 2>/dev/null || true)"
           if [ -n "$remote_integrity" ]; then
-            test "$remote_integrity" = "$local_integrity"
+            remote_tarball="$(npm view "$spec" dist.tarball)"
+            remote_package="$(mktemp)"
+            curl --fail --location --silent --show-error "$remote_tarball" --output "$remote_package"
+            downloaded_integrity="sha512-$(openssl dgst -sha512 -binary "$remote_package" | base64 -w0)"
+            test "$downloaded_integrity" = "$remote_integrity"
+            local_tree="$(mktemp -d)"
+            remote_tree="$(mktemp -d)"
+            tar -xzf "$package" -C "$local_tree"
+            tar -xzf "$remote_package" -C "$remote_tree"
+            diff -qr "$local_tree/package" "$remote_tree/package"
+            mv "$remote_package" "$package"
           else
             npm publish "$package" --access public --provenance
           fi
+          (cd .artifacts && sha256sum dsh-native-session-delete.tgz > dsh-native-session-delete.tgz.sha256)
       - name: Publish immutable release
         env:
           GH_TOKEN: ${{ github.token }}
