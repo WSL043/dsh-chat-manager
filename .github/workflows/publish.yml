@@ -1,7 +1,13 @@
 name: Release
+run-name: Release ${{ inputs.request_id || github.sha }}
 
 on:
   workflow_dispatch:
+    inputs:
+      request_id:
+        description: Optional correlation id used by the compatibility autopilot
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -71,20 +77,24 @@ jobs:
           registry-url: https://registry.npmjs.org
       - name: Install OIDC-capable npm
         run: npm install --global npm@12.0.2
-      - name: Refuse an existing immutable release
+      - name: Inspect immutable release state
+        id: release_state
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
         shell: bash
         run: |
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "$RELEASE_TAG already exists; refusing to replace immutable assets." >&2
-            exit 1
-          fi
-          remote_tag="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG" | cut -f1)"
-          if [ -n "$remote_tag" ] && [ "$remote_tag" != "$GITHUB_SHA" ]; then
-            echo "$RELEASE_TAG already points to another commit; refusing to move it." >&2
-            exit 1
+            gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
+              | jq -e '.draft == false and .prerelease == false and .immutable == true' >/dev/null
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            remote_tag="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG" | cut -f1)"
+            if [ -n "$remote_tag" ] && [ "$remote_tag" != "$GITHUB_SHA" ]; then
+              echo "$RELEASE_TAG already points to another commit; refusing to move it." >&2
+              exit 1
+            fi
           fi
       - name: Build release assets
         env:
@@ -155,7 +165,24 @@ jobs:
             npm publish "$package" --access public --provenance
           fi
           (cd .artifacts && sha256sum dsh-native-session-delete.tgz > dsh-native-session-delete.tgz.sha256)
+      - name: Verify existing immutable release assets
+        if: steps.release_state.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          existing="$(mktemp -d)"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$existing"
+          for asset in dsh-native-session-delete.tgz dsh-native-session-delete.tgz.sha256 install.ps1 install.ps1.sha256; do
+            test -s "$existing/$asset"
+          done
+          (cd "$existing" && sha256sum -c dsh-native-session-delete.tgz.sha256 && sha256sum -c install.ps1.sha256)
+          cmp "$existing/dsh-native-session-delete.tgz" .artifacts/dsh-native-session-delete.tgz
+          cmp "$existing/install.ps1" .artifacts/install.ps1
       - name: Publish immutable release
+        if: steps.release_state.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
