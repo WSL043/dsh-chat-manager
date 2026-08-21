@@ -58,6 +58,19 @@ test('compatibility autopilot is fail-closed and publishes only after both host 
   assert.doesNotMatch(workflow, /continue-on-error:\s*true/)
 })
 
+test('release workflows reconcile an existing npm artifact by package contents', async () => {
+  const workflows = await Promise.all([
+    read('.github/workflows/publish.yml'),
+    read('.github/workflows/upstream-compatibility.yml'),
+  ])
+
+  for (const workflow of workflows) {
+    assert.match(workflow, /npm view "\$spec" dist\.tarball/)
+    assert.match(workflow, /diff -qr "\$local_tree\/package" "\$remote_tree\/package"/)
+    assert.match(workflow, /mv "\$remote_package" "\$package"/)
+  }
+})
+
 test('dependency installs enforce a release-age gate outside the reviewed DSH cohort', async () => {
   const workspace = await read('pnpm-workspace.yaml')
   const compatibility = JSON.parse(await read('compatibility.json'))
