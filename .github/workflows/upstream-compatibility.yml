@@ -184,6 +184,8 @@ jobs:
           node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
+      - name: Install OIDC-capable npm
+        run: npm install --global npm@12.0.2
       - name: Reproduce the accepted candidate
         env:
           DSH_VERSION: ${{ needs.preflight.outputs.dsh_version }}
