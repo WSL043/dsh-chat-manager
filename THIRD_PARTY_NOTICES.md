@@ -1,7 +1,7 @@
 # Third-party notices
 
 The distributed `lib/client.js` is a modified build of
-`@deepseek-ai/dsh-client-ui-workspace` version `0.1.0-rc.8`. The patch source
+`@deepseek-ai/dsh-client-ui-workspace` version `0.1.1-rc.1`. The patch source
 is available in `scripts/build-client.mjs`.
 
 DeepSeek Harness is licensed under the MIT License:
