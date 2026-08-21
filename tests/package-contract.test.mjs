@@ -154,6 +154,8 @@ test('public-facing copy describes the product without exposing maintenance mech
   assert.match(english, /Supports DeepSeek Harness/)
   assert.match(releaseNotes, /永久删除不可撤销/)
   assert.match(releaseNotes, /Permanent deletion cannot be undone/)
+  assert.match(releaseNotes, /releases\/download\/v\$\{RELEASE_VERSION\}\/install\.ps1/)
+  assert.match(releaseNotes, /\\`\\`\\`powershell/)
 })
 
 test('bundle disables the official workspace row and inserts the native replacement row', async () => {
