@@ -249,7 +249,6 @@ jobs:
           git push origin HEAD:main
       - name: Publish accepted immutable npm package
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PLUGIN_VERSION: ${{ needs.preflight.outputs.plugin_version }}
         shell: bash
         run: |
