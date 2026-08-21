@@ -1,8 +1,8 @@
 {
   "name": "dsh-native-session-delete",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "packageManager": "pnpm@11.19.0",
-  "description": "Confirmed permanent deletion for DeepSeek Harness sessions",
+  "description": "Permanent session deletion in the native DeepSeek Harness menu",
   "type": "module",
   "main": "./src/index.js",
   "exports": {
@@ -61,12 +61,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/WSL043/dsh-session-delete.git"
+    "url": "git+https://github.com/WSL043/dsh-native-session-delete.git"
   },
   "bugs": {
-    "url": "https://github.com/WSL043/dsh-session-delete/issues"
+    "url": "https://github.com/WSL043/dsh-native-session-delete/issues"
   },
-  "homepage": "https://github.com/WSL043/dsh-session-delete#readme",
+  "homepage": "https://github.com/WSL043/dsh-native-session-delete#readme",
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
   },

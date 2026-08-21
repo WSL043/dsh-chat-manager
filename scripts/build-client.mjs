@@ -147,7 +147,7 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     )
   }
 
-  const notice = `// Modified from @deepseek-ai/dsh-client-ui-workspace ${upstreamVersion} by DSH Session Delete. See THIRD_PARTY_NOTICES.md.\n`
+  const notice = `// Modified from @deepseek-ai/dsh-client-ui-workspace ${upstreamVersion} by DSH Native Session Delete. See THIRD_PARTY_NOTICES.md.\n`
   return `${notice}${source}`
 }
 

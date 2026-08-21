@@ -112,7 +112,9 @@ export function planCompatibilityUpdate(state, candidate) {
 }
 
 export function rewriteReleaseVersion(source, previousVersion, nextVersion) {
-  return source.replaceAll(`v${previousVersion}`, `v${nextVersion}`)
+  return source
+    .replaceAll(`v${previousVersion}`, `v${nextVersion}`)
+    .replaceAll(`@${previousVersion}`, `@${nextVersion}`)
 }
 
 export function rewriteDshVersion(source, previousVersion, nextVersion) {
