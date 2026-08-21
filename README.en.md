@@ -9,7 +9,7 @@ Native dark menu · Second confirmation · Permanent delete · In-place list upd
 [![Release](https://img.shields.io/github/v/release/WSL043/dsh-native-session-delete?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/releases/latest)
 [![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-native-session-delete/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-native-session-delete?style=flat-square)](https://www.npmjs.com/package/dsh-native-session-delete)
-[![DSH](https://img.shields.io/badge/DSH-auto--tested-2f81f7?style=flat-square)](#compatibility)
+[![DSH](https://img.shields.io/badge/DSH-compatible-2f81f7?style=flat-square)](#compatibility)
 [![License](https://img.shields.io/github/license/WSL043/dsh-native-session-delete?style=flat-square)](LICENSE)
 
 [中文](README.md) · [Install](#install) · [Use](#use) · [Safety boundary](#safety-boundary)
@@ -17,7 +17,7 @@ Native dark menu · Second confirmation · Permanent delete · In-place list upd
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.5/docs/assets/hero.en.png" alt="Red Delete session action in the native DeepSeek Harness dark-mode session menu">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.6/docs/assets/hero.en.png" alt="Red Delete session action in the native DeepSeek Harness dark-mode session menu">
 </p>
 
 | Native | Direct | Smooth |
@@ -31,7 +31,7 @@ Native dark menu · Second confirmation · Permanent delete · In-place list upd
 Open PowerShell and paste one line:
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.0.5/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.0.6/install.ps1' | iex
 ```
 
 The helper checks the current directory, PATH, `DSH_PORTABLE_ROOT`, Downloads/Desktop/Documents, and up to
@@ -46,7 +46,7 @@ If it still finds nothing, enter the actual DSH-Portable folder and rerun the sa
 ### Official CLI (macOS, Linux, or direct review)
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.0.5
+dsh plugin --profile web add dsh-native-session-delete@1.0.6
 ```
 
 The helper and direct command use the same standard bundle mechanism. The helper is only a Windows entry
@@ -57,7 +57,7 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.5/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.6/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -69,7 +69,7 @@ branch document as an installation contract.
    **Cancel** to leave it unchanged.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.5/docs/assets/confirm-delete.en.png" width="560" alt="English dark-mode permanent deletion confirmation dialog">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.6/docs/assets/confirm-delete.en.png" width="560" alt="English dark-mode permanent deletion confirmation dialog">
   <br><sub>Permanent deletion cannot be undone; the dialog identifies the target session.</sub>
 </p>
 
@@ -101,26 +101,18 @@ without warranty.
 ## Compatibility
 
 <!-- dsh-compatibility -->
-Automatically accepted: `0.1.0-rc.6`, `0.1.0-rc.7`, `0.1.0-rc.8`, `0.1.1-rc.1`. A new version is added only after isolated install, build, test, and official Web UI smoke acceptance all pass.
+Supports DeepSeek Harness: `0.1.0-rc.6`, `0.1.0-rc.7`, `0.1.0-rc.8`, `0.1.1-rc.1`.
 <!-- /dsh-compatibility -->
 
-The plugin targets DSH's default per-session JSONL storage. It uses a standard `dsh.bundle` profile layer
-that replaces the official workspace row with the uniquely identified native client
-`dsh-native-session-delete`; uninstalling restores the official workspace row.
-
-GitHub Actions reads the full DSH registry version sequence every six hours and cross-checks it against an
-official immutable Release. For the oldest uncovered release, it installs official DSH and the candidate plugin in an isolated profile, then checks
-the build, unit suite, native menu, red delete action, second confirmation, cancel-without-request, and
-no-full-page-reload behavior. Only a complete pass extends the compatibility range and publishes a new
-immutable patch release. Any failure stops publication and leaves the existing compatibility claim intact.
-Structural upstream changes still require a code fix; automation never guesses at deletion behavior.
+The plugin supports DSH's default per-session JSONL storage. It adds deletion to the native session menu;
+uninstalling restores the original DSH menu.
 
 ## Update and uninstall
 
-Update by rerunning the quick installer or installing the new npm version. For v1.0.5:
+Update by rerunning the quick installer or installing the new npm version. For v1.0.6:
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.0.5
+dsh plugin --profile web add dsh-native-session-delete@1.0.6
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:

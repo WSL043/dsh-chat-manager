@@ -94,7 +94,7 @@ test('rewrites every release-version reference in bounded public artifacts and g
 
   const document = 'before\n<!-- dsh-compatibility -->stale<!-- /dsh-compatibility -->\nafter'
   const block = rewriteCompatibilityBlock(document, ['0.1.0-rc.6', '0.1.0-rc.9'], 'zh')
-  assert.match(block, /已自动验收：`0\.1\.0-rc\.6`、`0\.1\.0-rc\.9`/)
+  assert.match(block, /支持 DeepSeek Harness：`0\.1\.0-rc\.6`、`0\.1\.0-rc\.9`/)
   assert.doesNotMatch(block, /stale/)
 
   assert.match(

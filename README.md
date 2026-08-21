@@ -9,7 +9,7 @@
 [![Release](https://img.shields.io/github/v/release/WSL043/dsh-native-session-delete?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/releases/latest)
 [![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-native-session-delete/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-native-session-delete?style=flat-square)](https://www.npmjs.com/package/dsh-native-session-delete)
-[![DSH](https://img.shields.io/badge/DSH-auto--tested-2f81f7?style=flat-square)](#兼容性)
+[![DSH](https://img.shields.io/badge/DSH-compatible-2f81f7?style=flat-square)](#兼容性)
 [![License](https://img.shields.io/github/license/WSL043/dsh-native-session-delete?style=flat-square)](LICENSE)
 
 [English](README.en.md) · [安装](#安装) · [使用](#使用) · [安全边界](#安全边界)
@@ -17,7 +17,7 @@
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.5/docs/assets/hero.png" alt="DeepSeek Harness 深色模式原生会话菜单中的红色删除会话选项">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.6/docs/assets/hero.png" alt="DeepSeek Harness 深色模式原生会话菜单中的红色删除会话选项">
 </p>
 
 | 原生 | 直接 | 顺滑 |
@@ -31,7 +31,7 @@
 打开 PowerShell，复制这一行：
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.0.5/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.0.6/install.ps1' | iex
 ```
 
 助手依次检查当前目录、PATH、`DSH_PORTABLE_ROOT`、下载/桌面/文档目录，以及这些目录和
@@ -44,7 +44,7 @@ irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.0.
 ### 官方 CLI（macOS、Linux 或希望直接审阅命令）
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.0.5
+dsh plugin --profile web add dsh-native-session-delete@1.0.6
 ```
 
 助手和这条命令使用的是同一个标准 bundle 安装机制；助手只是 Windows 入口，不接管安装事务。
@@ -53,7 +53,7 @@ dsh plugin --profile web add dsh-native-session-delete@1.0.5
 
 ### 交给 Agent
 
-请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.5/AGENTS.md)，
+请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.6/AGENTS.md)，
 其中写明了安装、更新、验收、卸载和安全边界。不要把 `main` 分支文档当作安装依据。
 
 ## 使用
@@ -63,7 +63,7 @@ dsh plugin --profile web add dsh-native-session-delete@1.0.5
 3. 在确认弹窗中再次确认会话名称并点击 **永久删除**；也可以随时点击 **取消**。
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.5/docs/assets/confirm-delete.png" width="560" alt="中文深色模式永久删除二次确认弹窗">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.6/docs/assets/confirm-delete.png" width="560" alt="中文深色模式永久删除二次确认弹窗">
   <br><sub>永久删除无法撤销，确认弹窗会明确显示目标会话</sub>
 </p>
 
@@ -91,23 +91,17 @@ dsh plugin --profile web add dsh-native-session-delete@1.0.5
 ## 兼容性
 
 <!-- dsh-compatibility -->
-已自动验收：`0.1.0-rc.6`、`0.1.0-rc.7`、`0.1.0-rc.8`、`0.1.1-rc.1`。新版本只有通过隔离安装、构建、测试和官方 Web UI 冒烟验收后才会加入此列表。
+支持 DeepSeek Harness：`0.1.0-rc.6`、`0.1.0-rc.7`、`0.1.0-rc.8`、`0.1.1-rc.1`。
 <!-- /dsh-compatibility -->
 
-插件面向 DSH 默认逐会话 JSONL 存储，使用标准 `dsh.bundle` profile 层，将官方 workspace 行替换为唯一的
-`dsh-native-session-delete` 原生客户端；卸载后 DSH 会恢复官方 workspace 行。
-
-GitHub Actions 每 6 小时读取 DSH registry 的完整版本序列，并与官方不可变 Release 交叉验证。发现最早一个尚未覆盖的新版本后，会在隔离
-profile 中重新安装官方 DSH 和待发布插件，验证构建、单元测试、原生菜单、红色删除项、二次确认、
-取消不发请求及无整页刷新；全部通过才自动增加兼容范围并发布新的不可变补丁版本。任何检查失败都会
-停止发布，现有兼容声明保持不变。上游发生结构性改动时仍需要代码修复，自动化不会猜测性修改删除逻辑。
+适用于 DSH 默认的逐会话 JSONL 存储。安装后在会话原生菜单中增加删除选项；卸载后恢复 DSH 原有菜单。
 
 ## 更新与卸载
 
-更新可重新运行快速安装助手，或安装 npm 上的新版本。v1.0.5 的直接命令是：
+更新可重新运行快速安装助手，或安装 npm 上的新版本。v1.0.6 的直接命令是：
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.0.5
+dsh plugin --profile web add dsh-native-session-delete@1.0.6
 ```
 
 卸载只移除这个插件的 bundle 层，不删除任何会话：

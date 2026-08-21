@@ -125,20 +125,27 @@ jobs:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
         shell: bash
         run: |
+          DSH_VERSION="$(node -p "require('./compatibility.json').latestTested")"
           cat > .artifacts/release.md <<NOTES
-          ## 自动兼容 / Compatibility autopilot
+          ## 更新内容
 
-          - 每 6 小时检查一次 DSH 官方发布。
-          - 只有 Linux 官方 DSH 隔离 UI/真实一次性会话删除验收和 Windows 安装助手验收全部通过，才会扩展兼容范围并发布。
-          - 失败时保持现有兼容声明和 Release 不变；上游结构性变化不会被猜测性修改。
+          - 支持 DeepSeek Harness \`${DSH_VERSION}\`。
+          - 在会话原生菜单中提供红色“删除会话…”操作。
+          - 删除前需要二次确认，成功后原地更新会话列表。
+          - 永久删除不可撤销。
 
-          - Checks official DSH releases every six hours.
-          - Extends compatibility and publishes only after isolated official-DSH UI/real disposable-session deletion acceptance on Linux and installer acceptance on Windows both pass.
-          - A failure leaves the current compatibility claim and Release unchanged; structural upstream drift is never patched speculatively.
+          ## 安装或更新
 
           ```powershell
           irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
           ```
+
+          ## What's changed
+
+          - Supports DeepSeek Harness \`${DSH_VERSION}\`.
+          - Adds the red **Delete session…** action to the native session menu.
+          - Requires a second confirmation and updates the session list in place after deletion.
+          - Permanent deletion cannot be undone.
           NOTES
       - name: Publish immutable npm package
         env:

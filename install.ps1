@@ -6,7 +6,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$PackageSpec = 'dsh-native-session-delete@1.0.5'
+$PackageSpec = 'dsh-native-session-delete@1.0.6'
 $Chinese = [Globalization.CultureInfo]::CurrentUICulture.Name -like 'zh-*'
 
 function Say([string]$ChineseText, [string]$EnglishText) {

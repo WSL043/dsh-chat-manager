@@ -128,8 +128,8 @@ export function rewriteCompatibilityBlock(source, supported, language) {
   if (!marker.test(source)) throw new Error(`missing generated DSH compatibility block (${language})`)
   const versions = supported.map(version => `\`${version}\``)
   const body = language === 'zh'
-    ? `已自动验收：${versions.join('、')}。新版本只有通过隔离安装、构建、测试和官方 Web UI 冒烟验收后才会加入此列表。`
-    : `Automatically accepted: ${versions.join(', ')}. A new version is added only after isolated install, build, test, and official Web UI smoke acceptance all pass.`
+    ? `支持 DeepSeek Harness：${versions.join('、')}。`
+    : `Supports DeepSeek Harness: ${versions.join(', ')}.`
   return source.replace(marker, `<!-- dsh-compatibility -->\n${body}\n<!-- /dsh-compatibility -->`)
 }
 
