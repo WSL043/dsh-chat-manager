@@ -86,8 +86,14 @@ jobs:
               echo "Plugin v$plugin_version is missing a GitHub or npm publication; running a full repair publication."
             fi
           else
-            gh api "repos/deepseek-ai/deepseek-harness/releases/tags/dsh-v${candidate}" \
-              | jq -e '.draft == false and .immutable == true and (.published_at | type == "string")' >/dev/null
+            release_json="$RUNNER_TEMP/dsh-release.json"
+            if ! gh api "repos/deepseek-ai/deepseek-harness/releases/tags/dsh-v${candidate}" > "$release_json" 2>/dev/null; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              echo "publish_needed=false" >> "$GITHUB_OUTPUT"
+              echo "DSH $candidate is present on npm but its official immutable GitHub Release is not available yet; waiting for the next scheduled run."
+              exit 0
+            fi
+            jq -e '.draft == false and .immutable == true and (.published_at | type == "string")' "$release_json" >/dev/null
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "publish_needed=true" >> "$GITHUB_OUTPUT"
           fi
@@ -168,8 +174,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
+      actions: write
       contents: write
-      id-token: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -183,9 +189,6 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          registry-url: https://registry.npmjs.org
-      - name: Install OIDC-capable npm
-        run: npm install --global npm@12.0.2
       - name: Reproduce the accepted candidate
         env:
           DSH_VERSION: ${{ needs.preflight.outputs.dsh_version }}
@@ -222,21 +225,6 @@ jobs:
             echo "v$PLUGIN_VERSION already exists; refusing replacement." >&2
             exit 1
           fi
-      - name: Build immutable release assets
-        env:
-          PLUGIN_VERSION: ${{ needs.preflight.outputs.plugin_version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf .artifacts
-          mkdir .artifacts
-          pnpm pack --pack-destination .artifacts
-          package="$(find .artifacts -maxdepth 1 -type f -name '*.tgz' -print -quit)"
-          mv "$package" .artifacts/dsh-native-session-delete.tgz
-          cp install.ps1 .artifacts/install.ps1
-          (cd .artifacts && sha256sum dsh-native-session-delete.tgz > dsh-native-session-delete.tgz.sha256)
-          (cd .artifacts && sha256sum install.ps1 > install.ps1.sha256)
-          grep -F "dsh-native-session-delete@${PLUGIN_VERSION}" .artifacts/install.ps1
       - name: Commit accepted compatibility metadata to main
         if: needs.preflight.outputs.changed == 'true'
         env:
@@ -249,56 +237,23 @@ jobs:
           git add -- AGENTS.md README.md README.en.md THIRD_PARTY_NOTICES.md compatibility.json install.ps1 lib/client.js package.json pnpm-lock.yaml pnpm-workspace.yaml
           git commit -m "chore: support DSH $DSH_VERSION"
           git push origin HEAD:main
-      - name: Publish accepted immutable npm package
+      - name: Dispatch and await the trusted release workflow
         env:
-          PLUGIN_VERSION: ${{ needs.preflight.outputs.plugin_version }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          package=.artifacts/dsh-native-session-delete.tgz
-          spec="dsh-native-session-delete@$PLUGIN_VERSION"
-          remote_integrity="$(npm view "$spec" dist.integrity 2>/dev/null || true)"
-          if [ -n "$remote_integrity" ]; then
-            remote_tarball="$(npm view "$spec" dist.tarball)"
-            remote_package="$(mktemp)"
-            curl --fail --location --silent --show-error "$remote_tarball" --output "$remote_package"
-            downloaded_integrity="sha512-$(openssl dgst -sha512 -binary "$remote_package" | base64 -w0)"
-            test "$downloaded_integrity" = "$remote_integrity"
-            local_tree="$(mktemp -d)"
-            remote_tree="$(mktemp -d)"
-            tar -xzf "$package" -C "$local_tree"
-            tar -xzf "$remote_package" -C "$remote_tree"
-            diff -qr --strip-trailing-cr "$local_tree/package" "$remote_tree/package"
-            mv "$remote_package" "$package"
-          else
-            npm publish "$package" --access public --provenance
-          fi
-          (cd .artifacts && sha256sum dsh-native-session-delete.tgz > dsh-native-session-delete.tgz.sha256)
-      - name: Publish accepted immutable release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          DSH_VERSION: ${{ needs.preflight.outputs.dsh_version }}
-          PLUGIN_VERSION: ${{ needs.preflight.outputs.plugin_version }}
-        shell: bash
-        run: |
-          cat > .artifacts/release.md <<NOTES
-          ## Automatic DSH compatibility release
-
-          This release passed isolated installation, build, unit, Windows installer, official DSH Web UI,
-          confirmation/cancel, real disposable JSONL deletion, and no-page-reload acceptance for
-          DeepSeek Harness \`$DSH_VERSION\`.
-
-          本版本已针对 DeepSeek Harness \`$DSH_VERSION\` 通过隔离安装、构建、单元测试、Windows
-          安装助手、官方 Web UI、确认/取消、一次性 JSONL 会话真实删除及无整页刷新验收。
-          NOTES
-          if ! gh release view "v$PLUGIN_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "v$PLUGIN_VERSION" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$(git rev-parse HEAD)" \
-              --title "DSH Native Session Delete v$PLUGIN_VERSION" \
-              --notes-file .artifacts/release.md \
-              .artifacts/dsh-native-session-delete.tgz \
-              .artifacts/dsh-native-session-delete.tgz.sha256 \
-              .artifacts/install.ps1 \
-              .artifacts/install.ps1.sha256
-          fi
+          request_id="compat-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          title="Release $request_id"
+          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main -f request_id="$request_id"
+          release_run=""
+          for attempt in $(seq 1 90); do
+            sleep 2
+            runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow publish.yml --event workflow_dispatch --limit 20 --json databaseId,displayTitle)"
+            release_run="$(jq -r --arg title "$title" 'map(select(.displayTitle == $title))[0].databaseId // empty' <<< "$runs")"
+            if [ -n "$release_run" ]; then
+              break
+            fi
+          done
+          test -n "$release_run"
+          gh run watch "$release_run" --repo "$GITHUB_REPOSITORY" --exit-status

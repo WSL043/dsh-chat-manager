@@ -50,26 +50,29 @@ test('compatibility autopilot is fail-closed and publishes only after both host 
   assert.match(workflow, /needs:\s*\[preflight, windows-installer\]/)
   assert.match(workflow, /git diff --binary \| sha256sum/)
   assert.match(workflow, /test "\$\(git rev-parse origin\/main\)" = "\$GITHUB_SHA"/)
-  assert.match(workflow, /git push origin HEAD:main[\s\S]*gh release create/)
-  assert.match(workflow, /npm publish "\$package" --access public --provenance/)
+  assert.match(workflow, /git push origin HEAD:main[\s\S]*gh workflow run publish\.yml/)
+  assert.match(workflow, /request_id="compat-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"/)
+  assert.match(workflow, /select\(\.displayTitle == \$title\)/)
+  assert.match(workflow, /gh run watch "\$release_run"/)
+  assert.match(workflow, /actions:\s*write/)
+  assert.match(workflow, /official immutable GitHub Release is not available yet; waiting/)
+  assert.doesNotMatch(workflow, /npm publish|gh release create/)
   assert.doesNotMatch(workflow, /NODE_AUTH_TOKEN|secrets\.NPM_TOKEN/)
-  assert.match(workflow, /id-token:\s*write/)
   assert.match(workflow, /missing a GitHub or npm publication/)
   assert.doesNotMatch(workflow, /continue-on-error:\s*true/)
 })
 
 test('release workflows reconcile an existing npm artifact by package contents', async () => {
-  const workflows = await Promise.all([
-    read('.github/workflows/publish.yml'),
-    read('.github/workflows/upstream-compatibility.yml'),
-  ])
+  const workflow = await read('.github/workflows/publish.yml')
 
-  for (const workflow of workflows) {
-    assert.match(workflow, /npm install --global npm@12\.0\.2/)
-    assert.match(workflow, /npm view "\$spec" dist\.tarball/)
-    assert.match(workflow, /diff -qr --strip-trailing-cr "\$local_tree\/package" "\$remote_tree\/package"/)
-    assert.match(workflow, /mv "\$remote_package" "\$package"/)
-  }
+  assert.match(workflow, /npm install --global npm@12\.0\.2/)
+  assert.match(workflow, /npm view "\$spec" dist\.tarball/)
+  assert.match(workflow, /diff -qr --strip-trailing-cr "\$local_tree\/package" "\$remote_tree\/package"/)
+  assert.match(workflow, /mv "\$remote_package" "\$package"/)
+  assert.match(workflow, /Verify existing immutable release assets/)
+  assert.match(workflow, /\.draft == false and \.prerelease == false and \.immutable == true/)
+  assert.match(workflow, /sha256sum -c dsh-native-session-delete\.tgz\.sha256/)
+  assert.match(workflow, /cmp "\$existing\/dsh-native-session-delete\.tgz" \.artifacts\/dsh-native-session-delete\.tgz/)
 })
 
 test('dependency installs enforce a release-age gate outside the reviewed DSH cohort', async () => {
