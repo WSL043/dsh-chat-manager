@@ -1,8 +1,14 @@
 packages:
   - .
 minimumReleaseAge: 1440
+# This bounded block is regenerated from pnpm-lock.yaml after a compatibility
+# update so stale or newly introduced DeepSeek dependencies cannot slip through.
+# dsh-compat-release-age-start
 minimumReleaseAgeExclude:
-  # Exact packages from the reviewed DeepSeek Harness rc.8 release cohort.
+  - '@deepseek-ai/cordis-plugin-include@1.0.6'
+  - '@deepseek-ai/cordis-plugin-loader@1.0.2'
+  - '@deepseek-ai/cordis@4.0.1'
+  - '@deepseek-ai/cosmokit@1.8.2'
   - '@deepseek-ai/dsh-agent-default-model@0.1.1-rc.1'
   - '@deepseek-ai/dsh-agent-presets@0.1.1-rc.1'
   - '@deepseek-ai/dsh-agent@0.1.1-rc.1'
@@ -22,6 +28,9 @@ minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-client-ui-sidebar@0.1.1-rc.1'
   - '@deepseek-ai/dsh-client-ui-slots@0.1.1-rc.1'
   - '@deepseek-ai/dsh-client-ui-theme@0.1.1-rc.1'
+  - '@deepseek-ai/dsh-client-ui-workspace@0.1.0-rc.6'
+  - '@deepseek-ai/dsh-client-ui-workspace@0.1.0-rc.7'
+  - '@deepseek-ai/dsh-client-ui-workspace@0.1.0-rc.8'
   - '@deepseek-ai/dsh-client-ui-workspace@0.1.1-rc.1'
   - '@deepseek-ai/dsh-code-runtime@0.1.1-rc.1'
   - '@deepseek-ai/dsh-commands@0.1.1-rc.1'
@@ -72,3 +81,5 @@ minimumReleaseAgeExclude:
   - '@deepseek-ai/dsh-user-approval@0.1.1-rc.1'
   - '@deepseek-ai/dsh-user-questions@0.1.1-rc.1'
   - '@deepseek-ai/dsh-workspace@0.1.1-rc.1'
+  - '@deepseek-ai/schemastery@3.18.1'
+# dsh-compat-release-age-end

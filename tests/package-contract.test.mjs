@@ -46,7 +46,8 @@ test('compatibility autopilot is fail-closed and publishes only after both host 
   assert.match(workflow, /repos\/deepseek-ai\/deepseek-harness\/releases\/tags\/dsh-v/)
   assert.match(workflow, /\.draft == false and \.immutable == true/)
   assert.match(workflow, /scripts\/accept-official-dsh\.mjs/)
-  assert.match(workflow, /runs-on:\s*windows-2025/)
+  assert.match(workflow, /matrix:[\s\S]*os:\s*\[windows-2022, windows-2025\]/)
+  assert.match(workflow, /runs-on:\s*\$\{\{ matrix\.os \}\}/)
   assert.match(workflow, /needs:\s*\[preflight, windows-installer\]/)
   assert.match(workflow, /git diff --binary \| sha256sum/)
   assert.match(workflow, /test "\$\(git rev-parse origin\/main\)" = "\$GITHUB_SHA"/)
@@ -80,6 +81,7 @@ test('dependency installs enforce a release-age gate outside the reviewed DSH co
   const compatibility = JSON.parse(await read('compatibility.json'))
 
   assert.match(workspace, /^minimumReleaseAge: 1440$/m)
+  assert.match(workspace, /# dsh-compat-release-age-start[\s\S]*# dsh-compat-release-age-end/)
   assert.match(workspace, new RegExp(`@deepseek-ai/dsh-client-ui-workspace@${compatibility.latestTested.replaceAll('.', '\\.')}`))
   assert.doesNotMatch(workspace, /minimumReleaseAgeExclude:[\s\S]*['"]?@deepseek-ai\/\*['"]?\s*$/m)
 })
@@ -135,6 +137,18 @@ test('documentation uses the standard one-command bundle lifecycle and second co
     assert.match(document, new RegExp(`releases/download/v${releaseVersion}`, 'u'))
     assert.match(document, /dsh plugin --profile web add/u)
     assert.match(document, /dsh plugin --profile web remove/u)
+  }
+})
+
+test('Windows installer compatibility is gated on both maintained server generations', async () => {
+  const workflows = await Promise.all([
+    read('.github/workflows/ci.yml'),
+    read('.github/workflows/publish.yml'),
+    read('.github/workflows/upstream-compatibility.yml'),
+  ])
+  for (const workflow of workflows) {
+    assert.match(workflow, /matrix:[\s\S]*os:\s*\[windows-2022, windows-2025\]/)
+    assert.match(workflow, /runs-on:\s*\$\{\{ matrix\.os \}\}/)
   }
 })
 

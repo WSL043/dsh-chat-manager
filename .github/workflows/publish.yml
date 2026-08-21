@@ -48,7 +48,11 @@ jobs:
       - run: git diff --exit-code -- lib
 
   windows-installer:
-    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
