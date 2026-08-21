@@ -136,9 +136,9 @@ jobs:
 
           ## 安装或更新
 
-          ```powershell
+          \`\`\`powershell
           irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
-          ```
+          \`\`\`
 
           ## What's changed
 
