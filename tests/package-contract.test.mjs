@@ -52,7 +52,7 @@ test('compatibility autopilot is fail-closed and publishes only after both host 
   assert.match(workflow, /test "\$\(git rev-parse origin\/main\)" = "\$GITHUB_SHA"/)
   assert.match(workflow, /git push origin HEAD:main[\s\S]*gh release create/)
   assert.match(workflow, /npm publish "\$package" --access public --provenance/)
-  assert.match(workflow, /NODE_AUTH_TOKEN:\s*\$\{\{ secrets\.NPM_TOKEN \}\}/)
+  assert.doesNotMatch(workflow, /NODE_AUTH_TOKEN|secrets\.NPM_TOKEN/)
   assert.match(workflow, /id-token:\s*write/)
   assert.match(workflow, /missing a GitHub or npm publication/)
   assert.doesNotMatch(workflow, /continue-on-error:\s*true/)

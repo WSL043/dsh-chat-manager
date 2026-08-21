@@ -130,7 +130,6 @@ jobs:
           NOTES
       - name: Publish immutable npm package
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
         shell: bash
         run: |
