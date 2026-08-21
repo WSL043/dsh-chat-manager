@@ -267,7 +267,7 @@ jobs:
             remote_tree="$(mktemp -d)"
             tar -xzf "$package" -C "$local_tree"
             tar -xzf "$remote_package" -C "$remote_tree"
-            diff -qr "$local_tree/package" "$remote_tree/package"
+            diff -qr --strip-trailing-cr "$local_tree/package" "$remote_tree/package"
             mv "$remote_package" "$package"
           else
             npm publish "$package" --access public --provenance

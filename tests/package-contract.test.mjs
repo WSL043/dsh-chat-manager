@@ -66,7 +66,7 @@ test('release workflows reconcile an existing npm artifact by package contents',
 
   for (const workflow of workflows) {
     assert.match(workflow, /npm view "\$spec" dist\.tarball/)
-    assert.match(workflow, /diff -qr "\$local_tree\/package" "\$remote_tree\/package"/)
+    assert.match(workflow, /diff -qr --strip-trailing-cr "\$local_tree\/package" "\$remote_tree\/package"/)
     assert.match(workflow, /mv "\$remote_package" "\$package"/)
   }
 })
