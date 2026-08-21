@@ -57,6 +57,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v5
@@ -67,6 +68,7 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+          registry-url: https://registry.npmjs.org
       - name: Refuse an existing immutable release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -102,7 +104,7 @@ jobs:
           for asset in dsh-native-session-delete.tgz dsh-native-session-delete.tgz.sha256 install.ps1 install.ps1.sha256; do
             test -s ".artifacts/$asset"
           done
-          grep -F "releases/download/v${RELEASE_VERSION}/dsh-native-session-delete.tgz" .artifacts/install.ps1
+          grep -F "dsh-native-session-delete@${RELEASE_VERSION}" .artifacts/install.ps1
           tar -xOf .artifacts/dsh-native-session-delete.tgz package/package.json \
             | jq -e --arg version "$RELEASE_VERSION" \
               '.name == "dsh-native-session-delete" and .version == $version and .dsh.bundle.patch == "./cordis.patch.yml"' >/dev/null
@@ -123,9 +125,25 @@ jobs:
           - A failure leaves the current compatibility claim and Release unchanged; structural upstream drift is never patched speculatively.
 
           ```powershell
-          irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
+          irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
           ```
           NOTES
+      - name: Publish immutable npm package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          package=.artifacts/dsh-native-session-delete.tgz
+          spec="dsh-native-session-delete@$RELEASE_VERSION"
+          local_integrity="sha512-$(openssl dgst -sha512 -binary "$package" | base64 -w0)"
+          remote_integrity="$(npm view "$spec" dist.integrity 2>/dev/null || true)"
+          if [ -n "$remote_integrity" ]; then
+            test "$remote_integrity" = "$local_integrity"
+          else
+            npm publish "$package" --access public --provenance
+          fi
       - name: Publish immutable release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -135,7 +153,7 @@ jobs:
           gh release create "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "DSH Session Delete $RELEASE_TAG" \
+            --title "DSH Native Session Delete $RELEASE_TAG" \
             --notes-file .artifacts/release.md \
             .artifacts/dsh-native-session-delete.tgz \
             .artifacts/dsh-native-session-delete.tgz.sha256 \

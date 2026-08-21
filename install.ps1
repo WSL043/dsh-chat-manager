@@ -6,11 +6,23 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$PackageSpec = 'dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.3/dsh-native-session-delete.tgz'
+$PackageSpec = 'dsh-native-session-delete@1.0.4'
 $Chinese = [Globalization.CultureInfo]::CurrentUICulture.Name -like 'zh-*'
 
 function Say([string]$ChineseText, [string]$EnglishText) {
     Write-Host $(if ($Chinese) { $ChineseText } else { $EnglishText })
+}
+
+function Select-DshCommand([string[]]$Choices) {
+    Say '检测到多个 DSH 安装，请选择：' 'Multiple DSH installations were found. Select one:'
+    for ($index = 0; $index -lt $Choices.Count; $index++) {
+        Write-Host "$($index + 1). $($Choices[$index])"
+    }
+    $answer = Read-Host $(if ($Chinese) { '输入编号' } else { 'Enter number' })
+    if ($answer -notmatch '^\d+$') { throw 'Invalid DSH selection.' }
+    $selected = [int]$answer
+    if ($selected -lt 1 -or $selected -gt $Choices.Count) { throw 'Invalid DSH selection.' }
+    return $Choices[$selected - 1]
 }
 
 function Resolve-DshCommand {
@@ -69,9 +81,27 @@ function Resolve-DshCommand {
         }
     }
 
+    # A generated LocalAppData\Temp extraction is often only an installer or
+    # acceptance fixture. Prefer one durable user installation when it is the
+    # sole non-temporary candidate instead of making the user disambiguate it.
+    $durable = [Collections.Generic.List[string]]::new()
+    $tempRoot = if ($env:LOCALAPPDATA) {
+        [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Temp')).TrimEnd('\') + '\'
+    }
+    foreach ($candidate in $discovered) {
+        $full = [IO.Path]::GetFullPath($candidate)
+        if (-not $tempRoot -or -not $full.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)) {
+            $durable.Add($candidate)
+        }
+    }
+
+    if ($durable.Count -eq 1) { return $durable[0] }
+    if ($durable.Count -gt 1) {
+        return Select-DshCommand @($durable)
+    }
     if ($discovered.Count -eq 1) { return $discovered[0] }
     if ($discovered.Count -gt 1) {
-        throw "Multiple DSH installations were found. Pass -DshPath with the intended dsh.exe:`n$($discovered -join "`n")"
+        return Select-DshCommand @($discovered)
     }
     throw 'DSH was not found in PATH or common Portable locations. Run this command in the DSH-Portable folder or pass -DshPath.'
 }

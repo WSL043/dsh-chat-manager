@@ -1,27 +1,28 @@
 <div align="center">
 
-# DSH Session Delete
+# DSH Native Session Delete
 
 **Bring permanent session deletion to the native DeepSeek Harness menu.**
 
-Native dark menu · Second confirmation · Safe stop for running work · In-place list update
+Native dark menu · Second confirmation · Permanent delete · In-place list update
 
-[![Release](https://img.shields.io/github/v/release/WSL043/dsh-session-delete?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-session-delete/releases/latest)
-[![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-session-delete/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-session-delete/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/WSL043/dsh-native-session-delete?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/releases/latest)
+[![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-native-session-delete/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/dsh-native-session-delete?style=flat-square)](https://www.npmjs.com/package/dsh-native-session-delete)
 [![DSH](https://img.shields.io/badge/DSH-auto--tested-2f81f7?style=flat-square)](#compatibility)
-[![License](https://img.shields.io/github/license/WSL043/dsh-session-delete?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/github/license/WSL043/dsh-native-session-delete?style=flat-square)](LICENSE)
 
 [中文](README.md) · [Install](#install) · [Use](#use) · [Safety boundary](#safety-boundary)
 
 </div>
 
 <p align="center">
-  <img src="docs/assets/hero.en.png" alt="Red Delete session action in the native DeepSeek Harness dark-mode session menu">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.4/docs/assets/hero.en.png" alt="Red Delete session action in the native DeepSeek Harness dark-mode session menu">
 </p>
 
-| Native | Safe | Smooth |
+| Native | Direct | Smooth |
 | --- | --- | --- |
-| The action lives in the native session menu and keeps Archive available | A second confirmation is required; running work is stopped safely | The list updates in place without reloading the whole DSH page |
+| The action lives in the native session menu and keeps Archive available | A second confirmation permanently deletes the target; running work is stopped first | The list updates in place without reloading the whole DSH page |
 
 ## Install
 
@@ -30,25 +31,22 @@ Native dark menu · Second confirmation · Safe stop for running work · In-plac
 Open PowerShell and paste one line:
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.3/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.0.4/install.ps1' | iex
 ```
 
 The helper checks the current directory, PATH, `DSH_PORTABLE_ROOT`, Downloads/Desktop/Documents, and up to
 three nested levels below those folders and `LocalAppData\Temp`, then calls the official DSH `plugin add`
 command once. It does not recursively scan disks, install a package manager, snapshot profiles, create a
 resident command, or download the plugin twice. It supports regular DSH and
-[DSH-Portable](https://github.com/WSL043/DSH-Portable); if several copies are found, it stops and asks for an explicit path.
-
-For a Portable copy in a custom location, provide its executable explicitly without a disk scan:
-
-```powershell
-& ([scriptblock]::Create((irm 'https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.3/install.ps1'))) -DshPath 'D:\DSH-Portable\dsh.exe'
-```
+[DSH-Portable](https://github.com/WSL043/DSH-Portable). If it finds one durable installation plus disposable
+copies under Temp, it chooses the durable installation automatically. If several durable installations exist,
+the helper displays their real paths and asks for a number; no command editing or placeholder path is needed.
+If it still finds nothing, enter the actual DSH-Portable folder and rerun the same one-line command.
 
 ### Official CLI (macOS, Linux, or direct review)
 
 ```sh
-dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.3/dsh-native-session-delete.tgz"
+dsh plugin --profile web add dsh-native-session-delete@1.0.4
 ```
 
 The helper and direct command use the same standard bundle mechanism. The helper is only a Windows entry
@@ -59,7 +57,7 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-session-delete/v1.0.3/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.4/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -71,12 +69,12 @@ branch document as an installation contract.
    **Cancel** to leave it unchanged.
 
 <p align="center">
-  <img src="docs/assets/confirm-delete.en.png" width="560" alt="English dark-mode permanent deletion confirmation dialog">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.4/docs/assets/confirm-delete.en.png" width="560" alt="English dark-mode permanent deletion confirmation dialog">
   <br><sub>Permanent deletion cannot be undone; the dialog identifies the target session.</sub>
 </p>
 
 Once active, the plugin reuses DSH lifecycle and session-storage capabilities. If work is still running,
-it is stopped safely and allowed to settle before the target session is deleted. The session list then
+it is stopped and allowed to settle before the target session is deleted. The session list then
 updates in place without reloading the whole DSH page.
 
 ## Safety boundary
@@ -119,10 +117,10 @@ Structural upstream changes still require a code fix; automation never guesses a
 
 ## Update and uninstall
 
-Update by rerunning the quick installer or using the new release in the same `add` command. For v1.0.3:
+Update by rerunning the quick installer or installing the new npm version. For v1.0.4:
 
 ```sh
-dsh plugin --profile web add "dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v1.0.3/dsh-native-session-delete.tgz"
+dsh plugin --profile web add dsh-native-session-delete@1.0.4
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:
@@ -137,7 +135,7 @@ workflow after installing, updating, or uninstalling so the configuration is rec
 
 ## Support and license
 
-Open a [GitHub Issue](https://github.com/WSL043/dsh-session-delete/issues) for ordinary problems. Report
+Open a [GitHub Issue](https://github.com/WSL043/dsh-native-session-delete/issues) for ordinary problems. Report
 security issues privately as described in [SECURITY.md](SECURITY.md).
 
 MIT. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the modified upstream client and its license

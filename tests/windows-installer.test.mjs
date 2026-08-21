@@ -8,7 +8,7 @@ import test from 'node:test'
 const root = new URL('..', import.meta.url)
 const installer = new URL('../install.ps1', import.meta.url)
 const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
-const packageSpec = `dsh-native-session-delete@https://github.com/WSL043/dsh-session-delete/releases/download/v${manifest.version}/dsh-native-session-delete.tgz`
+const packageSpec = `dsh-native-session-delete@${manifest.version}`
 const windowsTest = process.platform === 'win32' ? test : test.skip
 
 test('installer remains a thin official-CLI launcher', async () => {
@@ -69,6 +69,67 @@ windowsTest('bounded discovery finds a Portable nested under the local temp dire
 
   assert.equal(result.status, 0, result.stderr || result.stdout)
   assert.equal((await readFile(log, 'utf8')).trim(), `plugin --profile web add ${packageSpec}`)
+})
+
+windowsTest('discovery prefers one durable user installation over disposable temp copies', async t => {
+  const fixture = await mkdtemp(join(tmpdir(), 'dsh-thin-installer-'))
+  t.after(() => rm(fixture, { recursive: true, force: true }))
+  const userProfile = join(fixture, 'User')
+  const localAppData = join(fixture, 'LocalAppData')
+  const durable = join(userProfile, 'Downloads', 'DeepSeek-Herness')
+  const disposable = join(localAppData, 'Temp', 'opencode', 'zip-unpack-test', 'DSH-Portable')
+  const durableDsh = join(durable, 'dsh.cmd')
+  const disposableDsh = join(disposable, 'dsh.cmd')
+  const log = join(fixture, 'args.txt')
+  await Promise.all([mkdir(durable, { recursive: true }), mkdir(disposable, { recursive: true })])
+  await writeFile(durableDsh, '@echo off\r\n> "%DSH_INSTALLER_TEST_LOG%" echo durable %*\r\nexit /b 0\r\n')
+  await writeFile(disposableDsh, '@echo off\r\n> "%DSH_INSTALLER_TEST_LOG%" echo disposable %*\r\nexit /b 0\r\n')
+
+  const result = spawnSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', installer.pathname.slice(1),
+  ], {
+    cwd: fixture,
+    env: {
+      ...process.env,
+      USERPROFILE: userProfile,
+      LOCALAPPDATA: localAppData,
+      DSH_INSTALLER_TEST_LOG: log,
+    },
+    encoding: 'utf8',
+  })
+
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+  assert.equal((await readFile(log, 'utf8')).trim(), `durable plugin --profile web add ${packageSpec}`)
+})
+
+windowsTest('multiple durable installations are selected by number without a placeholder path', async t => {
+  const fixture = await mkdtemp(join(tmpdir(), 'dsh-thin-installer-'))
+  t.after(() => rm(fixture, { recursive: true, force: true }))
+  const userProfile = join(fixture, 'User')
+  const first = join(userProfile, 'Downloads', 'DeepSeek-Harness-A')
+  const second = join(userProfile, 'Documents', 'DeepSeek-Harness-B')
+  const log = join(fixture, 'args.txt')
+  await Promise.all([mkdir(first, { recursive: true }), mkdir(second, { recursive: true })])
+  await writeFile(join(first, 'dsh.cmd'), '@echo off\r\n> "%DSH_INSTALLER_TEST_LOG%" echo first %*\r\nexit /b 0\r\n')
+  await writeFile(join(second, 'dsh.cmd'), '@echo off\r\n> "%DSH_INSTALLER_TEST_LOG%" echo second %*\r\nexit /b 0\r\n')
+
+  const result = spawnSync('powershell.exe', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', installer.pathname.slice(1),
+  ], {
+    cwd: fixture,
+    env: {
+      ...process.env,
+      USERPROFILE: userProfile,
+      LOCALAPPDATA: join(fixture, 'LocalAppData'),
+      DSH_INSTALLER_TEST_LOG: log,
+    },
+    input: '2\r\n',
+    encoding: 'utf8',
+  })
+
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+  assert.match(result.stdout, /Multiple DSH installations|检测到多个 DSH/)
+  assert.equal((await readFile(log, 'utf8')).trim(), `second plugin --profile web add ${packageSpec}`)
 })
 
 windowsTest('PATH discovery is sufficient and command failures are preserved', async t => {
