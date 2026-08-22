@@ -81,6 +81,16 @@ test('release workflows reconcile an existing npm artifact by package contents',
   assert.match(workflow, /cmp "\$existing\/dsh-native-session-delete\.tgz" \.artifacts\/dsh-native-session-delete\.tgz/)
 })
 
+test('release notes credit verified merged contributor pull requests', async () => {
+  const workflow = await read('.github/workflows/publish.yml')
+
+  assert.match(workflow, /contributor_prs:[\s\S]*merged contributor PR numbers/i)
+  assert.match(workflow, /CONTRIBUTOR_PRS: \$\{\{ inputs\.contributor_prs \}\}/)
+  assert.match(workflow, /gh pr view "\$pr_number"[\s\S]*author,mergedAt,number,url/)
+  assert.match(workflow, /test "\$merged_at" != 'null'/)
+  assert.match(workflow, /Thanks to \[@\$author\][\s\S]*for contributing in \[#\$number\]/)
+})
+
 test('dependency installs enforce a release-age gate outside the reviewed DSH cohort', async () => {
   const workspace = await read('pnpm-workspace.yaml')
   const compatibility = JSON.parse(await read('compatibility.json'))
