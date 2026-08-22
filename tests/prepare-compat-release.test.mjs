@@ -85,14 +85,14 @@ test('rewrites every release-version reference in bounded public artifacts and g
     'keep historical v1.0.2 text',
     "releases/download/v1.0.2/install.ps1",
     'dsh-native-session-delete@1.0.2',
-    'raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.2/AGENTS.md',
+    'raw.githubusercontent.com/WSL043/dsh-native-session-manager/v1.0.2/AGENTS.md',
   ].join('\n')
   const rewritten = rewriteReleaseVersion(source, '1.0.2', '1.0.3')
   assert.match(rewritten, /keep historical v1\.0\.3 text/)
   assert.doesNotMatch(rewritten, /v1\.0\.2/)
   assert.match(rewritten, /releases\/download\/v1\.0\.3\/install\.ps1/)
   assert.match(rewritten, /dsh-native-session-delete@1\.0\.3/)
-  assert.match(rewritten, /dsh-native-session-delete\/v1\.0\.3\/AGENTS\.md/)
+  assert.match(rewritten, /dsh-native-session-manager\/v1\.0\.3\/AGENTS\.md/)
 
   const document = 'before\n<!-- dsh-compatibility -->stale<!-- /dsh-compatibility -->\nafter'
   const block = rewriteCompatibilityBlock(document, ['0.1.0-rc.6', '0.1.0-rc.9'], 'zh')
