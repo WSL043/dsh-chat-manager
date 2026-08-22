@@ -12,7 +12,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 [![DSH](https://img.shields.io/badge/DSH-compatible-2f81f7?style=flat-square)](#compatibility)
 [![License](https://img.shields.io/github/license/WSL043/dsh-native-session-delete?style=flat-square)](LICENSE)
 
-[中文](README.md) · [Install](#install) · [Use](#use) · [Safety boundary](#safety-boundary)
+[中文](README.zh-CN.md) · [Install](#install) · [Use](#use) · [Safety boundary](#safety-boundary)
 
 </div>
 
