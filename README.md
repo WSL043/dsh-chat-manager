@@ -19,7 +19,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/v1.1.0/docs/assets/hero.en.png" alt="DeepSeek Harness chat history and archived session manager with search, restore, and safe permanent deletion">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/main/docs/assets/hero.en.png" alt="DeepSeek Harness chat history and archived session manager with search, restore, and safe permanent deletion">
 </p>
 
 | Recover archives | Search conversations | Delete safely |
@@ -27,7 +27,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 | Open the archive manager from the sidebar and restore hidden sessions | Search archived names, workspaces, and user/assistant conversation content | Keep native second confirmation; running work is stopped safely before local records are removed |
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/v1.1.0/docs/assets/archive-manager.en.png" width="382" alt="Native DeepSeek Harness archived conversation manager with history search, restore, and permanent deletion">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/main/docs/assets/archive-manager.en.png" width="414" alt="Native DeepSeek Harness archived conversation manager with history search, restore, and permanent deletion">
   <br><sub>Native interface on DeepSeek Harness 0.1.1-rc.2</sub>
 </p>
 
@@ -88,7 +88,7 @@ is limited to current user and assistant messages inside archived sessions.
    **Cancel** to leave it unchanged.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/v1.1.0/docs/assets/confirm-delete.en.png" width="560" alt="DeepSeek Harness safe permanent session deletion confirmation dialog">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/main/docs/assets/confirm-delete.en.png" width="414" alt="DeepSeek Harness safe permanent session deletion confirmation dialog">
   <br><sub>Permanent deletion cannot be undone; the dialog identifies the target session.</sub>
 </p>
 
