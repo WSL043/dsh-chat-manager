@@ -1,8 +1,8 @@
 {
   "name": "dsh-native-session-delete",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "packageManager": "pnpm@11.19.0",
-  "description": "Permanent session deletion in the native DeepSeek Harness menu",
+  "description": "Native DeepSeek Harness session management: archive search, restore, and safe permanent deletion",
   "type": "module",
   "main": "./src/index.js",
   "exports": {
@@ -17,6 +17,7 @@
     "scripts/build-client.mjs",
     "scripts/smoke-ui.mjs",
     "src/index.js",
+    "src/host/archive-manager.mjs",
     "src/host/delete-session.mjs",
     "README.md",
     "README.en.md",
@@ -51,6 +52,13 @@
     "dsh-plugin",
     "deepseek-harness",
     "session",
+    "session-manager",
+    "session-management",
+    "conversation",
+    "archive",
+    "unarchive",
+    "restore",
+    "history-search",
     "delete",
     "privacy"
   ],

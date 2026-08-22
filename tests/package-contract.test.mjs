@@ -24,6 +24,10 @@ test('public package is a standard DSH bundle with a unique identity', async () 
     if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(version, supportedRange)
   }
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-connection'))
+  assert.match(manifest.description, /session management/i)
+  for (const keyword of ['session-manager', 'archive', 'unarchive', 'restore', 'history-search']) {
+    assert.ok(manifest.keywords.includes(keyword), `missing discovery keyword ${keyword}`)
+  }
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml')
   for (const peer of Object.keys(manifest.peerDependencies)) {
     assert.equal(manifest.peerDependenciesMeta?.[peer]?.optional, true, `${peer} should be a host-provided optional peer`)
@@ -120,9 +124,11 @@ test('documentation uses the standard one-command bundle lifecycle and second co
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
   assert.match(chinese, new RegExp(`raw\\.githubusercontent\\.com/WSL043/dsh-native-session-delete/v${releaseVersion}/docs/assets/confirm-delete\\.png`))
+  assert.match(chinese, new RegExp(`raw\\.githubusercontent\\.com/WSL043/dsh-native-session-delete/v${releaseVersion}/docs/assets/archive-manager\\.png`))
   assert.match(english, /second confirmation/i)
   assert.match(english, /permanent deletion cannot be undone/i)
   assert.match(english, new RegExp(`raw\\.githubusercontent\\.com/WSL043/dsh-native-session-delete/v${releaseVersion}/docs/assets/confirm-delete\\.en\\.png`))
+  assert.match(english, new RegExp(`raw\\.githubusercontent\\.com/WSL043/dsh-native-session-delete/v${releaseVersion}/docs/assets/archive-manager\\.en\\.png`))
   assert.match(chinese, new RegExp(`releases/download/v${releaseVersion}/install\\.ps1`))
   assert.match(english, new RegExp(`releases/download/v${releaseVersion}/install\\.ps1`))
   assert.match(agents, /Never delete a session as an installation test/)
@@ -181,4 +187,14 @@ test('bundle disables the official workspace row and inserts the native replacem
   const patch = await read('cordis.patch.yml')
   assert.match(patch, /id:\s*ui-workspace[\s\S]*disabled:\s*true/)
   assert.match(patch, /id:\s*ui-workspace-session-delete[\s\S]*name:\s*['"]?dsh-native-session-delete/)
+})
+
+test('host bundle mounts restore and archived-history search routes', async () => {
+  const source = await read('src/index.js')
+
+  assert.match(source, /inject = \[[^\]]*'workspaceRegistry'/s)
+  assert.match(source, /path: '\/plugins\/dsh-session-delete\/restore'/)
+  assert.match(source, /path: '\/plugins\/dsh-session-delete\/archive-search'/)
+  assert.match(source, /restoreArchivedSession/)
+  assert.match(source, /searchArchivedSessions/)
 })

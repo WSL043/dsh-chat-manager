@@ -1,10 +1,10 @@
 <div align="center">
 
-# DSH Native Session Delete
+# DSH Native Session Manager
 
-**Bring permanent session deletion to the native DeepSeek Harness menu.**
+**Search, restore, and safely clean up sessions from the native DeepSeek Harness sidebar.**
 
-Native dark menu · Second confirmation · Permanent delete · In-place list update
+Archive manager · Conversation search · One-click restore · Safe permanent deletion
 
 [![Release](https://img.shields.io/github/v/release/WSL043/dsh-native-session-delete?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/releases/latest)
 [![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-native-session-delete/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/actions/workflows/ci.yml)
@@ -17,12 +17,17 @@ Native dark menu · Second confirmation · Permanent delete · In-place list upd
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.7/docs/assets/hero.en.png" alt="Red Delete session action in the native DeepSeek Harness dark-mode session menu">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/docs/assets/hero.en.png" alt="Native DeepSeek Harness session management and permanent deletion">
 </p>
 
-| Native | Direct | Smooth |
+| Recover archives | Search conversations | Delete safely |
 | --- | --- | --- |
-| The action lives in the native session menu and keeps Archive available | A second confirmation permanently deletes the target; running work is stopped first | The list updates in place without reloading the whole DSH page |
+| Open the archive manager from the sidebar and restore hidden sessions | Search archived names, workspaces, and user/assistant conversation content | Keep native second confirmation; running work is stopped safely before local records are removed |
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/docs/assets/archive-manager.en.png" width="382" alt="Native DSH archive manager with search, restore, and permanent deletion">
+  <br><sub>Native interface on DeepSeek Harness 0.1.1-rc.2</sub>
+</p>
 
 ## Install
 
@@ -31,7 +36,7 @@ Native dark menu · Second confirmation · Permanent delete · In-place list upd
 Open PowerShell and paste one line:
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.0.7/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.1.0/install.ps1' | iex
 ```
 
 The helper checks the current directory, PATH, `DSH_PORTABLE_ROOT`, Downloads/Desktop/Documents, and up to
@@ -46,7 +51,7 @@ If it still finds nothing, enter the actual DSH-Portable folder and rerun the sa
 ### Official CLI (macOS, Linux, or direct review)
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.0.7
+dsh plugin --profile web add dsh-native-session-delete@1.1.0
 ```
 
 The helper and direct command use the same standard bundle mechanism. The helper is only a Windows entry
@@ -57,19 +62,31 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.7/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
 ## Use
 
+### Manage archives
+
+1. Select the archive icon in the sidebar header to open **Archived sessions**.
+2. Browse every archive or search by session name, workspace, and user/assistant conversation content.
+3. Select **Restore** to return a session to its original workspace position. To remove it completely,
+   start the permanent-delete confirmation from the same list.
+
+Archive and restore only change DSH's hidden state; they do not delete conversation history. Content search
+is limited to current user and assistant messages inside archived sessions.
+
+### Delete permanently
+
 1. Open the native actions menu beside the target session in the sidebar.
-2. Choose the red **Delete session…** action.
+2. Choose the red **Delete session** action.
 3. Check the session name and select **Delete permanently** in the confirmation dialog, or select
    **Cancel** to leave it unchanged.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.7/docs/assets/confirm-delete.en.png" width="560" alt="English dark-mode permanent deletion confirmation dialog">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/docs/assets/confirm-delete.en.png" width="560" alt="English dark-mode permanent deletion confirmation dialog">
   <br><sub>Permanent deletion cannot be undone; the dialog identifies the target session.</sub>
 </p>
 
@@ -104,15 +121,16 @@ without warranty.
 Supports DeepSeek Harness: `0.1.0-rc.6`, `0.1.0-rc.7`, `0.1.0-rc.8`, `0.1.1-rc.1`, `0.1.1-rc.2`.
 <!-- /dsh-compatibility -->
 
-The plugin supports DSH's default per-session JSONL storage. It adds deletion to the native session menu;
-uninstalling restores the original DSH menu.
+Archive browsing, restore, and content search use DSH's workspace registry and session-query capabilities.
+Permanent deletion supports DSH's default per-session JSONL storage. Installing replaces the native workspace
+list with the session-management version; uninstalling restores DSH's original list.
 
 ## Update and uninstall
 
-Update by rerunning the quick installer or installing the new npm version. For v1.0.7:
+Update by rerunning the quick installer or installing the new npm version. For v1.1.0:
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.0.7
+dsh plugin --profile web add dsh-native-session-delete@1.1.0
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:

@@ -1,10 +1,10 @@
 <div align="center">
 
-# DSH Native Session Delete
+# DSH Native Session Manager
 
-**把“永久删除会话”带回 DeepSeek Harness 原生菜单。**
+**在 DeepSeek Harness 原生侧边栏中搜索、恢复和安全清理会话。**
 
-原生深色菜单 · 二次确认 · 永久删除 · 原地更新列表
+归档管理 · 聊天记录搜索 · 一键恢复 · 安全永久删除
 
 [![Release](https://img.shields.io/github/v/release/WSL043/dsh-native-session-delete?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/releases/latest)
 [![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-native-session-delete/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/actions/workflows/ci.yml)
@@ -17,12 +17,17 @@
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.7/docs/assets/hero.png" alt="DeepSeek Harness 深色模式原生会话菜单中的红色删除会话选项">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/docs/assets/hero.png" alt="DeepSeek Harness 原生会话管理与永久删除功能">
 </p>
 
-| 原生 | 直接 | 顺滑 |
+| 归档可找回 | 聊天可搜索 | 删除更稳妥 |
 | --- | --- | --- |
-| 删除入口就在会话原生操作菜单中，归档仍然保留 | 二次确认后永久删除目标会话；正在运行的任务会先停止 | 删除成功后原地刷新列表，不重载整个 DSH 页面 |
+| 从侧边栏打开归档管理器，查看并恢复隐藏的会话 | 按会话名、工作区或用户与助手的聊天内容搜索归档 | 原生菜单保留二次确认；运行中的任务先安全停止，再删除本机会话记录 |
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/docs/assets/archive-manager.png" width="382" alt="DSH 原生归档会话管理器，包含搜索、恢复和永久删除">
+  <br><sub>DeepSeek Harness 0.1.1-rc.2 中的原生界面</sub>
+</p>
 
 ## 安装
 
@@ -31,7 +36,7 @@
 打开 PowerShell，复制这一行：
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.0.7/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.1.0/install.ps1' | iex
 ```
 
 助手依次检查当前目录、PATH、`DSH_PORTABLE_ROOT`、下载/桌面/文档目录，以及这些目录和
@@ -44,7 +49,7 @@ irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.0.
 ### 官方 CLI（macOS、Linux 或希望直接审阅命令）
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.0.7
+dsh plugin --profile web add dsh-native-session-delete@1.1.0
 ```
 
 助手和这条命令使用的是同一个标准 bundle 安装机制；助手只是 Windows 入口，不接管安装事务。
@@ -53,17 +58,28 @@ dsh plugin --profile web add dsh-native-session-delete@1.0.7
 
 ### 交给 Agent
 
-请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.7/AGENTS.md)，
+请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/AGENTS.md)，
 其中写明了安装、更新、验收、卸载和安全边界。不要把 `main` 分支文档当作安装依据。
 
 ## 使用
 
+### 管理归档
+
+1. 点击侧边栏标题区域的归档图标，打开 **归档会话**。
+2. 直接浏览全部归档，或按会话名、工作区和用户/助手聊天内容搜索。
+3. 点击 **恢复** 让会话回到原来的工作区位置；需要彻底清理时，可从同一列表进入永久删除确认。
+
+归档和恢复只改变 DSH 的隐藏状态，不删除聊天记录。搜索范围仅限已归档会话中的当前用户与助手消息，
+不会把其他会话或插件数据混入结果。
+
+### 永久删除
+
 1. 打开侧边栏中目标会话右侧的原生操作菜单。
-2. 选择红色的 **删除会话…**。
-3. 在确认弹窗中再次确认会话名称并点击 **永久删除**；也可以随时点击 **取消**。
+2. 选择红色的 **删除会话**。
+3. 在确认弹窗中核对会话名称并再次确认 **永久删除**；也可以随时点击 **取消**。
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.0.7/docs/assets/confirm-delete.png" width="560" alt="中文深色模式永久删除二次确认弹窗">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/docs/assets/confirm-delete.png" width="560" alt="中文深色模式永久删除二次确认弹窗">
   <br><sub>永久删除无法撤销，确认弹窗会明确显示目标会话</sub>
 </p>
 
@@ -94,14 +110,15 @@ dsh plugin --profile web add dsh-native-session-delete@1.0.7
 支持 DeepSeek Harness：`0.1.0-rc.6`、`0.1.0-rc.7`、`0.1.0-rc.8`、`0.1.1-rc.1`、`0.1.1-rc.2`。
 <!-- /dsh-compatibility -->
 
-适用于 DSH 默认的逐会话 JSONL 存储。安装后在会话原生菜单中增加删除选项；卸载后恢复 DSH 原有菜单。
+归档浏览、恢复和内容搜索使用 DSH 的工作区注册表与会话查询能力；永久删除适用于 DSH 默认的逐会话
+JSONL 存储。安装后替换为带会话管理功能的原生工作区列表；卸载后恢复 DSH 原有列表。
 
 ## 更新与卸载
 
-更新可重新运行快速安装助手，或安装 npm 上的新版本。v1.0.7 的直接命令是：
+更新可重新运行快速安装助手，或安装 npm 上的新版本。v1.1.0 的直接命令是：
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.0.7
+dsh plugin --profile web add dsh-native-session-delete@1.1.0
 ```
 
 卸载只移除这个插件的 bundle 层，不删除任何会话：
