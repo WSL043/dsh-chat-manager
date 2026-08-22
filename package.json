@@ -20,7 +20,7 @@
     "src/host/archive-manager.mjs",
     "src/host/delete-session.mjs",
     "README.md",
-    "README.en.md",
+    "README.zh-CN.md",
     "AGENTS.md",
     "LICENSE",
     "SECURITY.md",

@@ -138,29 +138,8 @@ jobs:
         run: |
           set -euo pipefail
           DSH_VERSION="$(node -p "require('./compatibility.json').latestTested")"
-          cat > .artifacts/release.md <<NOTES
-          ## 更新内容
-
-          - 支持 DeepSeek Harness \`${DSH_VERSION}\`。
-          - 在原生侧边栏中浏览归档，并按名称、工作区或聊天内容搜索。
-          - 一键恢复归档会话，保留原工作区位置。
-          - 在会话原生菜单中提供带二次确认的红色“删除会话”操作。
-          - 永久删除不可撤销。
-
-          ## 安装或更新
-
-          \`\`\`powershell
-          irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
-          \`\`\`
-
-          ## What's changed
-
-          - Supports DeepSeek Harness \`${DSH_VERSION}\`.
-          - Browses archives in the native sidebar and searches by name, workspace, or conversation content.
-          - Restores archived sessions to their original workspace position.
-          - Adds the red **Delete session** action with a second confirmation to the native session menu.
-          - Permanent deletion cannot be undone.
-          NOTES
+          : > .artifacts/contributors.en.md
+          : > .artifacts/contributors.zh-CN.md
           if [[ -n "${CONTRIBUTOR_PRS:-}" ]]; then
             IFS=',' read -ra contributor_pr_numbers <<< "$CONTRIBUTOR_PRS"
             for raw_pr in "${contributor_pr_numbers[@]}"; do
@@ -175,12 +154,57 @@ jobs:
               author="$(jq -r '.author.login' <<< "$pr_json")"
               number="$(jq -r '.number' <<< "$pr_json")"
               url="$(jq -r '.url' <<< "$pr_json")"
-              cat >> .artifacts/release.md <<NOTES
-
-          - 感谢 [@$author](https://github.com/$author) 在 [#$number]($url) 提交贡献 / Thanks to [@$author](https://github.com/$author) for contributing in [#$number]($url)
+              cat >> .artifacts/contributors.en.md <<NOTES
+          - Thanks to [@$author](https://github.com/$author) for contributing in [#$number]($url).
+          NOTES
+              cat >> .artifacts/contributors.zh-CN.md <<NOTES
+          - 感谢 [@$author](https://github.com/$author) 在 [#$number]($url) 提交贡献。
           NOTES
             done
           fi
+          cat > .artifacts/release.md <<NOTES
+          ## What's changed
+
+          - Supports DeepSeek Harness \`${DSH_VERSION}\`.
+          - Browses archives in the native sidebar and searches by name, workspace, or conversation content.
+          - Restores archived sessions to their original workspace position.
+          - Adds the red **Delete session** action with a second confirmation to the native session menu.
+          - Permanent deletion cannot be undone.
+          NOTES
+          if [[ -s .artifacts/contributors.en.md ]]; then
+            printf '\n## Contributors\n\n' >> .artifacts/release.md
+            cat .artifacts/contributors.en.md >> .artifacts/release.md
+          fi
+          cat >> .artifacts/release.md <<NOTES
+
+          ## Install or update
+
+          \`\`\`powershell
+          irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
+          \`\`\`
+
+          ## 中文
+
+          ## 更新内容
+
+          - 支持 DeepSeek Harness \`${DSH_VERSION}\`。
+          - 在原生侧边栏中浏览归档，并按名称、工作区或聊天内容搜索。
+          - 一键恢复归档会话，保留原工作区位置。
+          - 在会话原生菜单中提供带二次确认的红色“删除会话”操作。
+          - 永久删除不可撤销。
+          NOTES
+          if [[ -s .artifacts/contributors.zh-CN.md ]]; then
+            printf '\n## 贡献者\n\n' >> .artifacts/release.md
+            cat .artifacts/contributors.zh-CN.md >> .artifacts/release.md
+          fi
+          cat >> .artifacts/release.md <<NOTES
+
+          ## 安装或更新
+
+          \`\`\`powershell
+          irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
+          \`\`\`
+          NOTES
       - name: Publish immutable npm package
         env:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
