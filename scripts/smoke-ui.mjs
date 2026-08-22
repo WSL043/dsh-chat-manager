@@ -133,6 +133,11 @@ export async function runSmoke(options) {
         })
       }
     }
+    await page.locator('#archived-sessions').click()
+    const archiveDialog = page.getByRole('dialog', { name: /^(Archived sessions|归档会话)$/ })
+    await archiveDialog.getByRole('searchbox').waitFor()
+    await archiveDialog.getByRole('button', { name: /^(Close|关闭)$/ }).filter({ hasText: /^(Close|关闭)$/ }).click()
+    await archiveDialog.waitFor({ state: 'hidden' })
     const matchingTitles = page.getByText(options.session, { exact: true })
     await matchingTitles.first().waitFor()
     const rowCount = await matchingTitles.count()
@@ -193,8 +198,8 @@ export async function runSmoke(options) {
     return {
       ok: true,
       checks: options.simulateDeleteSuccess === true
-        ? ['Archive session', 'red Delete session', 'confirmation dialog', 'successful delete without reload']
-        : ['Archive session', 'red Delete session', 'confirmation dialog', 'cancel without request'],
+        ? ['archive manager', 'Archive session', 'red Delete session', 'confirmation dialog', 'successful delete without reload']
+        : ['archive manager', 'Archive session', 'red Delete session', 'confirmation dialog', 'cancel without request'],
     }
   } finally {
     await browser.close()

@@ -134,8 +134,9 @@ jobs:
           ## 更新内容
 
           - 支持 DeepSeek Harness \`${DSH_VERSION}\`。
-          - 在会话原生菜单中提供红色“删除会话…”操作。
-          - 删除前需要二次确认，成功后原地更新会话列表。
+          - 在原生侧边栏中浏览归档，并按名称、工作区或聊天内容搜索。
+          - 一键恢复归档会话，保留原工作区位置。
+          - 在会话原生菜单中提供带二次确认的红色“删除会话”操作。
           - 永久删除不可撤销。
 
           ## 安装或更新
@@ -147,8 +148,9 @@ jobs:
           ## What's changed
 
           - Supports DeepSeek Harness \`${DSH_VERSION}\`.
-          - Adds the red **Delete session…** action to the native session menu.
-          - Requires a second confirmation and updates the session list in place after deletion.
+          - Browses archives in the native sidebar and searches by name, workspace, or conversation content.
+          - Restores archived sessions to their original workspace position.
+          - Adds the red **Delete session** action with a second confirmation to the native session menu.
           - Permanent deletion cannot be undone.
           NOTES
       - name: Publish immutable npm package

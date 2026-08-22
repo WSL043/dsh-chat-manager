@@ -49,6 +49,21 @@ test('settles a successful deletion in place without reloading the WebView', asy
   assert.match(patched, /if \(ctx\.sessions\.list\.getSnapshot\(\)\.current === sessionId\) ctx\.sessions\.clear\(\)/)
 })
 
+test('adds a native archived-session manager with metadata and history search', async () => {
+  const source = await readFile(resolveUpstreamClient(), 'utf8')
+  const patched = patchWorkspaceClient(source)
+
+  assert.match(patched, /id: "archived-sessions"/)
+  assert.match(patched, /archive\.manager\.title/)
+  assert.match(patched, /archive\.manager\.searchPlaceholder/)
+  assert.match(patched, /\/plugins\/dsh-session-delete\/archive-search/)
+  assert.match(patched, /\/plugins\/dsh-session-delete\/restore/)
+  assert.match(patched, /x-dsh-session-manager-action/)
+  assert.match(patched, /ctx\.workspaces\.refresh\(\)/)
+  assert.match(patched, /ctx\.sessions\.refresh\(\)/)
+  assert.doesNotMatch(patched, /window\.location\.reload/)
+})
+
 test('refuses to silently patch an unknown upstream client shape', () => {
   assert.throws(() => patchWorkspaceClient('unknown upstream'), /upstream marker/)
 })

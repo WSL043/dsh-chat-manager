@@ -160,7 +160,10 @@ export async function runOfficialAcceptance(options) {
 
     const browser = await chromium.launch({ headless: true })
     try {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 960 } })
+      const page = await browser.newPage({
+        viewport: { width: 1440, height: 960 },
+        ...(process.env.DSH_ACCEPTANCE_LOCALE === undefined ? {} : { locale: process.env.DSH_ACCEPTANCE_LOCALE }),
+      })
       const deleteRequests = []
       let navigations = 0
       let navigationArmed = false
@@ -203,7 +206,45 @@ export async function runOfficialAcceptance(options) {
         deleteItem.evaluate(element => getComputedStyle(element).color),
       ])
       if (archiveColor === deleteColor) throw new Error(`delete action is not red (${deleteColor})`)
-      await deleteItem.click()
+
+      await archiveItem.click()
+      await sessionAction.waitFor({ state: 'detached' })
+      await page.locator('#archived-sessions').click()
+      const archiveDialog = page.getByRole('dialog', { name: /^(Archived sessions|归档会话)$/ })
+      const restoreAction = archiveDialog.getByRole('button', { name: /^(Restore|恢复)$/ })
+      await restoreAction.waitFor()
+      if (await restoreAction.count() !== 1) throw new Error('isolated archive manager did not expose exactly one restore action')
+      if (typeof process.env.DSH_SESSION_MANAGER_SCREENSHOT === 'string') {
+        await archiveDialog.screenshot({ path: resolve(process.env.DSH_SESSION_MANAGER_SCREENSHOT) })
+      }
+      const archiveSearchResponse = page.waitForResponse(response => (
+        new URL(response.url()).pathname === '/plugins/dsh-session-delete/archive-search'
+        && response.request().method() === 'POST'
+      ))
+      await archiveDialog.getByRole('searchbox').fill(SESSION_TITLE)
+      const searchResponse = await archiveSearchResponse
+      const searchPayload = await searchResponse.json().catch(() => null)
+      if (searchResponse.status() !== 200 || searchPayload?.ok !== true) {
+        throw new Error(`archived search returned HTTP ${searchResponse.status()}: ${JSON.stringify(searchPayload)}`)
+      }
+      await restoreAction.waitFor()
+      const restoreResponse = page.waitForResponse(response => (
+        new URL(response.url()).pathname === '/plugins/dsh-session-delete/restore'
+        && response.request().method() === 'POST'
+      ))
+      await restoreAction.click()
+      const restored = await restoreResponse
+      const restorePayload = await restored.json().catch(() => null)
+      if (restored.status() !== 200 || restorePayload?.ok !== true || restorePayload?.value?.restored !== true) {
+        throw new Error(`archive restore returned HTTP ${restored.status()}: ${JSON.stringify(restorePayload)}`)
+      }
+      await restoreAction.waitFor({ state: 'hidden' })
+      await archiveDialog.getByRole('button', { name: /^(Close|关闭)$/ }).filter({ hasText: /^(Close|关闭)$/ }).click()
+      await archiveDialog.waitFor({ state: 'hidden' })
+      await sessionAction.waitFor({ state: 'attached' })
+
+      await openMenu()
+      await page.getByRole('menuitem', { name: /^(Delete session|删除会话)$/ }).click()
 
       let dialog = page.getByRole('dialog', { name: /^(Permanently delete session\?|永久删除会话？)$/ })
       await dialog.getByText(sessionLabel, { exact: false }).waitFor()
@@ -213,7 +254,14 @@ export async function runOfficialAcceptance(options) {
       await sessionAction.waitFor({ state: 'attached' })
 
       await openMenu()
-      await page.getByRole('menuitem', { name: /^(Delete session|删除会话)$/ }).click()
+      await page.getByRole('menuitem', { name: /^(Archive session|归档会话)$/ }).click()
+      await sessionAction.waitFor({ state: 'detached' })
+      await page.locator('#archived-sessions').click()
+      const archivedDeleteDialog = page.getByRole('dialog', { name: /^(Archived sessions|归档会话)$/ })
+      const deleteArchived = archivedDeleteDialog.getByRole('button', { name: /^(Delete permanently|永久删除)$/ })
+      await deleteArchived.waitFor()
+      if (await deleteArchived.count() !== 1) throw new Error('isolated archive manager did not expose exactly one delete action')
+      await deleteArchived.click()
       dialog = page.getByRole('dialog', { name: /^(Permanently delete session\?|永久删除会话？)$/ })
       navigationArmed = true
       const confirmedResponse = page.waitForResponse(response => (
@@ -232,6 +280,8 @@ export async function runOfficialAcceptance(options) {
         throw new Error(`expected one confirmed POST, observed ${JSON.stringify(deleteRequests)}`)
       }
       if (navigations !== 0) throw new Error(`confirmed deletion caused ${navigations} page navigation(s)`)
+      await archivedDeleteDialog.getByRole('button', { name: /^(Close|关闭)$/ }).filter({ hasText: /^(Close|关闭)$/ }).click()
+      await archivedDeleteDialog.waitFor({ state: 'hidden' })
       await access(transcriptPath).then(
         () => { throw new Error('confirmed deletion left the disposable transcript behind') },
         error => { if (error?.code !== 'ENOENT') throw error },
@@ -242,7 +292,7 @@ export async function runOfficialAcceptance(options) {
     return {
       ok: true,
       dshVersion: options.dshVersion,
-      checks: ['official install', 'official boot', 'red native action', 'second confirmation', 'cancel without request', 'confirmed JSONL deletion', 'no page reload'],
+      checks: ['official install', 'official boot', 'archive list', 'archived history search', 'archive restore', 'red native action', 'second confirmation', 'cancel without request', 'delete from archive manager', 'confirmed JSONL deletion', 'no page reload'],
     }
   } finally {
     if (server !== undefined) await stopProcess(server)
