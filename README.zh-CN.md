@@ -12,6 +12,7 @@
 [![DSH](https://img.shields.io/badge/DSH-compatible-2f81f7?style=flat-square)](#兼容性)
 [![License](https://img.shields.io/github/license/WSL043/dsh-native-session-manager?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/WSL043/dsh-native-session-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-native-session-manager/stargazers)
+[![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
 
 [English](README.md) · [安装](#安装) · [使用](#使用) · [安全边界](#安全边界)
 
