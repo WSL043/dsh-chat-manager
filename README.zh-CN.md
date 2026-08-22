@@ -12,7 +12,7 @@
 [![DSH](https://img.shields.io/badge/DSH-compatible-2f81f7?style=flat-square)](#兼容性)
 [![License](https://img.shields.io/github/license/WSL043/dsh-native-session-delete?style=flat-square)](LICENSE)
 
-[English](README.en.md) · [安装](#安装) · [使用](#使用) · [安全边界](#安全边界)
+[English](README.md) · [安装](#安装) · [使用](#使用) · [安全边界](#安全边界)
 
 </div>
 
