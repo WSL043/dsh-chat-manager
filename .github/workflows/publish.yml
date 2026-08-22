@@ -137,7 +137,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          DSH_VERSION="$(node -p "require('./compatibility.json').latestTested")"
           : > .artifacts/contributors.en.md
           : > .artifacts/contributors.zh-CN.md
           if [[ -n "${CONTRIBUTOR_PRS:-}" ]]; then
@@ -165,10 +164,9 @@ jobs:
           cat > .artifacts/release.md <<NOTES
           ## What's changed
 
-          - Supports DeepSeek Harness \`${DSH_VERSION}\`.
-          - Browses archives in the native sidebar and searches by name, workspace, or conversation content.
-          - Restores archived sessions to their original workspace position.
-          - Adds the red **Delete session** action with a second confirmation to the native session menu.
+          - Archived session titles now use the full card width and wrap instead of being squeezed by actions.
+          - Restore and permanent-delete actions move to a compact row below the session details.
+          - The compatibility section now shows only the latest accepted DeepSeek Harness release.
           - Permanent deletion cannot be undone.
           NOTES
           if [[ -s .artifacts/contributors.en.md ]]; then
@@ -187,10 +185,9 @@ jobs:
 
           ## 更新内容
 
-          - 支持 DeepSeek Harness \`${DSH_VERSION}\`。
-          - 在原生侧边栏中浏览归档，并按名称、工作区或聊天内容搜索。
-          - 一键恢复归档会话，保留原工作区位置。
-          - 在会话原生菜单中提供带二次确认的红色“删除会话”操作。
+          - 归档会话标题现在使用卡片完整宽度并自动换行，不再被操作按钮挤压。
+          - 恢复与永久删除操作移到会话信息下方的紧凑操作行。
+          - 兼容性区域只显示当前已验收的最新版 DeepSeek Harness。
           - 永久删除不可撤销。
           NOTES
           if [[ -s .artifacts/contributors.zh-CN.md ]]; then
@@ -256,7 +253,7 @@ jobs:
           gh release create "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "DSH Native Session Delete $RELEASE_TAG" \
+            --title "DSH Native Session Manager $RELEASE_TAG" \
             --notes-file .artifacts/release.md \
             .artifacts/dsh-native-session-delete.tgz \
             .artifacts/dsh-native-session-delete.tgz.sha256 \

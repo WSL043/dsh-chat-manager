@@ -39,7 +39,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 Open PowerShell and paste one line:
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-native-session-manager/releases/download/v1.1.0/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-native-session-manager/releases/download/v1.1.1/install.ps1' | iex
 ```
 
 The helper checks the current directory, PATH, `DSH_PORTABLE_ROOT`, Downloads/Desktop/Documents, and up to
@@ -54,7 +54,7 @@ If it still finds nothing, enter the actual DSH-Portable folder and rerun the sa
 ### Official CLI (macOS, Linux, or direct review)
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.1.0
+dsh plugin --profile web add dsh-native-session-delete@1.1.1
 ```
 
 The helper and direct command use the same standard bundle mechanism. The helper is only a Windows entry
@@ -65,7 +65,7 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/v1.1.0/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/v1.1.1/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -121,7 +121,7 @@ without warranty.
 ## Compatibility
 
 <!-- dsh-compatibility -->
-Supports DeepSeek Harness: `0.1.0-rc.6`, `0.1.0-rc.7`, `0.1.0-rc.8`, `0.1.1-rc.1`, `0.1.1-rc.2`.
+Supports the latest DeepSeek Harness release (`0.1.1-rc.2`).
 <!-- /dsh-compatibility -->
 
 Archive browsing, restore, and content search use DSH's workspace registry and session-query capabilities.
@@ -130,10 +130,10 @@ list with the session-management version; uninstalling restores DSH's original l
 
 ## Update and uninstall
 
-Update by rerunning the quick installer or installing the new npm version. For v1.1.0:
+Update by rerunning the quick installer or installing the new npm version. For v1.1.1:
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.1.0
+dsh plugin --profile web add dsh-native-session-delete@1.1.1
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:

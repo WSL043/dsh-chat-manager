@@ -231,11 +231,11 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 \t\t\t\t\t\t\t\tclassName: WorkspaceBrowser_module_css_default.deleteStatus,
 \t\t\t\t\t\t\t\tchildren: normalizedArchiveQuery === "" ? t("archive.manager.empty") : t("archive.manager.noMatches")
 \t\t\t\t\t\t\t}) : archiveRows.map((row) => (0, react_jsx_runtime.jsxs)("div", {
-\t\t\t\t\t\t\t\tstyle: { border: "1px solid var(--dsw-alias-border-l2)", borderRadius: 12, padding: 12, display: "flex", alignItems: "center", gap: 12 },
+\t\t\t\t\t\t\t\tstyle: { border: "1px solid var(--dsw-alias-border-l2)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", alignItems: "stretch", gap: 8 },
 \t\t\t\t\t\t\t\tchildren: [(0, react_jsx_runtime.jsxs)("div", {
-\t\t\t\t\t\t\t\t\tstyle: { minWidth: 0, flex: 1 },
+\t\t\t\t\t\t\t\t\tstyle: { minWidth: 0 },
 \t\t\t\t\t\t\t\t\tchildren: [(0, react_jsx_runtime.jsx)("div", {
-\t\t\t\t\t\t\t\t\t\tstyle: { color: "var(--dsw-alias-label-primary)", fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+\t\t\t\t\t\t\t\t\t\tstyle: { color: "var(--dsw-alias-label-primary)", fontSize: 13, fontWeight: 500, whiteSpace: "normal", overflowWrap: "anywhere", lineHeight: "18px" },
 \t\t\t\t\t\t\t\t\t\tchildren: row.title
 \t\t\t\t\t\t\t\t\t}), (0, react_jsx_runtime.jsx)("div", {
 \t\t\t\t\t\t\t\t\t\tstyle: { color: "var(--dsw-alias-label-tertiary)", fontSize: 12, marginTop: 2 },
@@ -244,17 +244,22 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 \t\t\t\t\t\t\t\t\t\tstyle: { color: "var(--dsw-alias-label-secondary)", fontSize: 12, lineHeight: "18px", marginTop: 6 },
 \t\t\t\t\t\t\t\t\t\tchildren: archiveSnippets.get(row.id)
 \t\t\t\t\t\t\t\t\t})]
-\t\t\t\t\t\t\t\t}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+\t\t\t\t\t\t\t\t}), (0, react_jsx_runtime.jsxs)("div", {
+\t\t\t\t\t\t\t\t\tstyle: { display: "flex", justifyContent: "flex-end", gap: 8 },
+\t\t\t\t\t\t\t\t\tchildren: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 \t\t\t\t\t\t\t\t\tvariant: "outline",
+\t\t\t\t\t\t\t\t\tstyle: { minHeight: 28, height: 28, paddingInline: 10, fontSize: 12 },
 \t\t\t\t\t\t\t\t\tdisabled: archiveBusyId !== null,
 \t\t\t\t\t\t\t\t\tonClick: () => onArchiveRestore(row.id),
 \t\t\t\t\t\t\t\t\tchildren: archiveBusyId === row.id ? t("archive.manager.restoring") : t("archive.manager.restore")
 \t\t\t\t\t\t\t\t}), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 \t\t\t\t\t\t\t\t\tvariant: "outline",
 \t\t\t\t\t\t\t\t\tclassName: WorkspaceBrowser_module_css_default.deleteAction,
+\t\t\t\t\t\t\t\t\tstyle: { minHeight: 28, height: 28, paddingInline: 10, fontSize: 12 },
 \t\t\t\t\t\t\t\t\tdisabled: archiveBusyId !== null,
 \t\t\t\t\t\t\t\t\tonClick: () => onSessionDelete(row.id, row.title),
 \t\t\t\t\t\t\t\t\tchildren: t("archive.manager.delete")
+\t\t\t\t\t\t\t\t})]
 \t\t\t\t\t\t\t\t})]
 \t\t\t\t\t\t\t}, row.id))
 \t\t\t\t\t\t}), archiveSearch.hasMore && (0, react_jsx_runtime.jsx)("div", {

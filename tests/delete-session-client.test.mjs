@@ -64,6 +64,16 @@ test('adds a native archived-session manager with metadata and history search', 
   assert.doesNotMatch(patched, /window\.location\.reload/)
 })
 
+test('archive cards preserve title width and keep actions compact below metadata', async () => {
+  const source = await readFile(resolveUpstreamClient(), 'utf8')
+  const patched = patchWorkspaceClient(source)
+
+  assert.match(patched, /borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", alignItems: "stretch", gap: 8/)
+  assert.match(patched, /fontWeight: 500, whiteSpace: "normal", overflowWrap: "anywhere", lineHeight: "18px"/)
+  assert.match(patched, /display: "flex", justifyContent: "flex-end", gap: 8/)
+  assert.match(patched, /minHeight: 28, height: 28, paddingInline: 10, fontSize: 12/)
+})
+
 test('refuses to silently patch an unknown upstream client shape', () => {
   assert.throws(() => patchWorkspaceClient('unknown upstream'), /upstream marker/)
 })
