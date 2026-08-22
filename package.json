@@ -2,7 +2,7 @@
   "name": "dsh-native-session-delete",
   "version": "1.1.0",
   "packageManager": "pnpm@11.19.0",
-  "description": "Native DeepSeek Harness session management: archive search, restore, and safe permanent deletion",
+  "description": "DeepSeek Harness chat history and session management: search archives, restore conversations, and delete safely",
   "type": "module",
   "main": "./src/index.js",
   "exports": {
@@ -59,6 +59,12 @@
     "unarchive",
     "restore",
     "history-search",
+    "chat-history",
+    "conversation-history",
+    "archived-sessions",
+    "session-delete",
+    "permanent-delete",
+    "deepseek",
     "delete",
     "privacy"
   ],
@@ -69,12 +75,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/WSL043/dsh-native-session-delete.git"
+    "url": "git+https://github.com/WSL043/dsh-native-session-manager.git"
   },
   "bugs": {
-    "url": "https://github.com/WSL043/dsh-native-session-delete/issues"
+    "url": "https://github.com/WSL043/dsh-native-session-manager/issues"
   },
-  "homepage": "https://github.com/WSL043/dsh-native-session-delete#readme",
+  "homepage": "https://github.com/WSL043/dsh-native-session-manager#readme",
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
   },

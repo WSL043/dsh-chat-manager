@@ -2,22 +2,23 @@
 
 # DSH Native Session Manager
 
-**Search, restore, and safely clean up sessions from the native DeepSeek Harness sidebar.**
+**Manage DeepSeek Harness chat history from the native sidebar: search archives, restore sessions, and delete safely.**
 
 Archive manager · Conversation search · One-click restore · Safe permanent deletion
 
-[![Release](https://img.shields.io/github/v/release/WSL043/dsh-native-session-delete?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/releases/latest)
-[![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-native-session-delete/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-native-session-delete/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/WSL043/dsh-native-session-manager?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-native-session-manager/releases/latest)
+[![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-native-session-manager/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-native-session-manager/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-native-session-delete?style=flat-square)](https://www.npmjs.com/package/dsh-native-session-delete)
 [![DSH](https://img.shields.io/badge/DSH-compatible-2f81f7?style=flat-square)](#compatibility)
-[![License](https://img.shields.io/github/license/WSL043/dsh-native-session-delete?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/github/license/WSL043/dsh-native-session-manager?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/WSL043/dsh-native-session-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-native-session-manager/stargazers)
 
 [中文](README.zh-CN.md) · [Install](#install) · [Use](#use) · [Safety boundary](#safety-boundary)
 
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/docs/assets/hero.en.png" alt="Native DeepSeek Harness session management and permanent deletion">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/v1.1.0/docs/assets/hero.en.png" alt="DeepSeek Harness chat history and archived session manager with search, restore, and safe permanent deletion">
 </p>
 
 | Recover archives | Search conversations | Delete safely |
@@ -25,7 +26,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 | Open the archive manager from the sidebar and restore hidden sessions | Search archived names, workspaces, and user/assistant conversation content | Keep native second confirmation; running work is stopped safely before local records are removed |
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/docs/assets/archive-manager.en.png" width="382" alt="Native DSH archive manager with search, restore, and permanent deletion">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/v1.1.0/docs/assets/archive-manager.en.png" width="382" alt="Native DeepSeek Harness archived conversation manager with history search, restore, and permanent deletion">
   <br><sub>Native interface on DeepSeek Harness 0.1.1-rc.2</sub>
 </p>
 
@@ -36,7 +37,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 Open PowerShell and paste one line:
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v1.1.0/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-native-session-manager/releases/download/v1.1.0/install.ps1' | iex
 ```
 
 The helper checks the current directory, PATH, `DSH_PORTABLE_ROOT`, Downloads/Desktop/Documents, and up to
@@ -62,7 +63,7 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/v1.1.0/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -86,7 +87,7 @@ is limited to current user and assistant messages inside archived sessions.
    **Cancel** to leave it unchanged.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-delete/v1.1.0/docs/assets/confirm-delete.en.png" width="560" alt="English dark-mode permanent deletion confirmation dialog">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/v1.1.0/docs/assets/confirm-delete.en.png" width="560" alt="DeepSeek Harness safe permanent session deletion confirmation dialog">
   <br><sub>Permanent deletion cannot be undone; the dialog identifies the target session.</sub>
 </p>
 
@@ -145,7 +146,7 @@ workflow after installing, updating, or uninstalling so the configuration is rec
 
 ## Support and license
 
-Open a [GitHub Issue](https://github.com/WSL043/dsh-native-session-delete/issues) for ordinary problems. Report
+Open a [GitHub Issue](https://github.com/WSL043/dsh-native-session-manager/issues) for ordinary problems. Report
 security issues privately as described in [SECURITY.md](SECURITY.md).
 
 MIT. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the modified upstream client and its license

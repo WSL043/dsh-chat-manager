@@ -180,7 +180,7 @@ jobs:
           ## Install or update
 
           \`\`\`powershell
-          irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
+          irm 'https://github.com/WSL043/dsh-native-session-manager/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
           \`\`\`
 
           ## 中文
@@ -202,7 +202,7 @@ jobs:
           ## 安装或更新
 
           \`\`\`powershell
-          irm 'https://github.com/WSL043/dsh-native-session-delete/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
+          irm 'https://github.com/WSL043/dsh-native-session-manager/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
           \`\`\`
           NOTES
       - name: Publish immutable npm package
