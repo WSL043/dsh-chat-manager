@@ -49,7 +49,7 @@ test('compatibility autopilot is fail-closed and publishes only after both host 
   assert.match(workflow, /cron:\s*'17 \*\/3 \* \* \*'/)
   assert.match(workflow, /repos\/deepseek-ai\/deepseek-harness\/releases\/tags\/dsh-v/)
   assert.match(workflow, /\.draft == false and \.immutable == true/)
-  assert.match(workflow, /git add --[^\n]*AGENTS\.md[^\n]*README\.md[^\n]*README\.en\.md[^\n]*compatibility\.json/)
+  assert.match(workflow, /git add --[^\n]*AGENTS\.md[^\n]*README\.md[^\n]*README\.zh-CN\.md[^\n]*compatibility\.json/)
   assert.match(workflow, /scripts\/accept-official-dsh\.mjs/)
   assert.match(workflow, /matrix:[\s\S]*os:\s*\[windows-2022, windows-2025\]/)
   assert.match(workflow, /runs-on:\s*\$\{\{ matrix\.os \}\}/)
@@ -91,6 +91,22 @@ test('release notes credit verified merged contributor pull requests', async () 
   assert.match(workflow, /Thanks to \[@\$author\][\s\S]*for contributing in \[#\$number\]/)
 })
 
+test('release notes present complete English before a separate Chinese translation', async () => {
+  const workflow = await read('.github/workflows/publish.yml')
+
+  assert.match(workflow, /## What's changed[\s\S]*## Install or update[\s\S]*## 中文[\s\S]*## 更新内容[\s\S]*## 安装或更新/)
+  assert.doesNotMatch(workflow, /提交贡献 \/ Thanks to/)
+})
+
+test('GitHub defaults to English and links a separate Chinese README', async () => {
+  const readme = await read('README.md')
+  const readmeZh = await read('README.zh-CN.md')
+
+  assert.match(readme, /Search, restore, and safely clean up sessions/)
+  assert.match(readme, /\[中文\]\(README\.zh-CN\.md\)/)
+  assert.match(readmeZh, /\[English\]\(README\.md\)/)
+})
+
 test('dependency installs enforce a release-age gate outside the reviewed DSH cohort', async () => {
   const workspace = await read('pnpm-workspace.yaml')
   const compatibility = JSON.parse(await read('compatibility.json'))
@@ -105,7 +121,7 @@ test('public artifacts contain no local workspace paths', async () => {
   const files = [
     'package.json',
     'README.md',
-    'README.en.md',
+    'README.zh-CN.md',
     'AGENTS.md',
     'src/index.js',
     'src/host/delete-session.mjs',
@@ -120,9 +136,9 @@ test('public artifacts contain no local workspace paths', async () => {
 })
 
 test('documentation uses the standard one-command bundle lifecycle and second confirmation', async () => {
-  const [chinese, english, agents] = await Promise.all([
+  const [english, chinese, agents] = await Promise.all([
     read('README.md'),
-    read('README.en.md'),
+    read('README.zh-CN.md'),
     read('AGENTS.md'),
   ])
   const manifest = JSON.parse(await read('package.json'))
@@ -174,14 +190,16 @@ test('Windows installer compatibility is gated on both maintained server generat
 })
 
 test('public-facing copy describes the product without exposing maintenance mechanics', async () => {
-  const [chinese, english, publishWorkflow] = await Promise.all([
+  const [english, chinese, publishWorkflow] = await Promise.all([
     read('README.md'),
-    read('README.en.md'),
+    read('README.zh-CN.md'),
     read('.github/workflows/publish.yml'),
   ])
-  const releaseNotes = publishWorkflow.match(/cat > \.artifacts\/release\.md <<NOTES([\s\S]*?)\n\s*NOTES/)?.[1]
+  const releaseNotesStart = publishWorkflow.indexOf('- name: Write release notes')
+  const releaseNotesEnd = publishWorkflow.indexOf('- name: Publish immutable npm package')
+  const releaseNotes = publishWorkflow.slice(releaseNotesStart, releaseNotesEnd)
 
-  assert.ok(releaseNotes, 'publish workflow must define release notes')
+  assert.ok(releaseNotesStart >= 0 && releaseNotesEnd > releaseNotesStart, 'publish workflow must define release notes')
   for (const document of [chinese, english, releaseNotes]) {
     assert.doesNotMatch(document, /GitHub Actions|每\s*6\s*小时|every six hours|隔离安装|isolated install|smoke acceptance|fail[- ]closed|自动兼容|Compatibility autopilot/i)
   }
