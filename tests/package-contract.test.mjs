@@ -42,9 +42,10 @@ test('public package is a standard DSH bundle with a unique identity', async () 
 test('compatibility autopilot is fail-closed and publishes only after both host lanes pass', async () => {
   const workflow = await read('.github/workflows/upstream-compatibility.yml')
 
-  assert.match(workflow, /cron:\s*'17 \*\/6 \* \* \*'/)
+  assert.match(workflow, /cron:\s*'17 \*\/3 \* \* \*'/)
   assert.match(workflow, /repos\/deepseek-ai\/deepseek-harness\/releases\/tags\/dsh-v/)
   assert.match(workflow, /\.draft == false and \.immutable == true/)
+  assert.match(workflow, /git add --[^\n]*AGENTS\.md[^\n]*README\.md[^\n]*README\.en\.md[^\n]*compatibility\.json/)
   assert.match(workflow, /scripts\/accept-official-dsh\.mjs/)
   assert.match(workflow, /matrix:[\s\S]*os:\s*\[windows-2022, windows-2025\]/)
   assert.match(workflow, /runs-on:\s*\$\{\{ matrix\.os \}\}/)
