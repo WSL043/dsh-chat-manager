@@ -153,6 +153,8 @@ test('documentation uses the standard one-command bundle lifecycle and second co
   assert.match(chinese, /raw\.githubusercontent\.com\/WSL043\/dsh-native-session-manager\/main\/docs\/assets\/archive-manager\.png/)
   assert.match(english, /second confirmation/i)
   assert.match(english, /permanent deletion cannot be undone/i)
+  assert.match(english, /img\.shields\.io\/npm\/dm\/dsh-native-session-delete/)
+  assert.match(chinese, /img\.shields\.io\/npm\/dm\/dsh-native-session-delete/)
   assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-native-session-manager\/main\/docs\/assets\/confirm-delete\.en\.png/)
   assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-native-session-manager\/main\/docs\/assets\/archive-manager\.en\.png/)
   assert.match(chinese, new RegExp(`releases/download/v${releaseVersion}/install\\.ps1`))

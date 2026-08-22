@@ -9,6 +9,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 [![Release](https://img.shields.io/github/v/release/WSL043/dsh-native-session-manager?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-native-session-manager/releases/latest)
 [![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-native-session-manager/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-native-session-manager/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-native-session-delete?style=flat-square)](https://www.npmjs.com/package/dsh-native-session-delete)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-native-session-delete?style=flat-square)](https://www.npmjs.com/package/dsh-native-session-delete)
 [![DSH](https://img.shields.io/badge/DSH-compatible-2f81f7?style=flat-square)](#compatibility)
 [![License](https://img.shields.io/github/license/WSL043/dsh-native-session-manager?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/WSL043/dsh-native-session-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-native-session-manager/stargazers)
