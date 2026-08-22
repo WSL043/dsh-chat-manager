@@ -129,10 +129,11 @@ export function rewriteDshVersion(source, previousVersion, nextVersion) {
 export function rewriteCompatibilityBlock(source, supported, language) {
   const marker = /<!-- dsh-compatibility -->[\s\S]*?<!-- \/dsh-compatibility -->/
   if (!marker.test(source)) throw new Error(`missing generated DSH compatibility block (${language})`)
-  const versions = supported.map(version => `\`${version}\``)
+  const latest = supported.at(-1)
+  if (latest === undefined) throw new Error('supported DSH versions cannot be empty')
   const body = language === 'zh'
-    ? `支持 DeepSeek Harness：${versions.join('、')}。`
-    : `Supports DeepSeek Harness: ${versions.join(', ')}.`
+    ? `支持最新版 DeepSeek Harness（\`${latest}\`）。`
+    : `Supports the latest DeepSeek Harness release (\`${latest}\`).`
   return source.replace(marker, `<!-- dsh-compatibility -->\n${body}\n<!-- /dsh-compatibility -->`)
 }
 
@@ -195,8 +196,8 @@ async function main() {
     update.previousPluginVersion,
     update.pluginVersion,
   ))
-  rewritten[0] = rewriteCompatibilityBlock(rewritten[0], update.compatibility.supported, 'zh')
-  rewritten[1] = rewriteCompatibilityBlock(rewritten[1], update.compatibility.supported, 'en')
+  rewritten[0] = rewriteCompatibilityBlock(rewritten[0], update.compatibility.supported, 'en')
+  rewritten[1] = rewriteCompatibilityBlock(rewritten[1], update.compatibility.supported, 'zh')
   rewritten[4] = rewriteDshVersion(rewritten[4], update.previousDshVersion, update.dshVersion)
 
   const workspacePath = resolve(root, 'pnpm-workspace.yaml')

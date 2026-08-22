@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import {
@@ -96,8 +97,13 @@ test('rewrites every release-version reference in bounded public artifacts and g
 
   const document = 'before\n<!-- dsh-compatibility -->stale<!-- /dsh-compatibility -->\nafter'
   const block = rewriteCompatibilityBlock(document, ['0.1.0-rc.6', '0.1.0-rc.9'], 'zh')
-  assert.match(block, /支持 DeepSeek Harness：`0\.1\.0-rc\.6`、`0\.1\.0-rc\.9`/)
+  assert.match(block, /支持最新版 DeepSeek Harness（`0\.1\.0-rc\.9`）/)
+  assert.doesNotMatch(block, /0\.1\.0-rc\.6/)
   assert.doesNotMatch(block, /stale/)
+
+  const englishBlock = rewriteCompatibilityBlock(document, ['0.1.0-rc.6', '0.1.0-rc.9'], 'en')
+  assert.match(englishBlock, /Supports the latest DeepSeek Harness release \(`0\.1\.0-rc\.9`\)/)
+  assert.doesNotMatch(englishBlock, /0\.1\.0-rc\.6/)
 
   assert.match(
     rewriteDshVersion('workspace version 0.1.0-rc.8', '0.1.0-rc.8', '0.1.0-rc.9'),
@@ -107,6 +113,13 @@ test('rewrites every release-version reference in bounded public artifacts and g
     () => rewriteDshVersion('unrelated notice', '0.1.0-rc.8', '0.1.0-rc.9'),
     /was not found/,
   )
+})
+
+test('compatibility automation keeps each README in its own language', async () => {
+  const source = await readFile(new URL('../scripts/prepare-compat-release.mjs', import.meta.url), 'utf8')
+
+  assert.match(source, /rewritten\[0\] = rewriteCompatibilityBlock\(rewritten\[0\], update\.compatibility\.supported, 'en'\)/)
+  assert.match(source, /rewritten\[1\] = rewriteCompatibilityBlock\(rewritten\[1\], update\.compatibility\.supported, 'zh'\)/)
 })
 
 test('regenerates the exact release-age exceptions from the accepted lock graph', () => {
