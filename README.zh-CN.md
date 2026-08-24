@@ -130,9 +130,8 @@ dsh plugin --profile web add dsh-native-session-delete@1.1.1
 dsh plugin --profile web remove dsh-native-session-delete
 ```
 
-DSH-Portable 使用对应的 `.\dsh.exe plugin --profile web add ...` 或
-`.\dsh.exe plugin --profile web remove dsh-native-session-delete`。完成安装、更新或卸载后，
-按 DSH 的正常方式重启，使配置重新组合。
+DSH-Portable 同样使用标准的 `dsh plugin` 命令。完成安装、更新或卸载后，按 DSH 的正常方式重启，
+使配置重新组合。
 
 ## 支持与许可证
 

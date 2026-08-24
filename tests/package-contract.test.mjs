@@ -91,6 +91,21 @@ test('release notes credit verified merged contributor pull requests', async () 
   assert.match(workflow, /Thanks to \[@\$author\][\s\S]*for contributing in \[#\$number\]/)
 })
 
+test('release notes can credit verified issue reporters', async () => {
+  const workflow = await readFile(new URL('../.github/workflows/publish.yml', import.meta.url), 'utf8')
+  assert.match(workflow, /reported_issues:[\s\S]*issue numbers to credit/i)
+  assert.match(workflow, /gh issue view "\$issue_number"[\s\S]*author,number,url/)
+  assert.match(workflow, /Thanks to \[@\$author\][\s\S]*for reporting \[#\$number\]/)
+})
+
+test('new issues receive one event-driven, non-judgmental acknowledgement', async () => {
+  const workflow = await readFile(new URL('../.github/workflows/issue-intake.yml', import.meta.url), 'utf8')
+  assert.match(workflow, /issues:\s*\n\s*types: \[opened\]/)
+  assert.match(workflow, /dsh-maintenance-ack/)
+  assert.match(workflow, /actions\/github-script@v8/)
+  assert.doesNotMatch(workflow, /schedule:|close|merge/i)
+})
+
 test('release notes present complete English before a separate Chinese translation', async () => {
   const workflow = await read('.github/workflows/publish.yml')
 
