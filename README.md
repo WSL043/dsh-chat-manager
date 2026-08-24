@@ -142,9 +142,8 @@ Uninstall removes only this plugin's bundle layer and never deletes sessions:
 dsh plugin --profile web remove dsh-native-session-delete
 ```
 
-For DSH-Portable, use the corresponding `.\dsh.exe plugin --profile web add ...` or
-`.\dsh.exe plugin --profile web remove dsh-native-session-delete`. Restart DSH through its normal
-workflow after installing, updating, or uninstalling so the configuration is recomposed.
+DSH-Portable exposes the same standard `dsh plugin` commands. Restart DSH through its normal workflow
+after installing, updating, or uninstalling so the configuration is recomposed.
 
 ## Support and license
 

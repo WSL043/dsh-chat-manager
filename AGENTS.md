@@ -40,12 +40,11 @@ Use read-only filesystem checks to locate the requested target. On Windows:
 
 ```powershell
 Get-Command dsh -ErrorAction SilentlyContinue
-Get-ChildItem -LiteralPath . -Filter dsh.exe -File -ErrorAction SilentlyContinue
+Get-Command npx -ErrorAction SilentlyContinue
 ```
 
-For DSH-Portable, a valid root normally contains `dsh.exe`, `runtime\node\node.exe`, and
-`app\node_modules\@deepseek-ai\dsh\lib\bin.js`. Missing system Node.js or pnpm is normal for
-DSH-Portable; do not install either globally just for this plugin.
+DSH-Portable exposes the same standard `dsh plugin` contract. Missing system pnpm is normal; do not
+install it globally just for this plugin.
 
 `dsh plugin ... list` is not strictly read-only. Its first invocation may initialize or migrate a Portable
 profile, rebuild dependency links, or update profile package-manager metadata. It is non-destructive to
@@ -58,12 +57,6 @@ With an existing `dsh` command, run exactly:
 
 ```sh
 dsh plugin --profile web add dsh-native-session-delete@1.1.1
-```
-
-With DSH-Portable, run from its root:
-
-```powershell
-.\dsh.exe plugin --profile web add dsh-native-session-delete@1.1.1
 ```
 
 Use the same `add` command to update or repair. On Windows, `install.ps1` from the same fixed Release may
@@ -83,8 +76,6 @@ First verify the selected profile without exposing its contents:
 ```sh
 dsh plugin --profile web list dsh-native-session-delete --depth 0
 ```
-
-Use `.\dsh.exe` in place of `dsh` for DSH-Portable. Static acceptance requires:
 
 1. The `dsh-native-session-delete` bundle appears exactly once in the requested profile.
 2. Its direct package spec is the fixed `dsh-native-session-delete@1.1.1` npm version above.
@@ -118,12 +109,6 @@ For a standard profile:
 
 ```sh
 dsh plugin --profile web remove dsh-native-session-delete
-```
-
-For DSH-Portable:
-
-```powershell
-.\dsh.exe plugin --profile web remove dsh-native-session-delete
 ```
 
 Uninstall removes only this plugin's bundle layer. It must not delete sessions and must not restart DSH
