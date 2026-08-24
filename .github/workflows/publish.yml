@@ -16,6 +16,14 @@ on:
         description: Comma-separated issue numbers to credit
         required: false
         type: string
+      release_notes_en:
+        description: English user-facing release summary
+        required: true
+        type: string
+      release_notes_zh:
+        description: Chinese user-facing release summary
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -138,6 +146,8 @@ jobs:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
           CONTRIBUTOR_PRS: ${{ inputs.contributor_prs }}
           REPORTED_ISSUES: ${{ inputs.reported_issues }}
+          RELEASE_NOTES_EN: ${{ inputs.release_notes_en }}
+          RELEASE_NOTES_ZH: ${{ inputs.release_notes_zh }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
@@ -188,14 +198,12 @@ jobs:
           NOTES
             done
           fi
-          cat > .artifacts/release.md <<NOTES
+          cat > .artifacts/release.md <<'NOTES'
           ## What's changed
 
-          - Archived session titles now use the full card width and wrap instead of being squeezed by actions.
-          - Restore and permanent-delete actions move to a compact row below the session details.
-          - The compatibility section now shows only the latest accepted DeepSeek Harness release.
-          - Permanent deletion cannot be undone.
           NOTES
+          printf '%s\n' "$RELEASE_NOTES_EN" >> .artifacts/release.md
+          printf '\n- Permanent deletion cannot be undone.\n' >> .artifacts/release.md
           if [[ -s .artifacts/contributors.en.md ]]; then
             printf '\n## Contributors\n\n' >> .artifacts/release.md
             cat .artifacts/contributors.en.md >> .artifacts/release.md
@@ -216,11 +224,9 @@ jobs:
 
           ## 更新内容
 
-          - 归档会话标题现在使用卡片完整宽度并自动换行，不再被操作按钮挤压。
-          - 恢复与永久删除操作移到会话信息下方的紧凑操作行。
-          - 兼容性区域只显示当前已验收的最新版 DeepSeek Harness。
-          - 永久删除不可撤销。
           NOTES
+          printf '%s\n' "$RELEASE_NOTES_ZH" >> .artifacts/release.md
+          printf '\n- 永久删除不可撤销。\n' >> .artifacts/release.md
           if [[ -s .artifacts/contributors.zh-CN.md ]]; then
             printf '\n## 贡献者\n\n' >> .artifacts/release.md
             cat .artifacts/contributors.zh-CN.md >> .artifacts/release.md
