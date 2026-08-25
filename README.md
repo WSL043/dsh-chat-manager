@@ -45,8 +45,8 @@ irm 'https://github.com/WSL043/dsh-native-session-manager/releases/download/v1.1
 The helper checks the current directory, PATH, `DSH_PORTABLE_ROOT`, Downloads/Desktop/Documents, and up to
 three nested levels below those folders and `LocalAppData\Temp`, then calls the official DSH `plugin add`
 command once. It does not recursively scan disks, install a package manager, snapshot profiles, create a
-resident command, or download the plugin twice. It supports regular DSH and both the portable edition and
-Windows installer edition of [DSH-Portable](https://github.com/WSL043/DSH-Portable) as targets. If it finds one durable installation plus disposable
+resident command, or download the plugin twice. It supports regular DSH and the Windows edition of
+[DSH-Portable](https://github.com/WSL043/DSH-Portable) as targets. If it finds one durable installation plus disposable
 copies under Temp, it chooses the durable installation automatically. If several durable installations exist,
 the helper displays their real paths and asks for a number; no command editing or placeholder path is needed.
 If it still finds nothing, enter the actual DSH-Portable folder and rerun the same one-line command.

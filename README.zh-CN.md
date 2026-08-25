@@ -45,7 +45,7 @@ irm 'https://github.com/WSL043/dsh-native-session-manager/releases/download/v1.1
 助手依次检查当前目录、PATH、`DSH_PORTABLE_ROOT`、下载/桌面/文档目录，以及这些目录和
 `LocalAppData\Temp` 下最多三层的 Portable 解压目录；找到后立即调用一次 DSH 官方 `plugin add`。
 它不会递归扫盘、安装包管理器、保存 profile 快照、创建常驻命令或重复下载插件。普通 DSH 和
-[DSH-Portable](https://github.com/WSL043/DSH-Portable) 的便携版、Windows 安装版都可以作为目标。若同时发现一个长期安装和 Temp
+[DSH-Portable](https://github.com/WSL043/DSH-Portable) 的 Windows 便携版都可以作为目标。若同时发现一个长期安装和 Temp
 中的测试/解压副本，会自动选择长期安装；若存在多个长期安装，助手会列出真实路径并让你输入编号，
 不需要改命令或填写示例路径。若仍未找到，请先进入实际的 DSH-Portable 文件夹再运行同一条命令。
 
