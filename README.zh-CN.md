@@ -135,7 +135,8 @@ DSH-Portable 同样使用标准的 `dsh plugin` 命令。完成安装、更新�
 
 ## 支持与许可证
 
-普通问题请提交 [GitHub Issue](https://github.com/WSL043/dsh-native-session-manager/issues)；安全问题请按
-[SECURITY.md](SECURITY.md) 私下报告。
+可使用[问题反馈表单](https://github.com/WSL043/dsh-native-session-manager/issues/new?template=bug-report.yml)
+提交可复现问题，或使用[功能建议表单](https://github.com/WSL043/dsh-native-session-manager/issues/new?template=feature-request.yml)
+说明明确需求；安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 
 MIT。修改后的上游客户端及其许可说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
