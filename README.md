@@ -147,8 +147,9 @@ after installing, updating, or uninstalling so the configuration is recomposed.
 
 ## Support and license
 
-Open a [GitHub Issue](https://github.com/WSL043/dsh-native-session-manager/issues) for ordinary problems. Report
-security issues privately as described in [SECURITY.md](SECURITY.md).
+Use the [bug report form](https://github.com/WSL043/dsh-native-session-manager/issues/new?template=bug-report.yml)
+for reproducible problems or the [feature request form](https://github.com/WSL043/dsh-native-session-manager/issues/new?template=feature-request.yml)
+for focused improvements. Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 MIT. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the modified upstream client and its license
 notice.

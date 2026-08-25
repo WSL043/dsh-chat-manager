@@ -124,6 +124,25 @@ test('GitHub defaults to English and links a separate Chinese README', async () 
   assert.match(readmeZh, /\[English\]\(README\.md\)/)
 })
 
+test('GitHub issue intake defaults to concise English forms without title prefixes', async () => {
+  const [bug, feature, config] = await Promise.all([
+    read('.github/ISSUE_TEMPLATE/bug-report.yml'),
+    read('.github/ISSUE_TEMPLATE/feature-request.yml'),
+    read('.github/ISSUE_TEMPLATE/config.yml'),
+  ])
+
+  assert.match(bug, /^name: Bug report$/m)
+  assert.match(bug, /id: plugin_version/)
+  assert.match(bug, /id: dsh_version/)
+  assert.match(bug, /contains no session content, credentials, or account identifiers/i)
+  assert.doesNotMatch(bug, /^title:/m)
+  assert.match(feature, /^name: Feature request$/m)
+  assert.match(feature, /id: use_case/)
+  assert.doesNotMatch(feature, /^title:/m)
+  assert.match(config, /^blank_issues_enabled: false$/m)
+  assert.match(config, /security\/policy/)
+})
+
 test('dependency installs enforce a release-age gate outside the reviewed DSH cohort', async () => {
   const workspace = await read('pnpm-workspace.yaml')
   const compatibility = JSON.parse(await read('compatibility.json'))

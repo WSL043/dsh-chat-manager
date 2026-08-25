@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/WSL043/dsh-native-session-manager/security/policy
+    about: Report credential, privacy, or security issues privately.
