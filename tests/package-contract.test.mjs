@@ -242,8 +242,8 @@ test('public-facing copy describes the product without exposing maintenance mech
   for (const document of [chinese, english, releaseNotes]) {
     assert.doesNotMatch(document, /GitHub Actions|每\s*6\s*小时|every six hours|隔离安装|isolated install|smoke acceptance|fail[- ]closed|自动兼容|Compatibility autopilot/i)
   }
-  assert.match(chinese, /支持最新版 DeepSeek Harness/)
-  assert.match(english, /Supports the latest DeepSeek Harness release/)
+  assert.match(chinese, /支持软件包元数据中记录的最新版 DeepSeek Harness/)
+  assert.match(english, /Supports the latest DeepSeek Harness release recorded in the package metadata/)
   assert.match(releaseNotes, /永久删除不可撤销/)
   assert.match(releaseNotes, /Permanent deletion cannot be undone/)
   assert.match(releaseNotes, /releases\/download\/v\$\{RELEASE_VERSION\}\/install\.ps1/)
