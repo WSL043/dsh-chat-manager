@@ -91,13 +91,12 @@ test('release notes credit verified merged contributor pull requests', async () 
   assert.match(workflow, /Thanks to \[@\$author\][\s\S]*for contributing in \[#\$number\]/)
 })
 
-test('release notes can credit verified issue reporters', async () => {
+test('release notes never credit issue reporters and reject escaped newlines', async () => {
   const workflow = await readFile(new URL('../.github/workflows/publish.yml', import.meta.url), 'utf8')
-  assert.match(workflow, /reported_issues:[\s\S]*issue numbers to credit/i)
   assert.match(workflow, /release_notes_en:[\s\S]*required: true/u)
   assert.match(workflow, /release_notes_zh:[\s\S]*required: true/u)
-  assert.match(workflow, /gh issue view "\$issue_number"[\s\S]*author,number,url/)
-  assert.match(workflow, /Thanks to \[@\$author\][\s\S]*for reporting \[#\$number\]/)
+  assert.doesNotMatch(workflow, /reported_issues|REPORTED_ISSUES|Issue reporters|问题报告者/u)
+  assert.match(workflow, /real line breaks, not literal/u)
 })
 
 test('new issues receive one event-driven, non-judgmental acknowledgement', async () => {
