@@ -121,7 +121,7 @@ without warranty.
 ## Compatibility
 
 <!-- dsh-compatibility -->
-Supports the latest DeepSeek Harness release (`0.1.1-rc.2`).
+Supports the latest DeepSeek Harness release recorded in the package metadata.
 <!-- /dsh-compatibility -->
 
 Archive browsing, restore, and content search use DSH's workspace registry and session-query capabilities.
