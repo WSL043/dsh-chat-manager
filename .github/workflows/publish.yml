@@ -12,10 +12,6 @@ on:
         description: Comma-separated merged contributor PR numbers to credit
         required: false
         type: string
-      reported_issues:
-        description: Comma-separated issue numbers to credit
-        required: false
-        type: string
       release_notes_en:
         description: English user-facing release summary
         required: true
@@ -145,7 +141,6 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
           CONTRIBUTOR_PRS: ${{ inputs.contributor_prs }}
-          REPORTED_ISSUES: ${{ inputs.reported_issues }}
           RELEASE_NOTES_EN: ${{ inputs.release_notes_en }}
           RELEASE_NOTES_ZH: ${{ inputs.release_notes_zh }}
           GH_TOKEN: ${{ github.token }}
@@ -154,8 +149,10 @@ jobs:
           set -euo pipefail
           : > .artifacts/contributors.en.md
           : > .artifacts/contributors.zh-CN.md
-          : > .artifacts/reporters.en.md
-          : > .artifacts/reporters.zh-CN.md
+          if [[ "$RELEASE_NOTES_EN" == *'\n'* || "$RELEASE_NOTES_ZH" == *'\n'* ]]; then
+            echo 'Release notes must contain real line breaks, not literal \n sequences.' >&2
+            exit 1
+          fi
           if [[ -n "${CONTRIBUTOR_PRS:-}" ]]; then
             IFS=',' read -ra contributor_pr_numbers <<< "$CONTRIBUTOR_PRS"
             for raw_pr in "${contributor_pr_numbers[@]}"; do
@@ -178,26 +175,6 @@ jobs:
           NOTES
             done
           fi
-          if [[ -n "${REPORTED_ISSUES:-}" ]]; then
-            IFS=',' read -ra reported_issue_numbers <<< "$REPORTED_ISSUES"
-            for raw_issue in "${reported_issue_numbers[@]}"; do
-              issue_number="$(xargs <<< "$raw_issue")"
-              [[ "$issue_number" =~ ^[1-9][0-9]*$ ]] || {
-                echo "Invalid reported issue number: $raw_issue" >&2
-                exit 1
-              }
-              issue_json="$(gh issue view "$issue_number" --repo "$GITHUB_REPOSITORY" --json author,number,url)"
-              author="$(jq -r '.author.login' <<< "$issue_json")"
-              number="$(jq -r '.number' <<< "$issue_json")"
-              url="$(jq -r '.url' <<< "$issue_json")"
-              cat >> .artifacts/reporters.en.md <<NOTES
-          - Thanks to [@$author](https://github.com/$author) for reporting [#$number]($url).
-          NOTES
-              cat >> .artifacts/reporters.zh-CN.md <<NOTES
-          - 感谢 [@$author](https://github.com/$author) 在 [#$number]($url) 报告问题。
-          NOTES
-            done
-          fi
           cat > .artifacts/release.md <<'NOTES'
           ## What's changed
 
@@ -207,10 +184,6 @@ jobs:
           if [[ -s .artifacts/contributors.en.md ]]; then
             printf '\n## Contributors\n\n' >> .artifacts/release.md
             cat .artifacts/contributors.en.md >> .artifacts/release.md
-          fi
-          if [[ -s .artifacts/reporters.en.md ]]; then
-            printf '\n## Issue reporters\n\n' >> .artifacts/release.md
-            cat .artifacts/reporters.en.md >> .artifacts/release.md
           fi
           cat >> .artifacts/release.md <<NOTES
 
@@ -230,10 +203,6 @@ jobs:
           if [[ -s .artifacts/contributors.zh-CN.md ]]; then
             printf '\n## 贡献者\n\n' >> .artifacts/release.md
             cat .artifacts/contributors.zh-CN.md >> .artifacts/release.md
-          fi
-          if [[ -s .artifacts/reporters.zh-CN.md ]]; then
-            printf '\n## 问题报告者\n\n' >> .artifacts/release.md
-            cat .artifacts/reporters.zh-CN.md >> .artifacts/release.md
           fi
           cat >> .artifacts/release.md <<NOTES
 
