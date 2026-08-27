@@ -1,18 +1,18 @@
 <div align="center">
 
-# DSH Native Session Manager
+# DSH Chat Manager
 
 **Manage DeepSeek Harness chat history from the native sidebar: search archives, restore sessions, and delete safely.**
 
 Archive manager · Conversation search · One-click restore · Safe permanent deletion
 
-[![Release](https://img.shields.io/github/v/release/WSL043/dsh-native-session-manager?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-native-session-manager/releases/latest)
-[![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-native-session-manager/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-native-session-manager/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/WSL043/dsh-chat-manager?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-chat-manager/releases/latest)
+[![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-chat-manager/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-chat-manager/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-native-session-delete?style=flat-square)](https://www.npmjs.com/package/dsh-native-session-delete)
 [![total npm downloads](https://img.shields.io/npm/dt/dsh-native-session-delete?style=flat-square&label=total%20downloads)](https://www.npmjs.com/package/dsh-native-session-delete)
 [![DSH](https://img.shields.io/badge/DSH-compatible-2f81f7?style=flat-square)](#compatibility)
-[![License](https://img.shields.io/github/license/WSL043/dsh-native-session-manager?style=flat-square)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/WSL043/dsh-native-session-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-native-session-manager/stargazers)
+[![License](https://img.shields.io/github/license/WSL043/dsh-chat-manager?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/WSL043/dsh-chat-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-chat-manager/stargazers)
 [![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
 
 [中文](README.zh-CN.md) · [Install](#install) · [Use](#use) · [Safety boundary](#safety-boundary)
@@ -20,7 +20,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/main/docs/assets/hero.en.png" alt="DeepSeek Harness chat history and archived session manager with search, restore, and safe permanent deletion">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/hero.en.png" alt="DeepSeek Harness chat history and archived session manager with search, restore, and safe permanent deletion">
 </p>
 
 | Recover archives | Search conversations | Delete safely |
@@ -28,7 +28,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 | Open the archive manager from the sidebar and restore hidden sessions | Search archived names, workspaces, and user/assistant conversation content | Keep native second confirmation; running work is stopped safely before local records are removed |
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/main/docs/assets/archive-manager.en.png" width="414" alt="Native DeepSeek Harness archived conversation manager with history search, restore, and permanent deletion">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/archive-manager.en.png" width="414" alt="Native DeepSeek Harness archived conversation manager with history search, restore, and permanent deletion">
   <br><sub>Native interface on DeepSeek Harness 0.1.1-rc.2</sub>
 </p>
 
@@ -39,7 +39,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 Open PowerShell and paste one line:
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-native-session-manager/releases/download/v1.1.2/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-chat-manager/releases/download/v1.1.2/install.ps1' | iex
 ```
 
 The helper checks the current directory, PATH, `DSH_PORTABLE_ROOT`, Downloads/Desktop/Documents, and up to
@@ -65,7 +65,7 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/v1.1.2/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.1.2/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -89,7 +89,7 @@ is limited to current user and assistant messages inside archived sessions.
    **Cancel** to leave it unchanged.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-native-session-manager/main/docs/assets/confirm-delete.en.png" width="414" alt="DeepSeek Harness safe permanent session deletion confirmation dialog">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/confirm-delete.en.png" width="414" alt="DeepSeek Harness safe permanent session deletion confirmation dialog">
   <br><sub>Permanent deletion cannot be undone; the dialog identifies the target session.</sub>
 </p>
 
@@ -147,8 +147,8 @@ after installing, updating, or uninstalling so the configuration is recomposed.
 
 ## Support and license
 
-Use the [bug report form](https://github.com/WSL043/dsh-native-session-manager/issues/new?template=bug-report.yml)
-for reproducible problems or the [feature request form](https://github.com/WSL043/dsh-native-session-manager/issues/new?template=feature-request.yml)
+Use the [bug report form](https://github.com/WSL043/dsh-chat-manager/issues/new?template=bug-report.yml)
+for reproducible problems or the [feature request form](https://github.com/WSL043/dsh-chat-manager/issues/new?template=feature-request.yml)
 for focused improvements. Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 MIT. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the modified upstream client and its license
