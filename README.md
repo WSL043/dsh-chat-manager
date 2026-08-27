@@ -8,8 +8,8 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 
 [![Release](https://img.shields.io/github/v/release/WSL043/dsh-chat-manager?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-chat-manager/releases/latest)
 [![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-chat-manager/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-chat-manager/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/dsh-native-session-delete?style=flat-square)](https://www.npmjs.com/package/dsh-native-session-delete)
-[![total npm downloads](https://img.shields.io/npm/dt/dsh-native-session-delete?style=flat-square&label=total%20downloads)](https://www.npmjs.com/package/dsh-native-session-delete)
+[![npm](https://img.shields.io/npm/v/dsh-chat-manager?style=flat-square)](https://www.npmjs.com/package/dsh-chat-manager)
+[![total npm downloads](https://img.shields.io/npm/dt/dsh-chat-manager?style=flat-square&label=total%20downloads)](https://www.npmjs.com/package/dsh-chat-manager)
 [![DSH](https://img.shields.io/badge/DSH-compatible-2f81f7?style=flat-square)](#compatibility)
 [![License](https://img.shields.io/github/license/WSL043/dsh-chat-manager?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/WSL043/dsh-chat-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-chat-manager/stargazers)
@@ -39,7 +39,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 Open PowerShell and paste one line:
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-chat-manager/releases/download/v1.1.2/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-chat-manager/releases/download/v1.2.0/install.ps1' | iex
 ```
 
 The helper checks the current directory, PATH, `DSH_PORTABLE_ROOT`, Downloads/Desktop/Documents, and up to
@@ -54,7 +54,7 @@ If it still finds nothing, enter the actual DSH-Portable folder and rerun the sa
 ### Official CLI (macOS, Linux, or direct review)
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.1.2
+dsh plugin --profile web add dsh-chat-manager@1.2.0
 ```
 
 The helper and direct command use the same standard bundle mechanism. The helper is only a Windows entry
@@ -65,7 +65,7 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.1.2/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.2.0/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -130,16 +130,16 @@ list with the session-management version; uninstalling restores DSH's original l
 
 ## Update and uninstall
 
-Update by rerunning the quick installer or installing the new npm version. For v1.1.2:
+Update by rerunning the quick installer or installing the new npm version. For v1.2.0:
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.1.2
+dsh plugin --profile web add dsh-chat-manager@1.2.0
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:
 
 ```sh
-dsh plugin --profile web remove dsh-native-session-delete
+dsh plugin --profile web remove dsh-chat-manager
 ```
 
 DSH-Portable exposes the same standard `dsh plugin` commands. Restart DSH through its normal workflow

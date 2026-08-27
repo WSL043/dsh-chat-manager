@@ -76,7 +76,7 @@ jobs:
           if [ "$comparison" -eq 0 ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             plugin_version="$(node -p "require('./package.json').version")"
-            npm_version="$(npm view "dsh-native-session-delete@$plugin_version" version 2>/dev/null || true)"
+            npm_version="$(npm view "dsh-chat-manager@$plugin_version" version 2>/dev/null || true)"
             if gh release view "v$plugin_version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
               && [ "$npm_version" = "$plugin_version" ]; then
               echo "publish_needed=false" >> "$GITHUB_OUTPUT"
@@ -128,7 +128,7 @@ jobs:
           pnpm pack --pack-destination .artifacts
           package="$(find .artifacts -maxdepth 1 -type f -name '*.tgz' -print -quit)"
           test -n "$package"
-          mv "$package" .artifacts/dsh-native-session-delete.tgz
+          mv "$package" .artifacts/dsh-chat-manager.tgz
       - name: Install browser for official UI acceptance
         if: steps.candidate.outputs.publish_needed == 'true'
         run: pnpm exec playwright install --with-deps chromium
@@ -139,7 +139,7 @@ jobs:
         run: >-
           node scripts/accept-official-dsh.mjs
           --dsh-version "$DSH_VERSION"
-          --package .artifacts/dsh-native-session-delete.tgz
+          --package .artifacts/dsh-chat-manager.tgz
       - name: Fingerprint the exact accepted patch
         if: steps.candidate.outputs.publish_needed == 'true'
         id: patch

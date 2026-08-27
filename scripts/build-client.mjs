@@ -54,7 +54,7 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 
   patch(
     'id: "@deepseek-ai/dsh-client-ui-workspace",',
-    'id: "dsh-native-session-delete",',
+    'id: "dsh-chat-manager",',
     'client module id',
   )
   patch(
@@ -337,7 +337,7 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     )
   }
 
-  const notice = `// Modified from @deepseek-ai/dsh-client-ui-workspace ${upstreamVersion} by DSH Native Session Manager. See THIRD_PARTY_NOTICES.md.\n`
+  const notice = `// Modified from @deepseek-ai/dsh-client-ui-workspace ${upstreamVersion} by DSH Chat Manager. See THIRD_PARTY_NOTICES.md.\n`
   return `${notice}${source}`
 }
 
