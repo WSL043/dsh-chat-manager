@@ -216,12 +216,14 @@ test('documentation uses the standard one-command bundle lifecycle and second co
 })
 
 test('Windows installer compatibility is gated on both maintained server generations', async () => {
-  const workflows = await Promise.all([
-    read('.github/workflows/ci.yml'),
+  const ci = await read('.github/workflows/ci.yml')
+  const releaseWorkflows = await Promise.all([
     read('.github/workflows/publish.yml'),
     read('.github/workflows/upstream-compatibility.yml'),
   ])
-  for (const workflow of workflows) {
+  assert.match(ci, /runs-on:\s*windows-2025/u)
+  assert.match(ci, /if:\s*needs\.plan\.outputs\.installer == 'true'/u)
+  for (const workflow of releaseWorkflows) {
     assert.match(workflow, /matrix:[\s\S]*os:\s*\[windows-2022, windows-2025\]/)
     assert.match(workflow, /runs-on:\s*\$\{\{ matrix\.os \}\}/)
   }

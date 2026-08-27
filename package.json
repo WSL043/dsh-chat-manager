@@ -43,6 +43,8 @@
   },
   "scripts": {
     "build": "node scripts/build-client.mjs",
+    "test:behavior": "node --test tests/archive-manager-host.test.mjs tests/delete-session-client.test.mjs tests/delete-session-host.test.mjs tests/smoke-ui.test.mjs",
+    "test:delivery": "node --test tests/accept-official-dsh.test.mjs tests/package-contract.test.mjs tests/prepare-compat-release.test.mjs",
     "test": "node --test tests/*.test.mjs",
     "check": "pnpm run test && pnpm run build && pnpm pack --pack-destination .artifacts",
     "smoke:ui": "node scripts/smoke-ui.mjs",

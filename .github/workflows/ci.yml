@@ -1,38 +1,104 @@
-name: ci
+name: Risk-based CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      behavior: ${{ steps.plan.outputs.behavior }}
+      delivery: ${{ steps.plan.outputs.delivery }}
+      installer: ${{ steps.plan.outputs.installer }}
+      official: ${{ steps.plan.outputs.official }}
+    steps:
+      - uses: actions/checkout@v6
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v6
+        with: { node-version: 24, package-manager-cache: false }
+      - name: Classify risk and refuse unpublished runtime drift
+        id: plan
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          published="$(npm view dsh-chat-manager dist-tags.latest)"
+          node scripts/ci-change-plan.mjs --base "$BASE_SHA" --published "$published"
+
+  behavior:
+    needs: plan
+    if: needs.plan.outputs.behavior == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v5
-        with:
-          version: 11.19.0
+        with: { version: 11.19.0, run_install: false }
       - uses: actions/setup-node@v6
-        with:
-          node-version: 22.19.0
-          cache: pnpm
+        with: { node-version: 22.19.0, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run test
+      - name: Run archive, restore, cancel, and deletion behavior
+        run: pnpm run test:behavior
       - run: pnpm run build
+      - run: git diff --exit-code -- lib
       - run: pnpm pack --pack-destination .artifacts
+      - uses: actions/upload-artifact@v7
+        with:
+          name: chat-manager-${{ github.sha }}
+          path: .artifacts/*.tgz
+          if-no-files-found: error
+
+  delivery:
+    needs: plan
+    if: needs.plan.outputs.delivery == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+        with: { version: 11.19.0, run_install: false }
+      - uses: actions/setup-node@v6
+        with: { node-version: 22.19.0, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:delivery
 
   windows-installer:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-2022, windows-2025]
-    runs-on: ${{ matrix.os }}
+    needs: plan
+    if: needs.plan.outputs.installer == 'true'
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
-        with:
-          node-version: 24
+        with: { node-version: 24, package-manager-cache: false }
       - run: node --test tests/windows-installer.test.mjs
+
+  official-dsh:
+    name: Official DSH browser acceptance
+    needs: [plan, behavior]
+    if: needs.plan.outputs.official == 'true' && needs.behavior.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+        with: { version: 11.19.0, run_install: false }
+      - uses: actions/setup-node@v6
+        with: { node-version: 22.19.0, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          name: chat-manager-${{ github.sha }}
+          path: .candidate
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Verify isolated official DSH archive UI without deleting a session
+        run: >-
+          node scripts/accept-official-dsh.mjs
+          --dsh-version "$(node -p "require('./compatibility.json').latestTested")"
+          --package "$(find .candidate -maxdepth 1 -name '*.tgz' -print -quit)"
