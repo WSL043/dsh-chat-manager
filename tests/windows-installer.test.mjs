@@ -8,7 +8,7 @@ import test from 'node:test'
 const installer = new URL('../install.ps1', import.meta.url)
 const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
 const compatibility = JSON.parse(await readFile(new URL('../compatibility.json', import.meta.url), 'utf8'))
-const packageSpec = `dsh-native-session-delete@${manifest.version}`
+const packageSpec = `dsh-chat-manager@${manifest.version}`
 const windowsTest = process.platform === 'win32' ? test : test.skip
 
 test('setup uses the official DSH CLI and a checksum-pinned pnpm helper', async () => {

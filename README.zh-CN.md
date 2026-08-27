@@ -8,8 +8,8 @@
 
 [![Release](https://img.shields.io/github/v/release/WSL043/dsh-chat-manager?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-chat-manager/releases/latest)
 [![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-chat-manager/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-chat-manager/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/dsh-native-session-delete?style=flat-square)](https://www.npmjs.com/package/dsh-native-session-delete)
-[![npm 总下载量](https://img.shields.io/npm/dt/dsh-native-session-delete?style=flat-square&label=%E6%80%BB%E4%B8%8B%E8%BD%BD%E9%87%8F)](https://www.npmjs.com/package/dsh-native-session-delete)
+[![npm](https://img.shields.io/npm/v/dsh-chat-manager?style=flat-square)](https://www.npmjs.com/package/dsh-chat-manager)
+[![npm 总下载量](https://img.shields.io/npm/dt/dsh-chat-manager?style=flat-square&label=%E6%80%BB%E4%B8%8B%E8%BD%BD%E9%87%8F)](https://www.npmjs.com/package/dsh-chat-manager)
 [![DSH](https://img.shields.io/badge/DSH-compatible-2f81f7?style=flat-square)](#兼容性)
 [![License](https://img.shields.io/github/license/WSL043/dsh-chat-manager?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/WSL043/dsh-chat-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-chat-manager/stargazers)
@@ -39,7 +39,7 @@
 打开 PowerShell，复制这一行：
 
 ```powershell
-irm 'https://github.com/WSL043/dsh-chat-manager/releases/download/v1.1.2/install.ps1' | iex
+irm 'https://github.com/WSL043/dsh-chat-manager/releases/download/v1.2.0/install.ps1' | iex
 ```
 
 助手依次检查当前目录、PATH、`DSH_PORTABLE_ROOT`、下载/桌面/文档目录，以及这些目录和
@@ -52,7 +52,7 @@ irm 'https://github.com/WSL043/dsh-chat-manager/releases/download/v1.1.2/install
 ### 官方 CLI（macOS、Linux 或希望直接审阅命令）
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.1.2
+dsh plugin --profile web add dsh-chat-manager@1.2.0
 ```
 
 助手和这条命令使用的是同一个标准 bundle 安装机制；助手只是 Windows 入口，不接管安装事务。
@@ -61,7 +61,7 @@ dsh plugin --profile web add dsh-native-session-delete@1.1.2
 
 ### 交给 Agent
 
-请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.1.2/AGENTS.md)，
+请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.2.0/AGENTS.md)，
 其中写明了安装、更新、验收、卸载和安全边界。不要把 `main` 分支文档当作安装依据。
 
 ## 使用
@@ -118,16 +118,16 @@ JSONL 存储。安装后替换为带会话管理功能的原生工作区列表�
 
 ## 更新与卸载
 
-更新可重新运行快速安装助手，或安装 npm 上的新版本。v1.1.2 的直接命令是：
+更新可重新运行快速安装助手，或安装 npm 上的新版本。v1.2.0 的直接命令是：
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.1.2
+dsh plugin --profile web add dsh-chat-manager@1.2.0
 ```
 
 卸载只移除这个插件的 bundle 层，不删除任何会话：
 
 ```sh
-dsh plugin --profile web remove dsh-native-session-delete
+dsh plugin --profile web remove dsh-chat-manager
 ```
 
 DSH-Portable 同样使用标准的 `dsh plugin` 命令。完成安装、更新或卸载后，按 DSH 的正常方式重启，

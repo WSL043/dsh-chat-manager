@@ -17,7 +17,7 @@ test('patches the official workspace client with a native confirmed delete flow'
   const patched = patchWorkspaceClient(source)
 
   assert.match(patched, new RegExp(`^// Modified from @deepseek-ai/dsh-client-ui-workspace ${compatibility.latestTested.replaceAll('.', '\\.')}`))
-  assert.match(patched, /id: "dsh-native-session-delete"/)
+  assert.match(patched, /id: "dsh-chat-manager"/)
   assert.doesNotMatch(patched, /id: "@deepseek-ai\/dsh-client-ui-workspace"/)
   assert.match(patched, /id: "delete-session"/)
   assert.match(patched, /id: "delete-session",[\s\S]{0,240}danger: true/)

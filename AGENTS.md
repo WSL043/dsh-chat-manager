@@ -1,12 +1,12 @@
 # Agent installation guide
 
 Use this guide when a user explicitly asks an Agent to install, update, verify,
-or remove `dsh-native-session-delete` in a selected DeepSeek Harness profile.
+or remove `dsh-chat-manager` in a selected DeepSeek Harness profile.
 
 ## Safety and responsibility boundary
 
 - Confirm the target DSH installation and profile. Use `web` only when it is the user's target.
-- Use the fixed v1.1.2 package below; never substitute a moving branch or an unreviewed source.
+- Use the fixed v1.2.0 package below; never substitute a moving branch or an unreviewed source.
 - Do not print session contents, full profile files, transcript paths, credentials, or other private data.
 - Do not start, stop, or restart DSH without explicit permission.
 - Preserve all sessions, unrelated plugins, and user-owned profile changes.
@@ -22,17 +22,16 @@ requirements. A cancelled confirmation is the safe default and must not send a d
 
 ## Fixed package and standard bundle
 
-The v1.1.2 package is a standard DSH bundle with a `dsh.bundle` profile patch. Its exact package spec is:
+The v1.2.0 package is a standard DSH bundle with a `dsh.bundle` profile patch. Its exact package spec is:
 
 ```text
-dsh-native-session-delete@1.1.2
+dsh-chat-manager@1.2.0
 ```
 
 The bundle disables the official workspace row while installed and inserts a uniquely identified native
-workspace row. Removing `dsh-native-session-delete` removes that layer, allowing DSH to restore the official
+workspace row. Removing `dsh-chat-manager` removes that layer, allowing DSH to restore the official
 workspace row. Do not install the tarball under `@deepseek-ai/dsh-client-ui-workspace`; that old aliasing
-approach is not the v1.1.2 contract. The product is shown to users as **DSH Native Session Manager** while
-retaining the existing npm package identity for safe upgrades.
+approach is not the v1.2.0 contract. The product is shown to users as **DSH Chat Manager**.
 
 ## Detect the target DSH
 
@@ -56,7 +55,7 @@ record the selected profile's relevant metadata before invoking it, without prin
 With an existing `dsh` command, run exactly:
 
 ```sh
-dsh plugin --profile web add dsh-native-session-delete@1.1.2
+dsh plugin --profile web add dsh-chat-manager@1.2.0
 ```
 
 Use the same `add` command to update or repair. On Windows, `install.ps1` from the same fixed Release may
@@ -74,11 +73,11 @@ alone is not runtime acceptance.
 First verify the selected profile without exposing its contents:
 
 ```sh
-dsh plugin --profile web list dsh-native-session-delete --depth 0
+dsh plugin --profile web list dsh-chat-manager --depth 0
 ```
 
-1. The `dsh-native-session-delete` bundle appears exactly once in the requested profile.
-2. Its direct package spec is the fixed `dsh-native-session-delete@1.1.2` npm version above.
+1. The `dsh-chat-manager` bundle appears exactly once in the requested profile.
+2. Its direct package spec is the fixed `dsh-chat-manager@1.2.0` npm version above.
 3. The profile contains the bundle patch and no duplicate official workspace row from this plugin.
 4. No unrelated dependency, profile patch, or session data was changed by the operation.
 
@@ -108,11 +107,11 @@ not send a deletion request or manage the DSH process.
 For a standard profile:
 
 ```sh
-dsh plugin --profile web remove dsh-native-session-delete
+dsh plugin --profile web remove dsh-chat-manager
 ```
 
 Uninstall removes only this plugin's bundle layer. It must not delete sessions and must not restart DSH
-without permission. After the command, verify that `dsh-native-session-delete` is absent and that the
+without permission. After the command, verify that `dsh-chat-manager` is absent and that the
 official workspace row is available again after the next permitted DSH restart.
 
 ## Failure handling

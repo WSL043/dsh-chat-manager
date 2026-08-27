@@ -4,4 +4,4 @@
 
 - insert:
     - id: ui-workspace-session-delete
-      name: dsh-native-session-delete
+      name: dsh-chat-manager
