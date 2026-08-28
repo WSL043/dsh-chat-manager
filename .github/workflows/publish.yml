@@ -35,6 +35,8 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      npm_tag: ${{ steps.version.outputs.npm_tag }}
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v5
@@ -49,14 +51,42 @@ jobs:
         id: version
         shell: bash
         run: |
-          test "$GITHUB_REF" = refs/heads/main
           version="$(node -p "require('./package.json').version")"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            test "$GITHUB_REF" = refs/heads/main
+            prerelease=false
+            npm_tag=latest
+          elif [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
+            [[ "$GITHUB_REF" = refs/heads/preview/* ]]
+            prerelease=true
+            npm_tag=beta
+            test "$(node -p "require('./compatibility.json').previews.length")" -gt 0
+          else
+            echo "Unsupported release version: $version" >&2
+            exit 1
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "npm_tag=$npm_tag" >> "$GITHUB_OUTPUT"
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm test
-      - run: pnpm run build
+      - name: Build stable client
+        if: steps.version.outputs.prerelease != 'true'
+        run: pnpm run build
+      - name: Build client from reviewed DSH preview
+        if: steps.version.outputs.prerelease == 'true'
+        shell: bash
+        run: |
+          preview_version="$(node -p "require('./compatibility.json').previews.at(-1)")"
+          preview_root="$RUNNER_TEMP/deepseek-harness"
+          git clone --depth 1 --branch "dsh-v${preview_version}" https://github.com/deepseek-ai/deepseek-harness.git "$preview_root"
+          pnpm --dir "$preview_root" install --frozen-lockfile
+          pnpm --dir "$preview_root" run build
+          node scripts/accept-dsh-preview.mjs "$preview_root"
+          DSH_WORKSPACE_CLIENT_PATH="$preview_root/packages/client/ui-workspace/lib/client.js" \
+            DSH_WORKSPACE_MANIFEST_PATH="$preview_root/packages/client/ui-workspace/package.json" \
+            node scripts/build-client.mjs
       - run: git diff --exit-code -- lib
 
   windows-installer:
@@ -99,11 +129,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         shell: bash
         run: |
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-              | jq -e '.draft == false and .prerelease == false and .immutable == true' >/dev/null
+              | jq -e --argjson prerelease "$PRERELEASE" \
+                '.draft == false and .prerelease == $prerelease and .immutable == true' >/dev/null
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -116,10 +148,23 @@ jobs:
       - name: Build release assets
         env:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         shell: bash
         run: |
           pnpm install --frozen-lockfile --ignore-scripts
-          pnpm run build
+          if [ "$PRERELEASE" = true ]; then
+            preview_version="$(node -p "require('./compatibility.json').previews.at(-1)")"
+            preview_root="$RUNNER_TEMP/deepseek-harness"
+            git clone --depth 1 --branch "dsh-v${preview_version}" https://github.com/deepseek-ai/deepseek-harness.git "$preview_root"
+            pnpm --dir "$preview_root" install --frozen-lockfile
+            pnpm --dir "$preview_root" run build
+            node scripts/accept-dsh-preview.mjs "$preview_root"
+            DSH_WORKSPACE_CLIENT_PATH="$preview_root/packages/client/ui-workspace/lib/client.js" \
+              DSH_WORKSPACE_MANIFEST_PATH="$preview_root/packages/client/ui-workspace/package.json" \
+              node scripts/build-client.mjs
+          else
+            pnpm run build
+          fi
           git diff --exit-code -- lib
           rm -rf .artifacts
           mkdir -p .artifacts
@@ -215,6 +260,7 @@ jobs:
       - name: Publish immutable npm package
         env:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+          NPM_TAG: ${{ needs.verify.outputs.npm_tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -234,7 +280,7 @@ jobs:
             diff -qr --strip-trailing-cr "$local_tree/package" "$remote_tree/package"
             mv "$remote_package" "$package"
           else
-            npm publish "$package" --access public --provenance
+            npm publish "$package" --access public --provenance --tag "$NPM_TAG"
           fi
           (cd .artifacts && sha256sum dsh-chat-manager.tgz > dsh-chat-manager.tgz.sha256)
       - name: Verify existing immutable release assets
@@ -258,13 +304,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         shell: bash
         run: |
+          release_flags=()
+          if [ "$PRERELEASE" = true ]; then
+            release_flags+=(--prerelease)
+          fi
           gh release create "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "DSH Chat Manager $RELEASE_TAG" \
             --notes-file .artifacts/release.md \
+            "${release_flags[@]}" \
             .artifacts/dsh-chat-manager.tgz \
             .artifacts/dsh-chat-manager.tgz.sha256 \
             .artifacts/install.ps1 \

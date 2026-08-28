@@ -6,13 +6,23 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const require = createRequire(import.meta.url)
 const here = dirname(fileURLToPath(import.meta.url))
-const output = resolve(here, '../lib/client.js')
+const output = process.env.DSH_CHAT_MANAGER_OUTPUT === undefined
+  ? resolve(here, '../lib/client.js')
+  : resolve(process.env.DSH_CHAT_MANAGER_OUTPUT)
 const compatibility = JSON.parse(readFileSync(resolve(here, '../compatibility.json'), 'utf8'))
+const pluginManifest = JSON.parse(readFileSync(resolve(here, '../package.json'), 'utf8'))
 const LATEST_UPSTREAM_VERSION = compatibility.latestTested
-const SUPPORTED_UPSTREAM_VERSIONS = new Set(compatibility.supported)
+const SUPPORTED_UPSTREAM_VERSIONS = new Set([
+  ...compatibility.supported,
+  ...(compatibility.previews ?? []),
+])
 
-export const resolveUpstreamClient = () => require.resolve('@deepseek-ai/dsh-client-ui-workspace/client')
-export const resolveUpstreamManifest = () => require.resolve('@deepseek-ai/dsh-client-ui-workspace/package.json')
+export const resolveUpstreamClient = () => process.env.DSH_WORKSPACE_CLIENT_PATH === undefined
+  ? require.resolve('@deepseek-ai/dsh-client-ui-workspace/client')
+  : resolve(process.env.DSH_WORKSPACE_CLIENT_PATH)
+export const resolveUpstreamManifest = () => process.env.DSH_WORKSPACE_MANIFEST_PATH === undefined
+  ? require.resolve('@deepseek-ai/dsh-client-ui-workspace/package.json')
+  : resolve(process.env.DSH_WORKSPACE_MANIFEST_PATH)
 
 const replaceOnce = (source, before, after, label) => {
   const first = source.indexOf(before)
@@ -29,6 +39,27 @@ const findFunctionSignature = (source, functionName) => {
   return matches[0][0]
 }
 
+const findMarker = (source, candidates, label) => {
+  const matches = candidates.filter(candidate => source.includes(candidate))
+  if (matches.length !== 1) throw new Error(`upstream marker mismatch: ${label}`)
+  return matches[0]
+}
+
+const normalizeCssModulePrefix = (source, variableName, canonicalPrefix) => {
+  const marker = `var ${variableName}_module_css_default = {`
+  const start = source.indexOf(marker)
+  if (start < 0) throw new Error(`upstream marker mismatch: ${variableName} CSS module`)
+  const end = source.indexOf('\n\t\t};', start)
+  if (end < 0) throw new Error(`upstream marker mismatch: ${variableName} CSS module end`)
+  const prefixes = new Set(
+    [...source.slice(start, end).matchAll(/": "([^"]+?)_[^"]+"/g)]
+      .map(match => match[1]),
+  )
+  if (prefixes.size !== 1) throw new Error(`upstream marker mismatch: ${variableName} CSS prefix`)
+  const [generatedPrefix] = prefixes
+  return source.replaceAll(`${generatedPrefix}_`, `${canonicalPrefix}_`)
+}
+
 /**
  * Add one narrow feature to the shipped workspace client while preserving the
  * rest of the official bundle byte-for-byte after a modification notice.
@@ -40,6 +71,7 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     throw new Error(`unsupported @deepseek-ai/dsh-client-ui-workspace version: ${upstreamVersion}`)
   }
   const sessionTreeSignature = findFunctionSignature(upstream, 'SessionTree')
+  const flatListSignature = findFunctionSignature(upstream, 'FlatList')
   const workspaceBrowserSignature = findFunctionSignature(upstream, 'WorkspaceBrowser')
   if (!sessionTreeSignature.includes('onDeleteRequest, onSessionRename, onSessionArchive, insertWorkspaceBefore,')) {
     throw new Error('upstream marker mismatch: SessionTree delete insertion point')
@@ -47,7 +79,15 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
   if (!workspaceBrowserSignature.includes('deleteWorkspace, insertWorkspaceBefore, archiveSession, insertSessionBefore,')) {
     throw new Error('upstream marker mismatch: WorkspaceBrowser delete insertion point')
   }
+  if (!flatListSignature.includes('onSessionRename, onSessionArchive, archivedSessionIds,')) {
+    throw new Error('upstream marker mismatch: FlatList delete insertion point')
+  }
   let source = upstream
+  const stableArchiveAction = `\t\t\t\tarchiveSession: async (sessionId) => {\n\t\t\t\t\tawait ctx.workspaces.archiveSession(sessionId);\n\t\t\t\t},\n`
+  const controllerArchiveAction = `\t\t\t\tarchiveSession: async (sessionId) => {\n\t\t\t\t\tawait uiWorkspace.archiveSession(sessionId);\n\t\t\t\t},\n`
+  if (source.includes(controllerArchiveAction)) {
+    source = replaceOnce(source, controllerArchiveAction, stableArchiveAction, 'controller archive action')
+  }
   const patch = (before, after, label) => {
     source = replaceOnce(source, before, after, label)
   }
@@ -86,8 +126,11 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     'tree row delete prop',
   )
   patch(
-    'function FlatList({ useSessions, open, forkSession, onSessionRename, onSessionArchive, archivedSessionIds, orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t }) {',
-    'function FlatList({ useSessions, open, forkSession, onSessionRename, onSessionArchive, onSessionDelete, archivedSessionIds, orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t }) {',
+    flatListSignature,
+    flatListSignature.replace(
+      'onSessionRename, onSessionArchive, archivedSessionIds,',
+      'onSessionRename, onSessionArchive, onSessionDelete, archivedSessionIds,',
+    ),
     'flat list props',
   )
   patch(
@@ -292,8 +335,12 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     '\t\t\t"menu.archiveSession": "Archive session",\n\t\t\t"archive.manager.title": "Archived sessions",\n\t\t\t"archive.manager.description": "{n} archived sessions. Search by name, workspace, or conversation content.",\n\t\t\t"archive.manager.searchPlaceholder": "Search archived names, workspaces, or conversation content…",\n\t\t\t"archive.manager.searching": "Searching archived conversation history…",\n\t\t\t"archive.manager.searchUnavailable": "Content search is temporarily unavailable. Showing name and workspace matches.",\n\t\t\t"archive.manager.empty": "No archived sessions",\n\t\t\t"archive.manager.noMatches": "No matching archived sessions",\n\t\t\t"archive.manager.hasMore": "Showing the first 20 content matches. Narrow your search.",\n\t\t\t"archive.manager.restore": "Restore",\n\t\t\t"archive.manager.restoring": "Restoring…",\n\t\t\t"archive.manager.delete": "Delete permanently",\n\t\t\t"menu.deleteSession": "Delete session",\n\t\t\t"delete.session.title": "Permanently delete session?",\n\t\t\t"delete.session.desc": "The local record for “{name}” will be permanently deleted and cannot be recovered. Running work will be stopped safely before deletion.",\n\t\t\t"delete.session.confirm": "Delete permanently",\n\t\t\t"delete.session.pending": "Permanently deleting session…",\n',
     'English delete locale',
   )
-  patch(
+  const archiveActionMarker = findMarker(source, [
     `\t\t\t\tarchiveSession: async (sessionId) => {\n\t\t\t\t\tawait ctx.workspaces.archiveSession(sessionId);\n\t\t\t\t},\n`,
+    `\t\t\t\tarchiveSession: async (sessionId) => {\n\t\t\t\t\tawait uiWorkspace.archiveSession(sessionId);\n\t\t\t\t},\n`,
+  ], 'browser archive action')
+  patch(
+    archiveActionMarker,
     `\t\t\t\tarchiveSession: async (sessionId) => {\n\t\t\t\t\tawait ctx.workspaces.archiveSession(sessionId);\n\t\t\t\t},\n\t\t\t\tdeleteSession: async (sessionId) => {\n\t\t\t\t\tconst response = await fetch("/plugins/dsh-session-delete/delete", {\n\t\t\t\t\t\tmethod: "POST",\n\t\t\t\t\t\theaders: {\n\t\t\t\t\t\t\t"content-type": "application/json",\n\t\t\t\t\t\t\t"x-dsh-session-delete-confirmation": "delete-session"\n\t\t\t\t\t\t},\n\t\t\t\t\t\tbody: JSON.stringify({ sessionId })\n\t\t\t\t\t});\n\t\t\t\t\tconst payload = await response.json().catch(() => null);\n\t\t\t\t\tif (!response.ok || payload?.ok !== true) {\n\t\t\t\t\t\tthrow new Error(payload?.error?.message ?? \`Delete failed (HTTP \${response.status})\`);\n\t\t\t\t\t}\n\t\t\t\t\tif (ctx.sessions.list.getSnapshot().current === sessionId) ctx.sessions.clear();\n\t\t\t\t\tconst refreshes = await Promise.allSettled([\n\t\t\t\t\t\tctx.sessions.refresh(),\n\t\t\t\t\t\tctx.workspaces.refresh()\n\t\t\t\t\t]);\n\t\t\t\t\tfor (const refresh of refreshes) {\n\t\t\t\t\t\tif (refresh.status === "rejected") console.warn("session deletion succeeded but runtime refresh failed:", refresh.reason);\n\t\t\t\t\t}\n\t\t\t\t},\n`,
     'browser delete request',
   )
@@ -328,6 +375,14 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 `,
     'browser archive manager requests',
   )
+  const workspaceRefreshCall = 'ctx.workspaces.refresh()'
+  if (source.split(workspaceRefreshCall).length !== 3) {
+    throw new Error('upstream marker mismatch: workspace refresh compatibility')
+  }
+  source = source.replaceAll(
+    workspaceRefreshCall,
+    'typeof ctx.workspaces.refresh === "function" ? ctx.workspaces.refresh() : Promise.resolve()',
+  )
   const homePathCall = '(0, _deepseek_ai_dsh_client_runtime_client.abbreviateHomePath)(row.cwd, home)'
   if (source.includes(homePathCall)) {
     patch(
@@ -337,13 +392,38 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     )
   }
 
+  source = source.replace(
+    /\/\/#region \\0dsh-css:[^\r\n]*?packages[\\/]client[\\/]ui-workspace[\\/]/g,
+    '//#region \\0dsh-css:@deepseek-ai/dsh-client-ui-workspace/',
+  )
+  source = source.replace(
+    /(^\s*\/\/#region \\0dsh-css:@deepseek-ai\/dsh-client-ui-workspace\/)([^\r\n]+)/gm,
+    (_, prefix, modulePath) => `${prefix}${modulePath.replaceAll('\\', '/')}`,
+  )
+  source = normalizeCssModulePrefix(source, 'Rows', 'dcmRows')
+  source = normalizeCssModulePrefix(source, 'WorkspacePicker', 'dcmPicker')
+  source = normalizeCssModulePrefix(source, 'WorkspaceBrowser', 'dcmBrowser')
+
   const notice = `// Modified from @deepseek-ai/dsh-client-ui-workspace ${upstreamVersion} by DSH Chat Manager. See THIRD_PARTY_NOTICES.md.\n`
   return `${notice}${source}`
 }
 
 export async function buildClient() {
+  const explicitPreviewSource = process.env.DSH_WORKSPACE_CLIENT_PATH !== undefined
+    && process.env.DSH_WORKSPACE_MANIFEST_PATH !== undefined
+  if (pluginManifest.version.includes('-') && !explicitPreviewSource) {
+    const existing = await readFile(output, 'utf8')
+    const preview = compatibility.previews.find(version => existing.startsWith(
+      `// Modified from @deepseek-ai/dsh-client-ui-workspace ${version} by DSH Chat Manager.`,
+    ))
+    if (preview === undefined) throw new Error('preview package requires a reviewed preview client artifact')
+    if (existing.includes('require("@deepseek-ai/dsh-client-runtime/client")')) {
+      throw new Error('preview client artifact still imports the removed stable runtime')
+    }
+    return output
+  }
   const manifest = JSON.parse(await readFile(resolveUpstreamManifest(), 'utf8'))
-  if (manifest.version !== LATEST_UPSTREAM_VERSION) {
+  if (!SUPPORTED_UPSTREAM_VERSIONS.has(manifest.version)) {
     throw new Error(
       `unsupported @deepseek-ai/dsh-client-ui-workspace version: ${manifest.version ?? 'unknown'}`,
     )
