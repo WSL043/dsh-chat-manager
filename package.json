@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat-manager",
-  "version": "1.2.0",
+  "version": "1.2.1-beta.0",
   "packageManager": "pnpm@11.19.0",
   "description": "DeepSeek Harness chat history and session management: search archives, restore conversations, and delete safely",
   "type": "module",
@@ -35,7 +35,12 @@
         "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-store",
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-api-workspace-controller",
         "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-session",
         "@deepseek-ai/dsh-client-ui-sidebar"
       ],
       "platform": "web"

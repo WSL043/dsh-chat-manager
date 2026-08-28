@@ -9,7 +9,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$PackageSpec = 'dsh-chat-manager@1.2.0'
+$PackageSpec = 'dsh-chat-manager@1.2.1-beta.0'
 $DshRelease = '0.1.1-rc.2'
 $PnpmVersion = '11.19.0'
 $PnpmUrl = 'https://registry.npmjs.org/pnpm/-/pnpm-11.19.0.tgz'
@@ -352,7 +352,7 @@ if ($dsh.NeedsPnpm) {
 }
 
 try {
-    # Equivalent to: dsh plugin --profile web add dsh-chat-manager@1.2.0
+    # Equivalent to: dsh plugin --profile web add dsh-chat-manager@1.2.1-beta.0
     $lines = [Collections.Generic.List[string]]::new()
     $previousErrorAction = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
