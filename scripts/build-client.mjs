@@ -195,6 +195,11 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     'archive manager header action',
   )
   patch(
+    'max-width:60px;transition:max-width .18s var(--ds-ease-in-out)',
+    'max-width:92px;transition:max-width .18s var(--ds-ease-in-out)',
+    'workspace header action capacity',
+  )
+  patch(
     `\t\t\t\t\t(0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.Modal, {\n\t\t\t\t\t\topen: deleteTarget !== null,\n`,
     `\t\t\t\t\t(0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.Modal, {
 \t\t\t\t\t\topen: archiveManagerOpen,
