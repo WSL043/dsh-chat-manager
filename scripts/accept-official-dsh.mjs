@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
-import { access, mkdir, mkdtemp, readdir, rm } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { chromium } from 'playwright'
@@ -13,7 +13,7 @@ export function parseOfficialAcceptanceArgs(argv) {
   const values = {}
   for (let index = 0; index < argv.length; index += 1) {
     const name = argv[index]
-    if (!['--dsh-version', '--package', '--port'].includes(name)) throw new Error(`unknown argument: ${name}`)
+    if (!['--dsh-version', '--dsh-cli', '--package', '--port'].includes(name)) throw new Error(`unknown argument: ${name}`)
     const value = argv[index + 1]
     if (value === undefined || value.startsWith('--')) throw new Error(`${name} requires a value`)
     values[name] = value
@@ -24,11 +24,32 @@ export function parseOfficialAcceptanceArgs(argv) {
   if (values['--package'] === undefined) throw new Error('--package is required')
   const port = values['--port'] === undefined ? 14191 : Number(values['--port'])
   if (!Number.isSafeInteger(port) || port < 1024 || port > 65535) throw new Error('--port must be between 1024 and 65535')
-  return { dshVersion: values['--dsh-version'], packagePath: values['--package'], port }
+  return {
+    dshVersion: values['--dsh-version'],
+    packagePath: values['--package'],
+    port,
+    ...(values['--dsh-cli'] === undefined ? {} : { dshCliPath: values['--dsh-cli'] }),
+  }
 }
 
 function pnpmCommand() {
   return process.env.PNPM_EXECUTABLE || (process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
+}
+
+async function resolveDshInvocation(options) {
+  if (options.dshCliPath === undefined) {
+    return {
+      command: pnpmCommand(),
+      prefix: ['dlx', `@deepseek-ai/dsh@${options.dshVersion}`],
+    }
+  }
+  const cliPath = resolve(options.dshCliPath)
+  await access(cliPath)
+  const manifest = JSON.parse(await readFile(resolve(dirname(cliPath), '../package.json'), 'utf8'))
+  if (manifest.name !== '@deepseek-ai/dsh' || manifest.version !== options.dshVersion) {
+    throw new Error(`local DSH CLI does not match @deepseek-ai/dsh@${options.dshVersion}`)
+  }
+  return { command: process.execPath, prefix: [cliPath] }
 }
 
 function spawnPortable(command, args, options) {
@@ -80,13 +101,19 @@ function run(command, args, options = {}) {
   })
 }
 
-async function waitForServer(url, child, timeoutMs = 60_000) {
+async function waitForServer(url, child, readOutput = () => ({ stdout: '', stderr: '' }), timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`official DSH exited before accepting connections (${child.exitCode})`)
+    const output = readOutput()
+    if (child.exitCode !== null) {
+      const detail = `${output.stderr}\n${output.stdout}`.replace(/([?&]token=)[^\s)]+/gu, '$1<redacted>').trim()
+      throw new Error(`official DSH exited before accepting connections (${child.exitCode})${detail === '' ? '' : `: ${detail}`}`)
+    }
+    const authenticated = /dsh web: (http:\/\/127\.0\.0\.1:\d+\/\?token=[A-Za-z0-9_-]+)/u.exec(output.stdout)?.[1]
+    const target = authenticated ?? url
     try {
-      const response = await fetch(url)
-      if (response.ok) return
+      const response = await fetch(target, { redirect: 'manual' })
+      if (response.ok || response.status === 303) return target
     } catch {}
     await new Promise(resolvePromise => setTimeout(resolvePromise, 250))
   }
@@ -131,32 +158,38 @@ export async function runOfficialAcceptance(options) {
   const dshHome = join(base, 'home')
   const workspace = join(base, 'workspace')
   const env = { ...process.env, DSH_HOME: dshHome, DSH_TELEMETRY_MODE: 'DISABLED' }
-  const dshSpec = `@deepseek-ai/dsh@${options.dshVersion}`
+  const dsh = await resolveDshInvocation(options)
   let server
   try {
     await mkdir(workspace, { recursive: true })
 
-    await run(pnpmCommand(), ['dlx', dshSpec, 'plugin', '--profile', 'web', 'add', packagePath], {
+    await run(dsh.command, [...dsh.prefix, 'plugin', '--profile', 'web', 'add', packagePath], {
       cwd: workspace,
       env,
     })
-    await run(pnpmCommand(), ['dlx', dshSpec, '--profile', 'headless', SESSION_TITLE], {
+    await run(dsh.command, [...dsh.prefix, '--profile', 'headless', SESSION_TITLE], {
       cwd: workspace,
       env,
       allowFailure: true,
       capture: true,
     })
     const transcriptPath = await waitForSingleTranscript(join(dshHome, 'sessions'))
-    server = spawnPortable(pnpmCommand(), [
-      'dlx', dshSpec, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', String(options.port),
+    const serverOutput = { stdout: '', stderr: '' }
+    server = spawnPortable(dsh.command, [
+      ...dsh.prefix, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', String(options.port),
     ], {
       cwd: workspace,
       env,
-      stdio: 'inherit',
+      stdio: ['ignore', 'pipe', 'pipe'],
       detached: process.platform !== 'win32',
     })
-    const url = `http://127.0.0.1:${options.port}`
-    await waitForServer(url, server)
+    server.stdout?.on('data', chunk => { serverOutput.stdout += chunk })
+    server.stderr?.on('data', chunk => { serverOutput.stderr += chunk })
+    const url = await waitForServer(
+      `http://127.0.0.1:${options.port}`,
+      server,
+      () => serverOutput,
+    )
 
     const browser = await chromium.launch({ headless: true })
     try {
@@ -177,6 +210,54 @@ export async function runOfficialAcceptance(options) {
       })
       await page.goto(url, { waitUntil: 'domcontentloaded' })
       await removeIsolatedOnboarding(page)
+
+      const archiveHeaderAction = page.locator('#archived-sessions')
+      const viewHeaderAction = page.getByRole('button', { name: /^(View options|视图选项)$/ })
+      const addWorkspaceHeaderAction = page.getByRole('button', { name: /^(Add workspace|添加工作区)$/ })
+      for (const [name, action] of [
+        ['archive', archiveHeaderAction],
+        ['view options', viewHeaderAction],
+        ['add workspace', addWorkspaceHeaderAction],
+      ]) {
+        await action.waitFor({ state: 'attached', timeout: 30_000 })
+        if (await action.count() !== 1) throw new Error(`isolated official DSH did not expose exactly one ${name} header action`)
+      }
+      const headerLayout = await archiveHeaderAction.evaluate((archive, selectors) => {
+        const header = archive.parentElement
+        if (header === null) return null
+        const view = document.querySelector(selectors.view)
+        const add = document.querySelector(selectors.add)
+        if (!(view instanceof HTMLElement) || !(add instanceof HTMLElement)) return null
+        const bounds = element => {
+          const rect = element.getBoundingClientRect()
+          return { left: rect.left, right: rect.right, width: rect.width }
+        }
+        return {
+          header: bounds(header),
+          archive: bounds(archive),
+          view: bounds(view),
+          add: bounds(add),
+        }
+      }, {
+        view: 'button[aria-label="View options"], button[aria-label="视图选项"]',
+        add: 'button[aria-label="Add workspace"], button[aria-label="添加工作区"]',
+      })
+      if (headerLayout === null) throw new Error('could not measure the official DSH workspace header actions')
+      const { header, archive, view, add } = headerLayout
+      if (!(archive.left < view.left && view.left < add.left)) {
+        throw new Error(`workspace header action order drifted: ${JSON.stringify(headerLayout)}`)
+      }
+      if ([archive, view, add].some(action => action.width <= 0 || action.left < header.left || action.right > header.right + 0.5)) {
+        throw new Error(`workspace header clips an action: ${JSON.stringify(headerLayout)}`)
+      }
+      if (typeof process.env.DSH_CHAT_MANAGER_SCREENSHOT === 'string') {
+        await page.screenshot({ path: resolve(process.env.DSH_CHAT_MANAGER_SCREENSHOT) })
+      }
+      if (typeof process.env.DSH_CHAT_MANAGER_HEADER_SCREENSHOT === 'string') {
+        await archiveHeaderAction.locator('xpath=ancestor::div[2]').screenshot({
+          path: resolve(process.env.DSH_CHAT_MANAGER_HEADER_SCREENSHOT),
+        })
+      }
 
       const sessionAction = page.locator(
         'button[aria-label^="Session actions for "], button[aria-label^="会话“"][aria-label$="”的操作"]',
@@ -292,7 +373,7 @@ export async function runOfficialAcceptance(options) {
     return {
       ok: true,
       dshVersion: options.dshVersion,
-      checks: ['official install', 'official boot', 'archive list', 'archived history search', 'archive restore', 'red native action', 'second confirmation', 'cancel without request', 'delete from archive manager', 'confirmed JSONL deletion', 'no page reload'],
+      checks: ['official install', 'official boot', 'workspace header actions visible', 'archive list', 'archived history search', 'archive restore', 'red native action', 'second confirmation', 'cancel without request', 'delete from archive manager', 'confirmed JSONL deletion', 'no page reload'],
     }
   } finally {
     if (server !== undefined) await stopProcess(server)

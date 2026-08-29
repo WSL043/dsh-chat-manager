@@ -64,6 +64,21 @@ test('adds a native archived-session manager with metadata and history search', 
   assert.doesNotMatch(patched, /window\.location\.reload/)
 })
 
+test('keeps archive, view options, and add workspace actions visible together', async () => {
+  const source = await readFile(resolveUpstreamClient(), 'utf8')
+  const patched = patchWorkspaceClient(source)
+
+  assert.match(patched, /dcmBrowser_headerActions\{[^}]*max-width:92px/)
+  assert.doesNotMatch(patched, /dcmBrowser_headerActions\{[^}]*max-width:60px/)
+  const headerActions = patched.indexOf('WorkspaceBrowser_module_css_default.headerActions')
+  const archiveAction = patched.indexOf('id: "archived-sessions"', headerActions)
+  const viewOptions = patched.indexOf('wide && (0, react_jsx_runtime.jsx)(ViewOptionsMenu', archiveAction)
+  const addWorkspace = patched.indexOf('"aria-label": t("workspace.add")', viewOptions)
+  assert.ok(headerActions >= 0 && headerActions < archiveAction)
+  assert.ok(archiveAction < viewOptions)
+  assert.ok(viewOptions < addWorkspace)
+})
+
 test('archive cards preserve title width and keep actions compact below metadata', async () => {
   const source = await readFile(resolveUpstreamClient(), 'utf8')
   const patched = patchWorkspaceClient(source)
@@ -98,6 +113,7 @@ for (const [version, alias] of Object.entries(compatibility.workspaceFixtures)) 
 
     assert.match(patched, new RegExp(`^// Modified from @deepseek-ai/dsh-client-ui-workspace ${version.replaceAll('.', '\\.')}`))
     assert.match(patched, /id: "delete-session",[\s\S]{0,240}danger: true/)
+    assert.match(patched, /dcmBrowser_headerActions\{[^}]*max-width:92px/)
     assert.match(patched, /ctx\.sessions\.refresh\(\)/)
     assert.doesNotMatch(patched, /window\.location\.reload/)
   })
