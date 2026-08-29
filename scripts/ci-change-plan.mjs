@@ -66,7 +66,6 @@ const runtime = changed([
   /^tsdown(?:\.demo)?\.config\.mjs$/u,
   /^scripts\/build-client\.mjs$/u,
 ])
-const installer = planner || changed([/^install\.ps1$/u, /^tests\/windows-installer\.test\.(?:mjs|js)$/u])
 const demo = planner || changed([/^demo\//u, /^docs\//u, /^\.github\/workflows\/pages\.yml$/u])
 const delivery = planner || changed([
   /^\.github\//u,
@@ -98,7 +97,7 @@ if (runtime && publishedVersion && compareVersions(packageVersion, publishedVers
   process.exit(1)
 }
 
-const plan = { behavior, delivery, demo, installer, official, runtime }
+const plan = { behavior, delivery, demo, official, runtime }
 console.log(JSON.stringify({ base, files, packageVersion, publishedVersion, plan }, null, 2))
 if (process.env.GITHUB_OUTPUT) {
   appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(plan).map(([key, value]) => `${key}=${value}\n`).join(''))

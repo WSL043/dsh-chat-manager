@@ -189,7 +189,7 @@ async function main() {
     process.stdout.write(`${JSON.stringify({ changed: false, dshVersion: candidate })}\n`)
     return
   }
-  const textPaths = ['README.md', 'README.zh-CN.md', 'AGENTS.md', 'install.ps1', 'THIRD_PARTY_NOTICES.md']
+  const textPaths = ['README.md', 'README.zh-CN.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.md']
   const textSources = await Promise.all(textPaths.map(path => readFile(resolve(root, path), 'utf8')))
   const rewritten = textSources.map(source => rewriteReleaseVersion(
     source,
