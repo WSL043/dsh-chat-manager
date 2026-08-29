@@ -34,31 +34,11 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 
 ## Install
 
-### Windows quick install (recommended)
-
-Open PowerShell and paste one line:
-
-```powershell
-irm 'https://github.com/WSL043/dsh-chat-manager/releases/download/v1.2.1/install.ps1' | iex
-```
-
-The helper checks the current directory, PATH, `DSH_PORTABLE_ROOT`, Downloads/Desktop/Documents, and up to
-three nested levels below those folders and `LocalAppData\Temp`, then calls the official DSH `plugin add`
-command once. It does not recursively scan disks, install a package manager, snapshot profiles, create a
-resident command, or download the plugin twice. It supports regular DSH and the Windows edition of
-[DSH-Portable](https://github.com/WSL043/DSH-Portable) as targets. If it finds one durable installation plus disposable
-copies under Temp, it chooses the durable installation automatically. If several durable installations exist,
-the helper displays their real paths and asks for a number; no command editing or placeholder path is needed.
-If it still finds nothing, enter the actual DSH-Portable folder and rerun the same one-line command.
-
-### Official CLI (macOS, Linux, or direct review)
+### Standard DSH command
 
 ```sh
 dsh plugin --profile web add dsh-chat-manager@1.2.1
 ```
-
-The helper and direct command use the same standard bundle mechanism. The helper is only a Windows entry
-point; DSH still owns the installation transaction.
 
 When the command finishes, save your work and restart DSH once through its normal workflow so the new
 bundle configuration becomes active.
@@ -130,7 +110,7 @@ list with the session-management version; uninstalling restores DSH's original l
 
 ## Update and uninstall
 
-Update by rerunning the quick installer or installing the new npm version. For v1.2.1:
+Install the target npm version with the same standard DSH command. For v1.2.1:
 
 ```sh
 dsh plugin --profile web add dsh-chat-manager@1.2.1

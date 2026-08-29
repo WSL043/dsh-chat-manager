@@ -39,7 +39,6 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   assert.ok(!manifest.files.some(file => file.startsWith('docs/')), 'documentation images must not inflate the runtime package')
   assert.ok(!manifest.files.includes('dsh-session-delete.ps1'))
   assert.ok(!manifest.files.includes('dsh-session-delete-setup.ps1'))
-  assert.ok(!manifest.files.includes('install.ps1'), 'the optional helper is a Release asset, not runtime code')
   assert.ok(manifest.files.includes('THIRD_PARTY_NOTICES.md'))
 })
 
@@ -51,9 +50,6 @@ test('compatibility autopilot is fail-closed and publishes only after both host 
   assert.match(workflow, /\.draft == false and \.immutable == true/)
   assert.match(workflow, /git add --[^\n]*AGENTS\.md[^\n]*README\.md[^\n]*README\.zh-CN\.md[^\n]*compatibility\.json/)
   assert.match(workflow, /scripts\/accept-official-dsh\.mjs/)
-  assert.match(workflow, /matrix:[\s\S]*os:\s*\[windows-2022, windows-2025\]/)
-  assert.match(workflow, /runs-on:\s*\$\{\{ matrix\.os \}\}/)
-  assert.match(workflow, /needs:\s*\[preflight, windows-installer\]/)
   assert.match(workflow, /git diff --binary \| sha256sum/)
   assert.match(workflow, /test "\$\(git rev-parse origin\/main\)" = "\$GITHUB_SHA"/)
   assert.match(workflow, /git push origin HEAD:main[\s\S]*gh workflow run publish\.yml/)
@@ -193,8 +189,7 @@ test('documentation uses the standard one-command bundle lifecycle and second co
   assert.doesNotMatch(`${english}\n${chinese}`, /img\.shields\.io\/npm\/d(?:m|w|y)\/dsh-chat-manager/)
   assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-chat-manager\/main\/docs\/assets\/confirm-delete\.en\.png/)
   assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-chat-manager\/main\/docs\/assets\/archive-manager\.en\.png/)
-  assert.match(chinese, new RegExp(`releases/download/v${releaseVersion}/install\\.ps1`))
-  assert.match(english, new RegExp(`releases/download/v${releaseVersion}/install\\.ps1`))
+  assert.doesNotMatch(`${chinese}\n${english}`, /\birm\b|install\.ps1/iu)
   assert.match(agents, /Never delete a session as an installation test/)
   assert.match(agents, /dsh\.bundle/)
   assert.match(chinese, /正在运行的任务会先停止/)
@@ -202,30 +197,13 @@ test('documentation uses the standard one-command bundle lifecycle and second co
   assert.match(chinese, /不重载整个 DSH 页面/)
   assert.match(english, /without reloading\s+the whole DSH page/i)
   assert.match(chinese, /DSH-Portable/)
-  assert.match(chinese, /DSH-Portable[\s\S]*Windows 便携版/)
   assert.match(english, /DSH-Portable/)
-  assert.match(english, /Windows edition[\s\S]*DSH-Portable/i)
   assert.match(chinese, new RegExp(`raw\\.githubusercontent\\.com/WSL043/dsh-chat-manager/v${releaseVersion}/AGENTS\\.md`))
   assert.match(english, new RegExp(`raw\\.githubusercontent\\.com/WSL043/dsh-chat-manager/v${releaseVersion}/AGENTS\\.md`))
   assert.doesNotMatch(`${chinese}\n${english}`, /raw\.githubusercontent\.com\/WSL043\/dsh-chat-manager\/main\/AGENTS\.md/)
   for (const document of [chinese, english]) {
-    assert.match(document, new RegExp(`releases/download/v${releaseVersion}`, 'u'))
     assert.match(document, /dsh plugin --profile web add/u)
     assert.match(document, /dsh plugin --profile web remove/u)
-  }
-})
-
-test('Windows installer compatibility is gated on both maintained server generations', async () => {
-  const ci = await read('.github/workflows/ci.yml')
-  const releaseWorkflows = await Promise.all([
-    read('.github/workflows/publish.yml'),
-    read('.github/workflows/upstream-compatibility.yml'),
-  ])
-  assert.match(ci, /runs-on:\s*windows-2025/u)
-  assert.match(ci, /if:\s*needs\.plan\.outputs\.installer == 'true'/u)
-  for (const workflow of releaseWorkflows) {
-    assert.match(workflow, /matrix:[\s\S]*os:\s*\[windows-2022, windows-2025\]/)
-    assert.match(workflow, /runs-on:\s*\$\{\{ matrix\.os \}\}/)
   }
 })
 
@@ -247,8 +225,8 @@ test('public-facing copy describes the product without exposing maintenance mech
   assert.match(english, /Supports the latest DeepSeek Harness release recorded in the package metadata/)
   assert.match(releaseNotes, /永久删除不可撤销/)
   assert.match(releaseNotes, /Permanent deletion cannot be undone/)
-  assert.match(releaseNotes, /releases\/download\/v\$\{RELEASE_VERSION\}\/install\.ps1/)
-  assert.match(releaseNotes, /\\`\\`\\`powershell/)
+  assert.match(releaseNotes, /dsh plugin --profile web add dsh-chat-manager@\$\{RELEASE_VERSION\}/)
+  assert.doesNotMatch(releaseNotes, /\birm\b|install\.ps1|powershell/i)
 })
 
 test('bundle disables the official workspace row and inserts the native replacement row', async () => {

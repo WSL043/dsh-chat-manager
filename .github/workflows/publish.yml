@@ -59,22 +59,8 @@ jobs:
       - run: pnpm run build
       - run: git diff --exit-code -- lib
 
-  windows-installer:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-2022, windows-2025]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - run: node --test tests/windows-installer.test.mjs
-
   release:
-    needs: [verify, windows-installer]
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -127,13 +113,10 @@ jobs:
           package="$(find .artifacts -maxdepth 1 -type f -name '*.tgz' -print -quit)"
           test -n "$package"
           mv "$package" .artifacts/dsh-chat-manager.tgz
-          cp install.ps1 .artifacts/install.ps1
           (cd .artifacts && sha256sum dsh-chat-manager.tgz > dsh-chat-manager.tgz.sha256)
-          (cd .artifacts && sha256sum install.ps1 > install.ps1.sha256)
-          for asset in dsh-chat-manager.tgz dsh-chat-manager.tgz.sha256 install.ps1 install.ps1.sha256; do
+          for asset in dsh-chat-manager.tgz dsh-chat-manager.tgz.sha256; do
             test -s ".artifacts/$asset"
           done
-          grep -F "dsh-chat-manager@${RELEASE_VERSION}" .artifacts/install.ps1
           tar -xOf .artifacts/dsh-chat-manager.tgz package/package.json \
             | jq -e --arg version "$RELEASE_VERSION" \
               '.name == "dsh-chat-manager" and .version == $version and .dsh.bundle.patch == "./cordis.patch.yml"' >/dev/null
@@ -189,8 +172,8 @@ jobs:
 
           ## Install or update
 
-          \`\`\`powershell
-          irm 'https://github.com/WSL043/dsh-chat-manager/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
+          \`\`\`sh
+          dsh plugin --profile web add dsh-chat-manager@${RELEASE_VERSION}
           \`\`\`
 
           ## 中文
@@ -208,8 +191,8 @@ jobs:
 
           ## 安装或更新
 
-          \`\`\`powershell
-          irm 'https://github.com/WSL043/dsh-chat-manager/releases/download/v${RELEASE_VERSION}/install.ps1' | iex
+          \`\`\`sh
+          dsh plugin --profile web add dsh-chat-manager@${RELEASE_VERSION}
           \`\`\`
           NOTES
       - name: Publish immutable npm package
@@ -247,12 +230,11 @@ jobs:
           set -euo pipefail
           existing="$(mktemp -d)"
           gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$existing"
-          for asset in dsh-chat-manager.tgz dsh-chat-manager.tgz.sha256 install.ps1 install.ps1.sha256; do
+          for asset in dsh-chat-manager.tgz dsh-chat-manager.tgz.sha256; do
             test -s "$existing/$asset"
           done
-          (cd "$existing" && sha256sum -c dsh-chat-manager.tgz.sha256 && sha256sum -c install.ps1.sha256)
+          (cd "$existing" && sha256sum -c dsh-chat-manager.tgz.sha256)
           cmp "$existing/dsh-chat-manager.tgz" .artifacts/dsh-chat-manager.tgz
-          cmp "$existing/install.ps1" .artifacts/install.ps1
       - name: Publish immutable release
         if: steps.release_state.outputs.exists != 'true'
         env:
@@ -266,6 +248,4 @@ jobs:
             --title "DSH Chat Manager $RELEASE_TAG" \
             --notes-file .artifacts/release.md \
             .artifacts/dsh-chat-manager.tgz \
-            .artifacts/dsh-chat-manager.tgz.sha256 \
-            .artifacts/install.ps1 \
-            .artifacts/install.ps1.sha256
+            .artifacts/dsh-chat-manager.tgz.sha256
