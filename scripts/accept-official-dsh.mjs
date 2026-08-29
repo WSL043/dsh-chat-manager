@@ -178,6 +178,46 @@ export async function runOfficialAcceptance(options) {
       await page.goto(url, { waitUntil: 'domcontentloaded' })
       await removeIsolatedOnboarding(page)
 
+      const archiveHeaderAction = page.locator('#archived-sessions')
+      const viewHeaderAction = page.getByRole('button', { name: /^(View options|视图选项)$/ })
+      const addWorkspaceHeaderAction = page.getByRole('button', { name: /^(Add workspace|添加工作区)$/ })
+      for (const [name, action] of [
+        ['archive', archiveHeaderAction],
+        ['view options', viewHeaderAction],
+        ['add workspace', addWorkspaceHeaderAction],
+      ]) {
+        await action.waitFor({ state: 'attached', timeout: 30_000 })
+        if (await action.count() !== 1) throw new Error(`isolated official DSH did not expose exactly one ${name} header action`)
+      }
+      const headerLayout = await archiveHeaderAction.evaluate((archive, selectors) => {
+        const header = archive.parentElement
+        if (header === null) return null
+        const view = document.querySelector(selectors.view)
+        const add = document.querySelector(selectors.add)
+        if (!(view instanceof HTMLElement) || !(add instanceof HTMLElement)) return null
+        const bounds = element => {
+          const rect = element.getBoundingClientRect()
+          return { left: rect.left, right: rect.right, width: rect.width }
+        }
+        return {
+          header: bounds(header),
+          archive: bounds(archive),
+          view: bounds(view),
+          add: bounds(add),
+        }
+      }, {
+        view: 'button[aria-label="View options"], button[aria-label="视图选项"]',
+        add: 'button[aria-label="Add workspace"], button[aria-label="添加工作区"]',
+      })
+      if (headerLayout === null) throw new Error('could not measure the official DSH workspace header actions')
+      const { header, archive, view, add } = headerLayout
+      if (!(archive.left < view.left && view.left < add.left)) {
+        throw new Error(`workspace header action order drifted: ${JSON.stringify(headerLayout)}`)
+      }
+      if ([archive, view, add].some(action => action.width <= 0 || action.left < header.left || action.right > header.right + 0.5)) {
+        throw new Error(`workspace header clips an action: ${JSON.stringify(headerLayout)}`)
+      }
+
       const sessionAction = page.locator(
         'button[aria-label^="Session actions for "], button[aria-label^="会话“"][aria-label$="”的操作"]',
       )
@@ -292,7 +332,7 @@ export async function runOfficialAcceptance(options) {
     return {
       ok: true,
       dshVersion: options.dshVersion,
-      checks: ['official install', 'official boot', 'archive list', 'archived history search', 'archive restore', 'red native action', 'second confirmation', 'cancel without request', 'delete from archive manager', 'confirmed JSONL deletion', 'no page reload'],
+      checks: ['official install', 'official boot', 'workspace header actions visible', 'archive list', 'archived history search', 'archive restore', 'red native action', 'second confirmation', 'cancel without request', 'delete from archive manager', 'confirmed JSONL deletion', 'no page reload'],
     }
   } finally {
     if (server !== undefined) await stopProcess(server)
