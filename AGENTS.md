@@ -58,12 +58,8 @@ With an existing `dsh` command, run exactly:
 dsh plugin --profile web add dsh-chat-manager@1.2.1-beta.0
 ```
 
-Use the same `add` command to update or repair. On Windows, `install.ps1` from the same fixed Release may
-be used only as a thin locator and launcher. It checks bounded known locations and up to three nested levels
-under common user/temporary roots, then invokes the exact command
-above once. It must not scan disks recursively, download package-manager components, save profile snapshots,
-create a persistent manager command, modify another profile, or restart DSH automatically. The DSH CLI owns
-dependency resolution and bundle composition.
+Use the same `add` command to update or repair. The DSH CLI owns target selection, dependency resolution,
+profile locking, and bundle composition; this plugin does not ship a second Windows installer.
 
 After a successful configuration change, ask for permission before restarting DSH. A successful CLI exit
 alone is not runtime acceptance.

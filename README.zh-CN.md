@@ -34,28 +34,11 @@
 
 ## 安装
 
-### Windows 快速安装（推荐）
-
-打开 PowerShell，复制这一行：
-
-```powershell
-irm 'https://github.com/WSL043/dsh-chat-manager/releases/download/v1.2.1-beta.0/install.ps1' | iex
-```
-
-助手依次检查当前目录、PATH、`DSH_PORTABLE_ROOT`、下载/桌面/文档目录，以及这些目录和
-`LocalAppData\Temp` 下最多三层的 Portable 解压目录；找到后立即调用一次 DSH 官方 `plugin add`。
-它不会递归扫盘、安装包管理器、保存 profile 快照、创建常驻命令或重复下载插件。普通 DSH 和
-[DSH-Portable](https://github.com/WSL043/DSH-Portable) 的 Windows 便携版都可以作为目标。若同时发现一个长期安装和 Temp
-中的测试/解压副本，会自动选择长期安装；若存在多个长期安装，助手会列出真实路径并让你输入编号，
-不需要改命令或填写示例路径。若仍未找到，请先进入实际的 DSH-Portable 文件夹再运行同一条命令。
-
-### 官方 CLI（macOS、Linux 或希望直接审阅命令）
+### DSH 标准命令
 
 ```sh
 dsh plugin --profile web add dsh-chat-manager@1.2.1-beta.0
 ```
-
-助手和这条命令使用的是同一个标准 bundle 安装机制；助手只是 Windows 入口，不接管安装事务。
 
 安装完成后，保存工作并按 DSH 的正常方式重启一次，使新的 bundle 配置生效。
 
@@ -118,7 +101,7 @@ JSONL 存储。安装后替换为带会话管理功能的原生工作区列表�
 
 ## 更新与卸载
 
-更新可重新运行快速安装助手，或安装 npm 上的新版本。v1.2.1-beta.0 的直接命令是：
+更新时安装 npm 上的目标版本。v1.2.1-beta.0 的命令是：
 
 ```sh
 dsh plugin --profile web add dsh-chat-manager@1.2.1-beta.0

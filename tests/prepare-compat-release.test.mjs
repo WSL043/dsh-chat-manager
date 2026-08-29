@@ -84,14 +84,13 @@ test('is a no-op for an already tested version and refuses skipped releases', ()
 test('rewrites every release-version reference in bounded public artifacts and generated compatibility blocks', () => {
   const source = [
     'keep historical v1.0.2 text',
-    "releases/download/v1.0.2/install.ps1",
-    'dsh-chat-manager@1.0.2',
-    'raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.0.2/AGENTS.md',
+    "raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.0.2/AGENTS.md",
+    'dsh plugin --profile web add dsh-chat-manager@1.0.2',
   ].join('\n')
   const rewritten = rewriteReleaseVersion(source, '1.0.2', '1.0.3')
   assert.match(rewritten, /keep historical v1\.0\.3 text/)
   assert.doesNotMatch(rewritten, /v1\.0\.2/)
-  assert.match(rewritten, /releases\/download\/v1\.0\.3\/install\.ps1/)
+  assert.match(rewritten, /dsh plugin --profile web add dsh-chat-manager@1\.0\.3/)
   assert.match(rewritten, /dsh-chat-manager@1\.0\.3/)
   assert.match(rewritten, /dsh-chat-manager\/v1\.0\.3\/AGENTS\.md/)
 
