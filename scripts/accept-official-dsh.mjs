@@ -80,14 +80,12 @@ function run(command, args, options = {}) {
   })
 }
 
-async function waitForServer(url, child, timeoutMs = 60_000) {
+async function waitForServer(resolveUrl, child, timeoutMs = 60_000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error(`official DSH exited before accepting connections (${child.exitCode})`)
-    try {
-      const response = await fetch(url)
-      if (response.ok) return
-    } catch {}
+    const url = resolveUrl()
+    if (url !== null) return url
     await new Promise(resolvePromise => setTimeout(resolvePromise, 250))
   }
   throw new Error(`official DSH did not start within ${timeoutMs}ms`)
@@ -147,16 +145,31 @@ export async function runOfficialAcceptance(options) {
       capture: true,
     })
     const transcriptPath = await waitForSingleTranscript(join(dshHome, 'sessions'))
+    let serverStdout = ''
+    let serverStderr = ''
     server = spawnPortable(pnpmCommand(), [
       'dlx', dshSpec, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', String(options.port),
     ], {
       cwd: workspace,
       env,
-      stdio: 'inherit',
+      capture: true,
       detached: process.platform !== 'win32',
     })
-    const url = `http://127.0.0.1:${options.port}`
-    await waitForServer(url, server)
+    server.stdout?.on('data', chunk => { serverStdout += chunk })
+    server.stderr?.on('data', chunk => { serverStderr += chunk })
+    const resolveUrl = () => {
+      const match = /dsh web:\s+(https?:\/\/[^\s]+)/u.exec(serverStdout)
+      if (match === null) return null
+      const candidate = new URL(match[1])
+      if (candidate.protocol !== 'http:' || candidate.hostname !== '127.0.0.1' || Number(candidate.port) !== options.port ||
+          candidate.pathname !== '/' || (candidate.search !== '' && !/^\?token=[A-Za-z0-9_-]+$/u.test(candidate.search))) {
+        throw new Error('official DSH logged an invalid browser acceptance URL')
+      }
+      return candidate.href
+    }
+    const url = await waitForServer(resolveUrl, server).catch(error => {
+      throw new Error(`${error.message}\n${serverStderr || serverStdout}`, { cause: error })
+    })
 
     const browser = await chromium.launch({ headless: true })
     try {
