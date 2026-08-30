@@ -37,7 +37,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 ### Standard DSH command
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.2.1
+dsh plugin --profile web add dsh-chat-manager@1.2.2
 ```
 
 When the command finishes, save your work and restart DSH once through its normal workflow so the new
@@ -45,7 +45,7 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.2.1/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.2.2/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -110,10 +110,10 @@ list with the session-management version; uninstalling restores DSH's original l
 
 ## Update and uninstall
 
-Install the target npm version with the same standard DSH command. For v1.2.1:
+Install the target npm version with the same standard DSH command. For v1.2.2:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.2.1
+dsh plugin --profile web add dsh-chat-manager@1.2.2
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:

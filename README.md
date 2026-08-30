@@ -37,14 +37,14 @@
 ### DSH 标准命令
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.2.1
+dsh plugin --profile web add dsh-chat-manager@1.2.2
 ```
 
 安装完成后，保存工作并按 DSH 的正常方式重启一次，使新的 bundle 配置生效。
 
 ### 交给 Agent
 
-请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.2.1/AGENTS.md)，
+请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.2.2/AGENTS.md)，
 其中写明了安装、更新、验收、卸载和安全边界。不要把 `main` 分支文档当作安装依据。
 
 ## 使用
@@ -101,10 +101,10 @@ JSONL 存储。安装后替换为带会话管理功能的原生工作区列表�
 
 ## 更新与卸载
 
-更新时继续用 DSH 标准命令安装目标 npm 版本。v1.2.1 的命令是：
+更新时继续用 DSH 标准命令安装目标 npm 版本。v1.2.2 的命令是：
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.2.1
+dsh plugin --profile web add dsh-chat-manager@1.2.2
 ```
 
 卸载只移除这个插件的 bundle 层，不删除任何会话：

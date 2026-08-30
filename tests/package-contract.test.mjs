@@ -19,7 +19,12 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   for (const [version, alias] of Object.entries(compatibility.workspaceFixtures)) {
     assert.equal(manifest.devDependencies[alias], `npm:@deepseek-ai/dsh-client-ui-workspace@${version}`)
   }
-  const supportedRange = compatibility.supported.join(' || ')
+  assert.deepEqual(compatibility.previews, ['0.1.2-alpha.2'])
+  assert.equal(
+    manifest.devDependencies[compatibility.previewWorkspaceFixture],
+    'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.2-alpha.2',
+  )
+  const supportedRange = [...compatibility.supported, ...compatibility.previews].join(' || ')
   for (const [name, version] of Object.entries(manifest.peerDependencies)) {
     if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(version, supportedRange)
   }
@@ -110,13 +115,13 @@ test('release notes present complete English before a separate Chinese translati
   assert.doesNotMatch(workflow, /提交贡献 \/ Thanks to/)
 })
 
-test('GitHub defaults to English and links a separate Chinese README', async () => {
+test('GitHub defaults to Chinese and links a complete English README', async () => {
   const readme = await read('README.md')
-  const readmeZh = await read('README.zh-CN.md')
+  const readmeEn = await read('README.en.md')
 
-  assert.match(readme, /Manage DeepSeek Harness chat history/)
-  assert.match(readme, /\[中文\]\(README\.zh-CN\.md\)/)
-  assert.match(readmeZh, /\[English\]\(README\.md\)/)
+  assert.match(readme, /在 DeepSeek Harness 原生侧边栏中搜索、恢复和安全清理会话/)
+  assert.match(readme, /\[English\]\(README\.en\.md\)/)
+  assert.match(readmeEn, /Manage DeepSeek Harness chat history/)
 })
 
 test('GitHub issue intake defaults to concise English forms without title prefixes', async () => {
@@ -152,6 +157,7 @@ test('public artifacts contain no local workspace paths', async () => {
   const files = [
     'package.json',
     'README.md',
+    'README.en.md',
     'README.zh-CN.md',
     'AGENTS.md',
     'src/index.js',
@@ -168,8 +174,8 @@ test('public artifacts contain no local workspace paths', async () => {
 
 test('documentation uses the standard one-command bundle lifecycle and second confirmation', async () => {
   const [english, chinese, agents] = await Promise.all([
+    read('README.en.md'),
     read('README.md'),
-    read('README.zh-CN.md'),
     read('AGENTS.md'),
   ])
   const manifest = JSON.parse(await read('package.json'))
@@ -209,8 +215,8 @@ test('documentation uses the standard one-command bundle lifecycle and second co
 
 test('public-facing copy describes the product without exposing maintenance mechanics', async () => {
   const [english, chinese, publishWorkflow] = await Promise.all([
+    read('README.en.md'),
     read('README.md'),
-    read('README.zh-CN.md'),
     read('.github/workflows/publish.yml'),
   ])
   const releaseNotesStart = publishWorkflow.indexOf('- name: Write release notes')
