@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import {
+  composeCompatibleClients,
   patchWorkspaceClient,
   resolveUpstreamClient,
   resolveUpstreamManifest,
@@ -11,6 +12,26 @@ import {
 
 const require = createRequire(import.meta.url)
 const compatibility = JSON.parse(await readFile(new URL('../compatibility.json', import.meta.url), 'utf8'))
+
+test('one client artifact selects stable or preview implementation from the runtime module table', () => {
+  const moduleSource = (label, dependency) => `window.__ModuleLoader__.load({\n\tid: "dsh-chat-manager",\n\tfactory: (require) => {\n\t\tconst value = require("${dependency}");\n\t\treturn { label: "${label}", value };\n\t}\n});\n`
+  const artifact = composeCompatibleClients(
+    moduleSource('stable', '@deepseek-ai/dsh-client-runtime/client'),
+    moduleSource('preview', '@deepseek-ai/dsh-client-store'),
+  )
+  let factory
+  const run = modules => {
+    new Function('window', artifact)({ __ModuleLoader__: { load(definition) { factory = definition.factory } } })
+    return factory(name => {
+      if (!Object.hasOwn(modules, name)) throw new Error(`client-modules: require("${name}") missed the module table`)
+      return modules[name]
+    })
+  }
+
+  assert.equal(run({ '@deepseek-ai/dsh-client-runtime/client': 'stable-runtime' }).label, 'stable')
+  assert.equal(run({ '@deepseek-ai/dsh-client-store': 'preview-store' }).label, 'preview')
+  assert.equal(artifact.match(/id: "dsh-chat-manager"/g)?.length, 1)
+})
 
 test('patches the official workspace client with a native confirmed delete flow', async () => {
   const source = await readFile(resolveUpstreamClient(), 'utf8')
