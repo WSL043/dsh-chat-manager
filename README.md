@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> 本项目已于 2026 年 8 月 31 日停止主动开发并进入只读归档。现有 Release 和源码继续保留，但不会再适配未来的 DSH 版本。DSH 已原生提供会话搜索、Fork 和归档；卸载前请先备份需要保留的会话，然后运行 `dsh plugin --profile web remove dsh-chat-manager`。已安装且仍能正常工作的版本可以继续使用。
+
 <div align="center">
 
 # DSH 聊天管理器
