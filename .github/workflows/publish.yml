@@ -8,17 +8,27 @@ on:
         description: Optional correlation id used by the compatibility autopilot
         required: false
         type: string
+      release_kind:
+        description: Release-note template
+        required: false
+        default: feature
+        type: choice
+        options: [feature, bugfix, compatibility]
+      dsh_version:
+        description: Exact accepted DSH version for a compatibility release
+        required: false
+        type: string
       contributor_prs:
         description: Comma-separated merged contributor PR numbers to credit
         required: false
         type: string
       release_notes_en:
-        description: English user-facing release summary
-        required: true
+        description: English user-facing release summary (required for feature and bugfix releases)
+        required: false
         type: string
       release_notes_zh:
-        description: Chinese user-facing release summary
-        required: true
+        description: Chinese user-facing release summary (required for feature and bugfix releases)
+        required: false
         type: string
 
 permissions:
@@ -35,6 +45,8 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      npm_tag: ${{ steps.version.outputs.npm_tag }}
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v5
@@ -51,9 +63,16 @@ jobs:
         run: |
           test "$GITHUB_REF" = refs/heads/main
           version="$(node -p "require('./package.json').version")"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]]
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          if [[ "$version" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "npm_tag=beta" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "npm_tag=latest" >> "$GITHUB_OUTPUT"
+          fi
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm test
       - run: pnpm run build
@@ -85,11 +104,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          IS_PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         shell: bash
         run: |
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-              | jq -e '.draft == false and .prerelease == false and .immutable == true' >/dev/null
+              | jq -e --argjson prerelease "$IS_PRERELEASE" \
+                '.draft == false and .prerelease == $prerelease and .immutable == true' >/dev/null
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -123,6 +144,8 @@ jobs:
       - name: Write release notes
         env:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+          RELEASE_KIND: ${{ inputs.release_kind }}
+          REQUESTED_DSH_VERSION: ${{ inputs.dsh_version }}
           CONTRIBUTOR_PRS: ${{ inputs.contributor_prs }}
           RELEASE_NOTES_EN: ${{ inputs.release_notes_en }}
           RELEASE_NOTES_ZH: ${{ inputs.release_notes_zh }}
@@ -130,6 +153,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "${RELEASE_KIND:-feature}" == 'compatibility' ]]; then
+            [[ "$REQUESTED_DSH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+            RELEASE_NOTES_EN="$(printf '%s\n%s' \
+              "- Added compatibility with DeepSeek Harness \`$REQUESTED_DSH_VERSION\`." \
+              '- Stable installation guidance remains unchanged.')"
+            RELEASE_NOTES_ZH="$(printf '%s\n%s' \
+              "- 新增对 DeepSeek Harness \`$REQUESTED_DSH_VERSION\` 的兼容支持。" \
+              '- 稳定版安装说明保持不变。')"
+          else
+            test -n "${RELEASE_NOTES_EN:-}"
+            test -n "${RELEASE_NOTES_ZH:-}"
+          fi
           : > .artifacts/contributors.en.md
           : > .artifacts/contributors.zh-CN.md
           if [[ "$RELEASE_NOTES_EN" == *'\n'* || "$RELEASE_NOTES_ZH" == *'\n'* ]]; then
@@ -198,6 +233,7 @@ jobs:
       - name: Publish immutable npm package
         env:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+          NPM_TAG: ${{ needs.verify.outputs.npm_tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -217,7 +253,7 @@ jobs:
             diff -qr --strip-trailing-cr "$local_tree/package" "$remote_tree/package"
             mv "$remote_package" "$package"
           else
-            npm publish "$package" --access public --provenance
+            npm publish "$package" --access public --provenance --tag "$NPM_TAG"
           fi
           (cd .artifacts && sha256sum dsh-chat-manager.tgz > dsh-chat-manager.tgz.sha256)
       - name: Verify existing immutable release assets
@@ -225,6 +261,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          IS_PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         shell: bash
         run: |
           set -euo pipefail
@@ -240,12 +277,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          IS_PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         shell: bash
         run: |
+          flags=()
+          if [[ "$IS_PRERELEASE" == 'true' ]]; then flags+=(--prerelease); fi
           gh release create "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "DSH Chat Manager $RELEASE_TAG" \
             --notes-file .artifacts/release.md \
+            "${flags[@]}" \
             .artifacts/dsh-chat-manager.tgz \
             .artifacts/dsh-chat-manager.tgz.sha256
