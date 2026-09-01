@@ -1,32 +1,11 @@
 name: Feature request
-description: Suggest a focused session-management improvement with a clear user need
-labels:
-  - enhancement
+description: Suggest a focused improvement to archived-session recovery
+labels: [enhancement]
 body:
-  - type: textarea
-    id: use_case
+  - type: markdown
     attributes:
-      label: Use case
-      description: What are you trying to accomplish, and when does this need arise?
-    validations:
-      required: true
-
+      value: This plugin intentionally does not replace native search, archive, fork, or deletion features.
   - type: textarea
-    id: expected
-    attributes:
-      label: Expected behavior
-      description: Describe the smallest interaction and outcome that would solve the need.
-    validations:
-      required: true
-
-  - type: textarea
-    id: current_workaround
-    attributes:
-      label: Current workaround
-      description: Optional. Explain how you handle this today without including private session content.
-
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives considered
-      description: Optional. Link examples or explain approaches that did not work.
+    id: need
+    attributes: { label: User need }
+    validations: { required: true }
