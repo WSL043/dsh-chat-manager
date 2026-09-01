@@ -1,5 +1,5 @@
-> [!IMPORTANT]
-> Active development ended on August 31, 2026, and this repository is now archived read-only. Existing releases and source remain available, but future DSH versions will not be supported. DSH now provides native session search, fork, and archive actions. Back up any sessions you need before running `dsh plugin --profile web remove dsh-chat-manager`. An installed version that still works may continue to be used.
+> [!NOTE]
+> This is an actively maintained, independently removable DSH plugin. It adds archive browsing, conversation-content search, restore, and safe permanent deletion. If this session workflow is not for you, uninstalling the plugin leaves existing sessions untouched.
 
 <div align="center">
 
