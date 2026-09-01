@@ -64,6 +64,8 @@ test('compatibility autopilot is fail-closed and publishes only after both host 
   assert.match(workflow, /dsh_version="\$DSH_VERSION"/)
   assert.match(workflow, /request_id="compat-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"/)
   assert.match(workflow, /select\(\.displayTitle == \$title\)/)
+  assert.match(workflow, /compatibility\.supported[\s\S]*compatibility\.previews/)
+  assert.match(workflow, /if \[ "\$tested" = true \]; then/)
   assert.match(workflow, /gh run watch "\$release_run"/)
   assert.match(workflow, /actions:\s*write/)
   assert.match(workflow, /official immutable GitHub Release is not available yet; waiting/)
