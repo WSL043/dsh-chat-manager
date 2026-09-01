@@ -1,5 +1,15 @@
-# Security
+# Security policy
 
-Report security issues privately through the repository security advisory form.
+## Supported version
 
-The restore endpoint accepts only same-origin JSON `POST` requests carrying the explicit recovery action header. It changes only the official archived-session ID set and does not read, search, return, or delete session content.
+Security fixes are provided for the latest release.
+
+## Report a vulnerability
+
+Use **Security → Report a vulnerability** in this repository. Please do not put
+session contents, local paths, profile files, or a working destructive proof of
+concept in a public issue.
+
+Include the DSH version, plugin version, storage backend, operating system, and
+the smallest redacted reproduction you can provide. Do not attach real session
+logs.

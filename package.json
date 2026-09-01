@@ -1,21 +1,24 @@
 {
   "name": "dsh-chat-manager",
-  "version": "1.3.0-beta.0",
+  "version": "1.3.0",
   "packageManager": "pnpm@11.19.0",
-  "description": "A removable DeepSeek Harness chat manager focused on restoring archived sessions",
+  "description": "DeepSeek Harness chat history and session management: search archives, restore conversations, and delete safely",
   "type": "module",
-  "main": "./lib/index.js",
+  "main": "./src/index.js",
   "exports": {
-    ".": "./lib/index.js",
+    ".": "./src/index.js",
     "./client": "./lib/client.js",
-    "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
   "files": [
     "compatibility.json",
     "cordis.patch.yml",
-    "lib/*.js",
-    "lib/*.map",
+    "lib/client.js",
+    "scripts/build-client.mjs",
+    "scripts/smoke-ui.mjs",
+    "src/index.js",
+    "src/host/archive-manager.mjs",
+    "src/host/delete-session.mjs",
     "README.md",
     "README.zh-CN.md",
     "AGENTS.md",
@@ -24,57 +27,127 @@
     "THIRD_PARTY_NOTICES.md"
   ],
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "inject": [
+        "@deepseek-ai/dsh-client-connection",
         "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-ui-settings-plugins",
-        "@deepseek-ai/dsh-client-ui-slots",
-        "@deepseek-ai/dsh-client-ui-workspace"
+        "@deepseek-ai/dsh-client-ui-sidebar"
       ],
       "platform": "web"
     }
   },
   "scripts": {
-    "build": "tsdown --config tsdown.config.mjs",
-    "test": "node --test tests/session-recovery-contract.test.mjs tests/session-recovery-host.test.mjs tests/issue-intake.test.mjs",
-    "check": "pnpm run test && pnpm run build && pnpm pack --pack-destination .artifacts"
+    "build": "node scripts/build-client.mjs",
+    "test:behavior": "node --test tests/archive-manager-host.test.mjs tests/delete-session-client.test.mjs tests/delete-session-host.test.mjs tests/smoke-ui.test.mjs",
+    "test:delivery": "node --test tests/accept-official-dsh.test.mjs tests/package-contract.test.mjs tests/prepare-compat-release.test.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "pnpm run test && pnpm run build && pnpm pack --pack-destination .artifacts",
+    "smoke:ui": "node scripts/smoke-ui.mjs",
+    "prepack": "pnpm run build"
   },
-  "keywords": ["dsh-plugin", "deepseek-harness", "session", "session-manager", "archive", "restore"],
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "session",
+    "session-manager",
+    "session-management",
+    "conversation",
+    "archive",
+    "unarchive",
+    "restore",
+    "history-search",
+    "chat-history",
+    "conversation-history",
+    "archived-sessions",
+    "session-delete",
+    "permanent-delete",
+    "deepseek",
+    "delete",
+    "privacy"
+  ],
   "author": "WSL043",
   "license": "MIT",
-  "publishConfig": { "access": "public", "tag": "beta" },
-  "repository": { "type": "git", "url": "git+https://github.com/WSL043/dsh-chat-manager.git" },
-  "bugs": { "url": "https://github.com/WSL043/dsh-chat-manager/issues" },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WSL043/dsh-chat-manager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/WSL043/dsh-chat-manager/issues"
+  },
   "homepage": "https://github.com/WSL043/dsh-chat-manager#readme",
-  "engines": { "node": "^22.19.0 || >=24.0.0" },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "dependencies": {
+    "clsx": "^2.0.0"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.1 || 4.0.2",
-    "@deepseek-ai/dsh-client-locale": "0.1.1-rc.2 || 0.1.2-alpha.2 || 0.1.2-alpha.3",
-    "@deepseek-ai/dsh-client-ui-conversation": "0.1.1-rc.2 || 0.1.2-alpha.2 || 0.1.2-alpha.3",
-    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.1.1-rc.2 || 0.1.2-alpha.2 || 0.1.2-alpha.3",
-    "@deepseek-ai/dsh-client-ui-slots": "0.1.1-rc.2 || 0.1.2-alpha.2 || 0.1.2-alpha.3",
-    "@deepseek-ai/dsh-client-ui-workspace": "0.1.1-rc.2 || 0.1.2-alpha.2 || 0.1.2-alpha.3",
+    "@deepseek-ai/dsh-client-connection": "0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8 || 0.1.1-rc.1 || 0.1.1-rc.2 || 0.1.2-alpha.3",
+    "@deepseek-ai/dsh-client-locale": "0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8 || 0.1.1-rc.1 || 0.1.1-rc.2 || 0.1.2-alpha.3",
+    "@deepseek-ai/dsh-client-runtime": "0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8 || 0.1.1-rc.1 || 0.1.1-rc.2 || 0.1.2-alpha.3",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8 || 0.1.1-rc.1 || 0.1.1-rc.2 || 0.1.2-alpha.3",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8 || 0.1.1-rc.1 || 0.1.1-rc.2 || 0.1.2-alpha.3",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8 || 0.1.1-rc.1 || 0.1.1-rc.2 || 0.1.2-alpha.3",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8 || 0.1.1-rc.1 || 0.1.1-rc.2 || 0.1.2-alpha.3",
+    "@deepseek-ai/dsh-invariants": "0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8 || 0.1.1-rc.1 || 0.1.1-rc.2 || 0.1.2-alpha.3",
     "react": "^18.2.0"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/cordis": { "optional": true },
-    "@deepseek-ai/dsh-client-locale": { "optional": true },
-    "@deepseek-ai/dsh-client-ui-conversation": { "optional": true },
-    "@deepseek-ai/dsh-client-ui-settings-plugins": { "optional": true },
-    "@deepseek-ai/dsh-client-ui-slots": { "optional": true },
-    "@deepseek-ai/dsh-client-ui-workspace": { "optional": true },
-    "react": { "optional": true }
+    "@deepseek-ai/cordis": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-connection": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-locale": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-runtime": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-conversation": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-primitives": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-sidebar": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-slots": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-invariants": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-client-connection": "0.1.1-rc.2",
     "@deepseek-ai/dsh-client-locale": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-runtime": "0.1.1-rc.2",
     "@deepseek-ai/dsh-client-ui-conversation": "0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.1.1-rc.2",
     "@deepseek-ai/dsh-client-ui-slots": "0.1.1-rc.2",
     "@deepseek-ai/dsh-client-ui-workspace": "0.1.1-rc.2",
-    "react": "18.3.1",
-    "tsdown": "0.22.2"
+    "@deepseek-ai/dsh-invariants": "0.1.1-rc.2",
+    "dsh-ui-workspace-rc6": "npm:@deepseek-ai/dsh-client-ui-workspace@0.1.0-rc.6",
+    "dsh-ui-workspace-rc7": "npm:@deepseek-ai/dsh-client-ui-workspace@0.1.0-rc.7",
+    "playwright": "1.62.1",
+    "dsh-ui-workspace-rc8": "npm:@deepseek-ai/dsh-client-ui-workspace@0.1.0-rc.8",
+    "dsh-ui-workspace-rc1": "npm:@deepseek-ai/dsh-client-ui-workspace@0.1.1-rc.1",
+    "dsh-ui-workspace-alpha3": "npm:@deepseek-ai/dsh-client-ui-workspace@0.1.2-alpha.3"
   }
 }
