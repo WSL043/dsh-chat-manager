@@ -1,5 +1,3 @@
 # DSH 聊天管理器
 
-简体中文说明已成为仓库首页，请查看 [README.md](README.md)。
-
-The Simplified Chinese README is now the repository default. See [README.md](README.md).
+本页内容与 [README.md](README.md) 相同：插件只提供已归档会话的恢复入口，不搜索正文、不永久删除，也不替换官方会话管理界面。
