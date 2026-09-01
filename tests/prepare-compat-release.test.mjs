@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 import {
+  boundedArtifactPaths,
   compareDshVersions,
   extractDeepSeekReleaseAgeSelectors,
   planCompatibilityUpdate,
@@ -10,6 +10,7 @@ import {
   rewriteDshVersion,
   rewriteReleaseVersion,
   rewriteReleaseAgeCohort,
+  rewriteWorkspaceCohort,
   selectNextUntestedVersion,
   selectNewestPublishedTag,
 } from '../scripts/prepare-compat-release.mjs'
@@ -39,10 +40,50 @@ const fixture = () => ({
   },
 })
 
+const previewFixture = () => ({
+  compatibility: {
+    latestTested: '0.1.1-rc.2',
+    supported: ['0.1.1-rc.2'],
+    previews: ['0.1.2-alpha.3'],
+    workspaceFixtures: {},
+    previewWorkspaceFixture: 'dsh-ui-workspace-alpha3',
+  },
+  manifest: {
+    name: 'dsh-chat-manager',
+    version: '1.3.0',
+    devDependencies: {
+      '@deepseek-ai/dsh-client-ui-workspace': '0.1.1-rc.2',
+      'dsh-ui-workspace-alpha3': 'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.2-alpha.3',
+    },
+    peerDependencies: {
+      '@deepseek-ai/dsh-client-ui-workspace': '0.1.1-rc.2 || 0.1.2-alpha.3',
+      react: '^18.2.0',
+    },
+  },
+})
+
 test('queues the oldest untested registry version so missed releases need no manual catch-up', () => {
   const versions = ['0.1.0-rc.10', '0.1.0-rc.8', '0.1.0-rc.9', '0.1.0-rc.7']
   assert.equal(selectNextUntestedVersion(versions, '0.1.0-rc.8'), '0.1.0-rc.9')
   assert.equal(selectNextUntestedVersion(versions, '0.1.0-rc.10'), null)
+  assert.equal(
+    selectNextUntestedVersion(['0.1.2-alpha.2', '0.1.2-alpha.3', '0.1.2-alpha.4'], previewFixture().compatibility),
+    '0.1.2-alpha.4',
+  )
+})
+
+test('plans preview support without moving stable docs or the stable compatibility lane', () => {
+  const update = planCompatibilityUpdate(previewFixture(), '0.1.2-alpha.4')
+  assert.equal(update.pluginVersion, '1.3.1-beta.0')
+  assert.equal(update.compatibility.latestTested, '0.1.1-rc.2')
+  assert.deepEqual(update.compatibility.supported, ['0.1.1-rc.2'])
+  assert.deepEqual(update.compatibility.previews, ['0.1.2-alpha.3', '0.1.2-alpha.4'])
+  assert.equal(update.compatibility.previewWorkspaceFixture, 'dsh-ui-workspace-alpha4')
+  assert.equal(update.manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.1-rc.2')
+  assert.equal(update.manifest.devDependencies['dsh-ui-workspace-alpha4'], 'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.2-alpha.4')
+  assert.equal(update.manifest.peerDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.1-rc.2 || 0.1.2-alpha.3 || 0.1.2-alpha.4')
+  assert.deepEqual(boundedArtifactPaths(update), [])
+  assert.equal(rewriteWorkspaceCohort('stable release-age policy', update), 'stable release-age policy')
 })
 
 test('selects the newest official dist-tag instead of assuming next always wins', () => {
@@ -114,11 +155,10 @@ test('rewrites every release-version reference in bounded public artifacts and g
   )
 })
 
-test('compatibility automation keeps each README in its own language', async () => {
-  const source = await readFile(new URL('../scripts/prepare-compat-release.mjs', import.meta.url), 'utf8')
-
-  assert.match(source, /rewritten\[0\] = rewriteCompatibilityBlock\(rewritten\[0\], update\.compatibility\.supported, 'en'\)/)
-  assert.match(source, /rewritten\[1\] = rewriteCompatibilityBlock\(rewritten\[1\], update\.compatibility\.supported, 'zh'\)/)
+test('stable compatibility automation updates the Chinese homepage and bounded stable artifacts', () => {
+  const update = planCompatibilityUpdate(fixture(), '0.1.0-rc.9')
+  assert.deepEqual(boundedArtifactPaths(update), ['README.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.md'])
+  assert.equal(rewriteWorkspaceCohort('cohort @0.1.0-rc.8', update), 'cohort @0.1.0-rc.9')
 })
 
 test('regenerates the exact release-age exceptions from the accepted lock graph', () => {
