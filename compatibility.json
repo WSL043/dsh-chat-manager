@@ -1,20 +1,8 @@
 {
   "latestTested": "0.1.1-rc.2",
-  "supported": [
-    "0.1.0-rc.6",
-    "0.1.0-rc.7",
-    "0.1.0-rc.8",
-    "0.1.1-rc.1",
-    "0.1.1-rc.2"
-  ],
-  "workspaceFixtures": {
-    "0.1.0-rc.6": "dsh-ui-workspace-rc6",
-    "0.1.0-rc.7": "dsh-ui-workspace-rc7",
-    "0.1.0-rc.8": "dsh-ui-workspace-rc8",
-    "0.1.1-rc.1": "dsh-ui-workspace-rc1"
-  },
+  "supported": ["0.1.1-rc.2"],
   "previews": [
+    "0.1.2-alpha.2",
     "0.1.2-alpha.3"
-  ],
-  "previewWorkspaceFixture": "dsh-ui-workspace-alpha3"
+  ]
 }

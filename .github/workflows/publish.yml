@@ -1,251 +1,59 @@
-name: Release
-run-name: Release ${{ inputs.request_id || github.sha }}
+name: Publish beta
 
 on:
   workflow_dispatch:
-    inputs:
-      request_id:
-        description: Optional correlation id used by the compatibility autopilot
-        required: false
-        type: string
-      contributor_prs:
-        description: Comma-separated merged contributor PR numbers to credit
-        required: false
-        type: string
-      release_notes_en:
-        description: English user-facing release summary
-        required: true
-        type: string
-      release_notes_zh:
-        description: Chinese user-facing release summary
-        required: true
-        type: string
 
 permissions:
   contents: read
 
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
-  verify:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      tag: ${{ steps.version.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-        with:
-          version: 11.19.0
-          run_install: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: pnpm
-      - name: Require main and resolve version
-        id: version
-        shell: bash
-        run: |
-          test "$GITHUB_REF" = refs/heads/main
-          version="$(node -p "require('./package.json').version")"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm test
-      - run: pnpm run build
-      - run: git diff --exit-code -- lib
-
   release:
-    needs: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     permissions:
       contents: write
       id-token: write
-      pull-requests: read
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v5
-        with:
-          version: 11.19.0
-          run_install: false
+        with: { version: 11.19.0, run_install: false }
       - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
-      - name: Install OIDC-capable npm
-        run: npm install --global npm@12.0.2
-      - name: Inspect immutable release state
-        id: release_state
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+      - run: npm install --global npm@12.0.2
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test
+      - run: pnpm run build
+      - name: Build immutable candidate
+        id: package
         shell: bash
         run: |
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-              | jq -e '.draft == false and .prerelease == false and .immutable == true' >/dev/null
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            remote_tag="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG" | cut -f1)"
-            if [ -n "$remote_tag" ] && [ "$remote_tag" != "$GITHUB_SHA" ]; then
-              echo "$RELEASE_TAG already points to another commit; refusing to move it." >&2
-              exit 1
-            fi
-          fi
-      - name: Build release assets
-        env:
-          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
-        shell: bash
-        run: |
-          pnpm install --frozen-lockfile --ignore-scripts
-          pnpm run build
-          git diff --exit-code -- lib
-          rm -rf .artifacts
+          version="$(node -p "require('./package.json').version")"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]
           mkdir -p .artifacts
           pnpm pack --pack-destination .artifacts
-          package="$(find .artifacts -maxdepth 1 -type f -name '*.tgz' -print -quit)"
-          test -n "$package"
-          mv "$package" .artifacts/dsh-chat-manager.tgz
+          file="$(find .artifacts -name '*.tgz' -print -quit)"
+          mv "$file" .artifacts/dsh-chat-manager.tgz
           (cd .artifacts && sha256sum dsh-chat-manager.tgz > dsh-chat-manager.tgz.sha256)
-          for asset in dsh-chat-manager.tgz dsh-chat-manager.tgz.sha256; do
-            test -s ".artifacts/$asset"
-          done
-          tar -xOf .artifacts/dsh-chat-manager.tgz package/package.json \
-            | jq -e --arg version "$RELEASE_VERSION" \
-              '.name == "dsh-chat-manager" and .version == $version and .dsh.bundle.patch == "./cordis.patch.yml"' >/dev/null
-      - name: Write release notes
-        env:
-          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
-          CONTRIBUTOR_PRS: ${{ inputs.contributor_prs }}
-          RELEASE_NOTES_EN: ${{ inputs.release_notes_en }}
-          RELEASE_NOTES_ZH: ${{ inputs.release_notes_zh }}
-          GH_TOKEN: ${{ github.token }}
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Publish npm beta if absent
         shell: bash
         run: |
-          set -euo pipefail
-          : > .artifacts/contributors.en.md
-          : > .artifacts/contributors.zh-CN.md
-          if [[ "$RELEASE_NOTES_EN" == *'\n'* || "$RELEASE_NOTES_ZH" == *'\n'* ]]; then
-            echo 'Release notes must contain real line breaks, not literal \n sequences.' >&2
-            exit 1
+          version='${{ steps.package.outputs.version }}'
+          if [ "$(npm view "dsh-chat-manager@$version" version 2>/dev/null || true)" != "$version" ]; then
+            npm publish .artifacts/dsh-chat-manager.tgz --access public --tag beta --provenance
           fi
-          if [[ -n "${CONTRIBUTOR_PRS:-}" ]]; then
-            IFS=',' read -ra contributor_pr_numbers <<< "$CONTRIBUTOR_PRS"
-            for raw_pr in "${contributor_pr_numbers[@]}"; do
-              pr_number="$(xargs <<< "$raw_pr")"
-              [[ "$pr_number" =~ ^[1-9][0-9]*$ ]] || {
-                echo "Invalid contributor PR number: $raw_pr" >&2
-                exit 1
-              }
-              pr_json="$(gh pr view "$pr_number" --repo "$GITHUB_REPOSITORY" --json author,mergedAt,number,url)"
-              merged_at="$(jq -r '.mergedAt' <<< "$pr_json")"
-              test "$merged_at" != 'null'
-              author="$(jq -r '.author.login' <<< "$pr_json")"
-              number="$(jq -r '.number' <<< "$pr_json")"
-              url="$(jq -r '.url' <<< "$pr_json")"
-              cat >> .artifacts/contributors.en.md <<NOTES
-          - Thanks to [@$author](https://github.com/$author) for contributing in [#$number]($url).
-          NOTES
-              cat >> .artifacts/contributors.zh-CN.md <<NOTES
-          - 感谢 [@$author](https://github.com/$author) 在 [#$number]($url) 提交贡献。
-          NOTES
-            done
-          fi
-          cat > .artifacts/release.md <<'NOTES'
-          ## What's changed
-
-          NOTES
-          printf '%s\n' "$RELEASE_NOTES_EN" >> .artifacts/release.md
-          printf '\n- Permanent deletion cannot be undone.\n' >> .artifacts/release.md
-          if [[ -s .artifacts/contributors.en.md ]]; then
-            printf '\n## Contributors\n\n' >> .artifacts/release.md
-            cat .artifacts/contributors.en.md >> .artifacts/release.md
-          fi
-          cat >> .artifacts/release.md <<NOTES
-
-          ## Install or update
-
-          \`\`\`sh
-          dsh plugin --profile web add dsh-chat-manager@${RELEASE_VERSION}
-          \`\`\`
-
-          ## 中文
-
-          ## 更新内容
-
-          NOTES
-          printf '%s\n' "$RELEASE_NOTES_ZH" >> .artifacts/release.md
-          printf '\n- 永久删除不可撤销。\n' >> .artifacts/release.md
-          if [[ -s .artifacts/contributors.zh-CN.md ]]; then
-            printf '\n## 贡献者\n\n' >> .artifacts/release.md
-            cat .artifacts/contributors.zh-CN.md >> .artifacts/release.md
-          fi
-          cat >> .artifacts/release.md <<NOTES
-
-          ## 安装或更新
-
-          \`\`\`sh
-          dsh plugin --profile web add dsh-chat-manager@${RELEASE_VERSION}
-          \`\`\`
-          NOTES
-      - name: Publish immutable npm package
-        env:
-          RELEASE_VERSION: ${{ needs.verify.outputs.version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          package=.artifacts/dsh-chat-manager.tgz
-          spec="dsh-chat-manager@$RELEASE_VERSION"
-          remote_integrity="$(npm view "$spec" dist.integrity 2>/dev/null || true)"
-          if [ -n "$remote_integrity" ]; then
-            remote_tarball="$(npm view "$spec" dist.tarball)"
-            remote_package="$(mktemp)"
-            curl --fail --location --silent --show-error "$remote_tarball" --output "$remote_package"
-            downloaded_integrity="sha512-$(openssl dgst -sha512 -binary "$remote_package" | base64 -w0)"
-            test "$downloaded_integrity" = "$remote_integrity"
-            local_tree="$(mktemp -d)"
-            remote_tree="$(mktemp -d)"
-            tar -xzf "$package" -C "$local_tree"
-            tar -xzf "$remote_package" -C "$remote_tree"
-            diff -qr --strip-trailing-cr "$local_tree/package" "$remote_tree/package"
-            mv "$remote_package" "$package"
-          else
-            npm publish "$package" --access public --provenance
-          fi
-          (cd .artifacts && sha256sum dsh-chat-manager.tgz > dsh-chat-manager.tgz.sha256)
-      - name: Verify existing immutable release assets
-        if: steps.release_state.outputs.exists == 'true'
+      - name: Publish GitHub prerelease if absent
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
         shell: bash
         run: |
-          set -euo pipefail
-          existing="$(mktemp -d)"
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$existing"
-          for asset in dsh-chat-manager.tgz dsh-chat-manager.tgz.sha256; do
-            test -s "$existing/$asset"
-          done
-          (cd "$existing" && sha256sum -c dsh-chat-manager.tgz.sha256)
-          cmp "$existing/dsh-chat-manager.tgz" .artifacts/dsh-chat-manager.tgz
-      - name: Publish immutable release
-        if: steps.release_state.outputs.exists != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
-        shell: bash
-        run: |
-          gh release create "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "DSH Chat Manager $RELEASE_TAG" \
-            --notes-file .artifacts/release.md \
-            .artifacts/dsh-chat-manager.tgz \
-            .artifacts/dsh-chat-manager.tgz.sha256
+          version='${{ steps.package.outputs.version }}'
+          tag="v$version"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+              --title "DSH Chat Manager $tag" \
+              --notes "Narrows the existing removable Chat Manager to archived-session recovery without replacing native session management." \
+              .artifacts/dsh-chat-manager.tgz .artifacts/dsh-chat-manager.tgz.sha256
+          fi

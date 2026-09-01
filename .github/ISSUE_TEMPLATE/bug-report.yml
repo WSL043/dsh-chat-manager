@@ -1,104 +1,19 @@
 name: Bug report
-description: Report a reproducible archive, search, restore, deletion, installation, update, or uninstall problem
-labels:
-  - bug
+description: Report a reproducible session recovery problem
+labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: |
-        Describe the smallest reproducible case. Do not paste session content, credentials, account identifiers, or full profile files.
-
-  - type: dropdown
-    id: system
-    attributes:
-      label: System
-      options:
-        - Windows
-        - macOS
-        - Linux
-        - Other
-    validations:
-      required: true
-
-  - type: dropdown
-    id: dsh_setup
-    attributes:
-      label: DSH setup
-      options:
-        - Official DSH installation
-        - DSH-Portable
-        - npm / npx
-        - From source
-        - Not sure
-    validations:
-      required: true
-
+      value: Do not paste session content, credentials, or full profile files.
   - type: input
-    id: plugin_version
-    attributes:
-      label: Plugin version
-      description: Copy the exact installed version, or enter "not installed" if setup did not finish.
-    validations:
-      required: true
-
-  - type: input
-    id: dsh_version
-    attributes:
-      label: DSH version
-      description: Copy the exact version from About, startup output, or the package manager.
-    validations:
-      required: true
-
-  - type: dropdown
-    id: area
-    attributes:
-      label: Affected area
-      options:
-        - Install or update
-        - Archive or unarchive
-        - Archived-session list or search
-        - Restore
-        - Permanent deletion or confirmation
-        - Uninstall
-        - Other
-    validations:
-      required: true
-
+    id: versions
+    attributes: { label: Versions, description: Plugin, DSH, and Portable versions }
+    validations: { required: true }
   - type: textarea
     id: steps
-    attributes:
-      label: Steps to reproduce
-      description: Use disposable names or placeholders instead of private session content.
-    validations:
-      required: true
-
+    attributes: { label: Steps to reproduce }
+    validations: { required: true }
   - type: textarea
-    id: expected
-    attributes:
-      label: Expected behavior
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual behavior
-    validations:
-      required: true
-
-  - type: textarea
-    id: output
-    attributes:
-      label: Sanitized error output
-      description: Optional. Remove session content, local transcript paths, credentials, account identifiers, and full profile data.
-      render: shell
-
-  - type: checkboxes
-    id: safety
-    attributes:
-      label: Before submitting
-      options:
-        - label: I checked that this report contains no session content, credentials, or account identifiers.
-          required: true
-        - label: I provided the exact plugin and DSH versions, or stated that installation did not finish.
-          required: true
+    id: result
+    attributes: { label: Expected and actual result }
+    validations: { required: true }
