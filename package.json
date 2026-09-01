@@ -38,7 +38,7 @@
   },
   "scripts": {
     "build": "tsdown --config tsdown.config.mjs",
-    "test": "node --test tests/session-recovery-*.test.mjs",
+    "test": "node --test tests/session-recovery-contract.test.mjs tests/session-recovery-host.test.mjs tests/issue-intake.test.mjs",
     "check": "pnpm run test && pnpm run build && pnpm pack --pack-destination .artifacts"
   },
   "keywords": ["dsh-plugin", "deepseek-harness", "session", "session-manager", "archive", "restore"],
