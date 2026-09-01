@@ -1,3 +1,7 @@
+# Replace the official workspace row only while this bundle is enabled.
+- id: ui-workspace
+  disabled: true
+
 - insert:
     - id: ui-workspace-session-delete
       name: dsh-chat-manager
