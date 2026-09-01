@@ -79,7 +79,7 @@ test('plans preview support without moving stable docs or the stable compatibili
   assert.deepEqual(update.compatibility.supported, ['0.1.1-rc.2'])
   assert.deepEqual(update.compatibility.previews, ['0.1.2-alpha.3', '0.1.2-alpha.4'])
   assert.equal(update.compatibility.previewWorkspaceFixture, 'dsh-ui-workspace-alpha4')
-  assert.equal(update.manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.2-alpha.4')
+  assert.equal(update.manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.1-rc.2')
   assert.equal(update.manifest.devDependencies['dsh-ui-workspace-alpha4'], 'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.2-alpha.4')
   assert.equal(update.manifest.peerDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.1-rc.2 || 0.1.2-alpha.3 || 0.1.2-alpha.4')
   assert.deepEqual(boundedArtifactPaths(update), [])
