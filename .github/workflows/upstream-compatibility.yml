@@ -227,7 +227,12 @@ jobs:
           set -euo pipefail
           request_id="compat-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           title="Release $request_id"
-          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main -f request_id="$request_id"
+          gh workflow run publish.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f request_id="$request_id" \
+            -f release_kind=compatibility \
+            -f dsh_version="$DSH_VERSION"
           release_run=""
           for attempt in $(seq 1 90); do
             sleep 2
