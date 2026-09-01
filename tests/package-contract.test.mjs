@@ -19,10 +19,10 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   for (const [version, alias] of Object.entries(compatibility.workspaceFixtures)) {
     assert.equal(manifest.devDependencies[alias], `npm:@deepseek-ai/dsh-client-ui-workspace@${version}`)
   }
-  assert.deepEqual(compatibility.previews, ['0.1.2-alpha.2'])
+  assert.deepEqual(compatibility.previews, ['0.1.2-alpha.3'])
   assert.equal(
     manifest.devDependencies[compatibility.previewWorkspaceFixture],
-    'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.2-alpha.2',
+    'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.2-alpha.3',
   )
   const supportedRange = [...compatibility.supported, ...compatibility.previews].join(' || ')
   for (const [name, version] of Object.entries(manifest.peerDependencies)) {
