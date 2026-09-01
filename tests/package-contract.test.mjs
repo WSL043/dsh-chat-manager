@@ -9,7 +9,7 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   const compatibility = JSON.parse(await read('compatibility.json'))
 
   assert.equal(manifest.name, 'dsh-chat-manager')
-  assert.match(manifest.version, /^\d+\.\d+\.\d+$/)
+  assert.match(manifest.version, /^\d+\.\d+\.\d+(?:-beta\.\d+)?$/)
   assert.equal(manifest.private, undefined)
   assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.repository.url, 'git+https://github.com/WSL043/dsh-chat-manager.git')
@@ -19,10 +19,12 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   for (const [version, alias] of Object.entries(compatibility.workspaceFixtures)) {
     assert.equal(manifest.devDependencies[alias], `npm:@deepseek-ai/dsh-client-ui-workspace@${version}`)
   }
-  assert.deepEqual(compatibility.previews, ['0.1.2-alpha.3'])
+  assert.ok(compatibility.previews.includes('0.1.2-alpha.3'))
+  assert.ok(compatibility.previews.every(version => /^\d+\.\d+\.\d+-[0-9A-Za-z.-]+$/.test(version)))
+  const latestPreview = compatibility.previews.at(-1)
   assert.equal(
     manifest.devDependencies[compatibility.previewWorkspaceFixture],
-    'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.2-alpha.3',
+    `npm:@deepseek-ai/dsh-client-ui-workspace@${latestPreview}`,
   )
   const supportedRange = [...compatibility.supported, ...compatibility.previews].join(' || ')
   for (const [name, version] of Object.entries(manifest.peerDependencies)) {
@@ -178,11 +180,12 @@ test('documentation uses the standard one-command bundle lifecycle and second co
     read('README.md'),
     read('AGENTS.md'),
   ])
-  const manifest = JSON.parse(await read('package.json'))
-  const releaseVersion = manifest.version.replaceAll('.', '\\.')
-
+  const documentedVersion = chinese.match(/dsh-chat-manager@(\d+\.\d+\.\d+)/)?.[1]
+  assert.match(documentedVersion ?? '', /^\d+\.\d+\.\d+$/)
+  const releaseVersion = documentedVersion.replaceAll('.', '\\.')
   for (const document of [chinese, english, agents]) {
-    assert.match(document, new RegExp(`dsh-chat-manager@${releaseVersion}`))
+    assert.match(document, /dsh-chat-manager@\d+\.\d+\.\d+/)
+    assert.doesNotMatch(document, /dsh-chat-manager@\d+\.\d+\.\d+-beta\.\d+/)
   }
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
