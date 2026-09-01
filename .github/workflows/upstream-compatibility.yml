@@ -67,16 +67,23 @@ jobs:
           [[ "$candidate" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
           registry_version="$(pnpm view "@deepseek-ai/dsh@$candidate" version)"
           test "$registry_version" = "$candidate"
+          tested="$(node --input-type=module -e '
+            import compatibility from "./compatibility.json" with { type: "json" };
+            process.stdout.write(String([
+              ...compatibility.supported,
+              ...compatibility.previews,
+            ].includes(process.argv[1])));
+          ' "$candidate")"
           comparison="$(node --input-type=module -e '
             import { compareDshVersions } from "./scripts/prepare-compat-release.mjs";
             process.stdout.write(String(compareDshVersions(process.argv[1], process.argv[2])));
           ' "$candidate" "$current")"
-          if [ "$comparison" -lt 0 ]; then
+          if [ "$tested" != true ] && [ "$comparison" -lt 0 ]; then
             echo "Registry candidate $candidate is older than tested $current" >&2
             exit 1
           fi
           echo "dsh_version=$candidate" >> "$GITHUB_OUTPUT"
-          if [ "$comparison" -eq 0 ]; then
+          if [ "$tested" = true ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             plugin_version="$(node -p "require('./package.json').version")"
             npm_version="$(npm view "dsh-chat-manager@$plugin_version" version 2>/dev/null || true)"
