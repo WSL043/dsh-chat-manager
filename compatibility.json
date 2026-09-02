@@ -15,7 +15,8 @@
   },
   "previews": [
     "0.1.2-alpha.3",
-    "0.1.2-alpha.4"
+    "0.1.2-alpha.4",
+    "0.1.2-alpha.5"
   ],
-  "previewWorkspaceFixture": "dsh-ui-workspace-alpha4"
+  "previewWorkspaceFixture": "dsh-ui-workspace-alpha5"
 }
