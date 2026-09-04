@@ -53,6 +53,7 @@ const previewFixture = () => ({
     version: '1.3.0',
     devDependencies: {
       '@deepseek-ai/dsh-client-ui-workspace': '0.1.1-rc.2',
+      '@deepseek-ai/dsh-client-runtime': '0.1.1-rc.2',
       'dsh-ui-workspace-alpha3': 'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.2-alpha.3',
     },
     peerDependencies: {
@@ -84,6 +85,20 @@ test('plans preview support without moving stable docs or the stable compatibili
   assert.equal(update.manifest.peerDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.1-rc.2 || 0.1.2-alpha.3 || 0.1.2-alpha.4')
   assert.deepEqual(boundedArtifactPaths(update), [])
   assert.equal(rewriteWorkspaceCohort('stable release-age policy', update), 'stable release-age policy')
+})
+
+test('promotes a beta candidate by rewriting the previously documented stable version', () => {
+  const state = previewFixture()
+  state.manifest.version = '1.3.1-beta.1'
+  const update = planCompatibilityUpdate(state, '0.1.2-rc.1')
+
+  assert.equal(update.pluginVersion, '1.3.1')
+  assert.equal(update.previousDocumentedPluginVersion, '1.3.0')
+  assert.equal(update.manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], '0.1.1-rc.2')
+  assert.equal(
+    rewriteReleaseVersion('install dsh-chat-manager@1.3.0', update.previousDocumentedPluginVersion, update.pluginVersion),
+    'install dsh-chat-manager@1.3.1',
+  )
 })
 
 test('selects the newest official dist-tag instead of assuming next always wins', () => {
@@ -137,12 +152,12 @@ test('rewrites every release-version reference in bounded public artifacts and g
 
   const document = 'before\n<!-- dsh-compatibility -->stale<!-- /dsh-compatibility -->\nafter'
   const block = rewriteCompatibilityBlock(document, ['0.1.0-rc.6', '0.1.0-rc.9'], 'zh')
-  assert.match(block, /支持最新版 DeepSeek Harness（`0\.1\.0-rc\.9`）/)
+  assert.match(block, /支持软件包元数据中记录的最新版 DeepSeek Harness（`0\.1\.0-rc\.9`）/)
   assert.doesNotMatch(block, /0\.1\.0-rc\.6/)
   assert.doesNotMatch(block, /stale/)
 
   const englishBlock = rewriteCompatibilityBlock(document, ['0.1.0-rc.6', '0.1.0-rc.9'], 'en')
-  assert.match(englishBlock, /Supports the latest DeepSeek Harness release \(`0\.1\.0-rc\.9`\)/)
+  assert.match(englishBlock, /Supports the latest DeepSeek Harness release recorded in the package metadata \(`0\.1\.0-rc\.9`\)/)
   assert.doesNotMatch(englishBlock, /0\.1\.0-rc\.6/)
 
   assert.match(
@@ -157,7 +172,7 @@ test('rewrites every release-version reference in bounded public artifacts and g
 
 test('stable compatibility automation updates the Chinese homepage and bounded stable artifacts', () => {
   const update = planCompatibilityUpdate(fixture(), '0.1.0-rc.9')
-  assert.deepEqual(boundedArtifactPaths(update), ['README.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.md'])
+  assert.deepEqual(boundedArtifactPaths(update), ['README.md', 'README.en.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.md'])
   assert.equal(rewriteWorkspaceCohort('cohort @0.1.0-rc.8', update), 'cohort @0.1.0-rc.9')
 })
 

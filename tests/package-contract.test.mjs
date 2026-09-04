@@ -16,9 +16,14 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], compatibility.latestTested)
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-primitives'], compatibility.latestTested)
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-slots'], compatibility.latestTested)
+  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-invariants'], compatibility.latestTested)
+  assert.equal(manifest.devDependencies['@deepseek-ai/cordis'], '4.0.2')
+  assert.equal(manifest.devDependencies['@deepseek-ai/cordis-plugin-include'], '1.0.7')
+  assert.equal(manifest.devDependencies['@deepseek-ai/cordis-plugin-loader'], '1.0.3')
   for (const [version, alias] of Object.entries(compatibility.workspaceFixtures)) {
     assert.equal(manifest.devDependencies[alias], `npm:@deepseek-ai/dsh-client-ui-workspace@${version}`)
   }
+  assert.equal(compatibility.legacyWorkspaceFixture, compatibility.workspaceFixtures['0.1.1-rc.2'])
   assert.ok(compatibility.previews.includes('0.1.2-alpha.3'))
   assert.ok(compatibility.previews.every(version => /^\d+\.\d+\.\d+-[0-9A-Za-z.-]+$/.test(version)))
   const latestPreview = compatibility.previews.at(-1)
@@ -26,11 +31,23 @@ test('public package is a standard DSH bundle with a unique identity', async () 
     manifest.devDependencies[compatibility.previewWorkspaceFixture],
     `npm:@deepseek-ai/dsh-client-ui-workspace@${latestPreview}`,
   )
-  const supportedRange = [...compatibility.supported, ...compatibility.previews].join(' || ')
+  const supportedVersions = new Set([...compatibility.supported, ...compatibility.previews])
   for (const [name, version] of Object.entries(manifest.peerDependencies)) {
-    if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(version, supportedRange)
+    if (name.startsWith('@deepseek-ai/dsh-')) assert.deepEqual(new Set(version.split(' || ')), supportedVersions)
   }
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-connection'))
+  for (const dependency of [
+    '@deepseek-ai/dsh-api-remotes',
+    '@deepseek-ai/dsh-api-session-controller',
+    '@deepseek-ai/dsh-api-workspace-controller',
+    '@deepseek-ai/dsh-client-ui-renderer',
+    '@deepseek-ai/dsh-client-ui-session',
+  ]) {
+    assert.ok(manifest.dsh.client.inject.includes(dependency), `missing RC1 client graph edge ${dependency}`)
+  }
+  assert.ok(!manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-runtime'))
+  assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined)
+  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], '0.1.1-rc.2')
   assert.match(manifest.description, /session management/i)
   for (const keyword of ['session-manager', 'archive', 'unarchive', 'restore', 'history-search', 'chat-history', 'conversation-history', 'session-delete']) {
     assert.ok(manifest.keywords.includes(keyword), `missing discovery keyword ${keyword}`)
