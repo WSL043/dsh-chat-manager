@@ -76,6 +76,16 @@ function nextStableVersion(version) {
   return `${parsed.core[0]}.${parsed.core[1]}.${parsed.core[2] + 1}`
 }
 
+function previousDocumentedPluginVersion(version) {
+  const parsed = parseVersion(version)
+  if (parsed.prerelease.length === 0) return version
+  if (parsed.prerelease.length !== 2 || parsed.prerelease[0] !== 'beta'
+    || !Number.isInteger(parsed.prerelease[1]) || parsed.core[2] === 0) {
+    throw new Error(`unsupported plugin prerelease: ${version}`)
+  }
+  return `${parsed.core[0]}.${parsed.core[1]}.${parsed.core[2] - 1}`
+}
+
 function nextBetaVersion(version) {
   const parsed = parseVersion(version)
   if (parsed.prerelease.length === 0) return `${parsed.core[0]}.${parsed.core[1]}.${parsed.core[2] + 1}-beta.0`
@@ -135,7 +145,9 @@ export function planCompatibilityUpdate(state, candidate) {
   manifest.version = preview ? nextBetaVersion(previousPluginVersion) : nextStableVersion(previousPluginVersion)
   if (!preview) {
     for (const name of Object.keys(manifest.devDependencies)) {
-      if (name.startsWith('@deepseek-ai/dsh-')) manifest.devDependencies[name] = candidate
+      if (name.startsWith('@deepseek-ai/dsh-') && name !== '@deepseek-ai/dsh-client-runtime') {
+        manifest.devDependencies[name] = candidate
+      }
     }
   }
   if (preview) {
@@ -151,6 +163,7 @@ export function planCompatibilityUpdate(state, candidate) {
 
   return {
     previousPluginVersion,
+    previousDocumentedPluginVersion: previousDocumentedPluginVersion(previousPluginVersion),
     pluginVersion: manifest.version,
     previousDshVersion: previous,
     dshVersion: candidate,
@@ -161,7 +174,7 @@ export function planCompatibilityUpdate(state, candidate) {
 }
 
 export function boundedArtifactPaths(update) {
-  return update.updateStableReferences ? ['README.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.md'] : []
+  return update.updateStableReferences ? ['README.md', 'README.en.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.md'] : []
 }
 
 export function rewriteWorkspaceCohort(workspace, update) {
@@ -189,8 +202,8 @@ export function rewriteCompatibilityBlock(source, supported, language) {
   const latest = supported.at(-1)
   if (latest === undefined) throw new Error('supported DSH versions cannot be empty')
   const body = language === 'zh'
-    ? `支持最新版 DeepSeek Harness（\`${latest}\`）。`
-    : `Supports the latest DeepSeek Harness release (\`${latest}\`).`
+    ? `支持软件包元数据中记录的最新版 DeepSeek Harness（\`${latest}\`）。`
+    : `Supports the latest DeepSeek Harness release recorded in the package metadata (\`${latest}\`).`
   return source.replace(marker, `<!-- dsh-compatibility -->\n${body}\n<!-- /dsh-compatibility -->`)
 }
 
@@ -250,12 +263,13 @@ async function main() {
   const textSources = await Promise.all(textPaths.map(path => readFile(resolve(root, path), 'utf8')))
   const rewritten = textSources.map(source => rewriteReleaseVersion(
     source,
-    update.previousPluginVersion,
+    update.previousDocumentedPluginVersion,
     update.pluginVersion,
   ))
   if (update.updateStableReferences) {
     rewritten[0] = rewriteCompatibilityBlock(rewritten[0], update.compatibility.supported, 'zh')
-    rewritten[2] = rewriteDshVersion(rewritten[2], update.previousDshVersion, update.dshVersion)
+    rewritten[1] = rewriteCompatibilityBlock(rewritten[1], update.compatibility.supported, 'en')
+    rewritten[3] = rewriteDshVersion(rewritten[3], update.previousDshVersion, update.dshVersion)
   }
 
   const workspacePath = resolve(root, 'pnpm-workspace.yaml')

@@ -40,14 +40,14 @@
 ### DSH 标准命令
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.3.0
+dsh plugin --profile web add dsh-chat-manager@1.3.1
 ```
 
 安装完成后，保存工作并按 DSH 的正常方式重启一次，使新的 bundle 配置生效。
 
 ### 交给 Agent
 
-请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.3.0/AGENTS.md)，
+请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.3.1/AGENTS.md)，
 其中写明了安装、更新、验收、卸载和安全边界。不要把 `main` 分支文档当作安装依据。
 
 ## 使用
@@ -96,7 +96,7 @@ dsh plugin --profile web add dsh-chat-manager@1.3.0
 ## 兼容性
 
 <!-- dsh-compatibility -->
-支持软件包元数据中记录的最新版 DeepSeek Harness。
+支持软件包元数据中记录的最新版 DeepSeek Harness（`0.1.2-rc.1`）。
 <!-- /dsh-compatibility -->
 
 归档浏览、恢复和内容搜索使用 DSH 的工作区注册表与会话查询能力；永久删除适用于 DSH 默认的逐会话
@@ -104,10 +104,10 @@ JSONL 存储。安装后替换为带会话管理功能的原生工作区列表�
 
 ## 更新与卸载
 
-更新时继续用 DSH 标准命令安装目标 npm 版本。v1.3.0 的命令是：
+更新时继续用 DSH 标准命令安装目标 npm 版本。v1.3.1 的命令是：
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.3.0
+dsh plugin --profile web add dsh-chat-manager@1.3.1
 ```
 
 卸载只移除这个插件的 bundle 层，不删除任何会话：

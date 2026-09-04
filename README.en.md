@@ -40,7 +40,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 ### Standard DSH command
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.3.0
+dsh plugin --profile web add dsh-chat-manager@1.3.1
 ```
 
 When the command finishes, save your work and restart DSH once through its normal workflow so the new
@@ -48,7 +48,7 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.3.0/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.3.1/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -104,7 +104,7 @@ without warranty.
 ## Compatibility
 
 <!-- dsh-compatibility -->
-Supports the latest DeepSeek Harness release recorded in the package metadata.
+Supports the latest DeepSeek Harness release recorded in the package metadata (`0.1.2-rc.1`).
 <!-- /dsh-compatibility -->
 
 Archive browsing, restore, and content search use DSH's workspace registry and session-query capabilities.
@@ -113,10 +113,10 @@ list with the session-management version; uninstalling restores DSH's original l
 
 ## Update and uninstall
 
-Install the target npm version with the same standard DSH command. For v1.3.0:
+Install the target npm version with the same standard DSH command. For v1.3.1:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.3.0
+dsh plugin --profile web add dsh-chat-manager@1.3.1
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:
