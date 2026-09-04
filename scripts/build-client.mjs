@@ -28,6 +28,12 @@ const resolvePreviewClient = () => process.env.DSH_WORKSPACE_CLIENT_PATH === und
 const resolvePreviewManifest = () => process.env.DSH_WORKSPACE_MANIFEST_PATH === undefined
   ? require.resolve(`${compatibility.previewWorkspaceFixture}/package.json`)
   : resolve(process.env.DSH_WORKSPACE_MANIFEST_PATH)
+const resolveLegacyClient = () => compatibility.legacyWorkspaceFixture === undefined
+  ? resolveUpstreamClient()
+  : require.resolve(`${compatibility.legacyWorkspaceFixture}/client`)
+const resolveLegacyManifest = () => compatibility.legacyWorkspaceFixture === undefined
+  ? resolveUpstreamManifest()
+  : require.resolve(`${compatibility.legacyWorkspaceFixture}/package.json`)
 
 const replaceOnce = (source, before, after, label) => {
   const first = source.indexOf(before)
@@ -435,18 +441,29 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 }
 
 export async function buildClient() {
-  const stableManifest = JSON.parse(await readFile(resolveUpstreamManifest(), 'utf8'))
-  if (stableManifest.version !== LATEST_UPSTREAM_VERSION) {
+  const stableManifest = JSON.parse(await readFile(resolveLegacyManifest(), 'utf8'))
+  const expectedStableVersion = compatibility.legacyWorkspaceFixture === undefined
+    ? LATEST_UPSTREAM_VERSION
+    : Object.entries(compatibility.workspaceFixtures).find(([, fixture]) => fixture === compatibility.legacyWorkspaceFixture)?.[0]
+  if (stableManifest.version !== expectedStableVersion) {
     throw new Error(
       `unsupported stable @deepseek-ai/dsh-client-ui-workspace version: ${stableManifest.version ?? 'unknown'}`,
     )
   }
-  const previewManifest = JSON.parse(await readFile(resolvePreviewManifest(), 'utf8'))
-  if (!compatibility.previews.includes(previewManifest.version)) {
+  const previewManifest = JSON.parse(await readFile(
+    compatibility.legacyWorkspaceFixture === undefined ? resolvePreviewManifest() : resolveUpstreamManifest(),
+    'utf8',
+  ))
+  if (compatibility.legacyWorkspaceFixture === undefined
+    ? !compatibility.previews.includes(previewManifest.version)
+    : previewManifest.version !== LATEST_UPSTREAM_VERSION) {
     throw new Error(`unreviewed DSH preview ${String(previewManifest.version)}`)
   }
-  const stable = patchWorkspaceClient(await readFile(resolveUpstreamClient(), 'utf8'), stableManifest.version)
-  const preview = patchWorkspaceClient(await readFile(resolvePreviewClient(), 'utf8'), previewManifest.version)
+  const stable = patchWorkspaceClient(await readFile(resolveLegacyClient(), 'utf8'), stableManifest.version)
+  const preview = patchWorkspaceClient(await readFile(
+    compatibility.legacyWorkspaceFixture === undefined ? resolvePreviewClient() : resolveUpstreamClient(),
+    'utf8',
+  ), previewManifest.version)
   const patched = composeCompatibleClients(stable, preview)
   await mkdir(dirname(output), { recursive: true })
   await writeFile(output, patched, 'utf8')

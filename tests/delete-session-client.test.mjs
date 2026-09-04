@@ -54,6 +54,15 @@ test('patches the official workspace client with a native confirmed delete flow'
   assert.doesNotMatch(patched, /already-opened sessions are refused/)
   assert.doesNotMatch(patched, /本次已打开的会话不会被删除/)
   assert.match(patched, /id: "archive"/)
+})
+
+test('keeps the legacy runtime implementation for pre-0.1.2 hosts', async () => {
+  const legacyFixture = compatibility.legacyWorkspaceFixture
+  const legacyVersion = Object.entries(compatibility.workspaceFixtures)
+    .find(([, fixture]) => fixture === legacyFixture)?.[0]
+  const source = await readFile(require.resolve(`${legacyFixture}/client`), 'utf8')
+  const patched = patchWorkspaceClient(source, legacyVersion)
+
   assert.match(patched, /typeof _deepseek_ai_dsh_client_runtime_client\.abbreviateHomePath === "function"/)
 })
 
