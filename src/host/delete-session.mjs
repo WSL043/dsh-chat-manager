@@ -410,7 +410,12 @@ export function createDeleteRequestHandler({ deleteSession }) {
       )
       return
     }
-    if (typeof body?.sessionId !== 'string' || body.sessionId.length === 0 || body.sessionId.length > 512) {
+    if (
+      typeof body?.sessionId !== 'string'
+      || body.sessionId.length === 0
+      || body.sessionId.length > 512
+      || body.sessionId.includes('\0')
+    ) {
       sendJson(res, 400, failure('invalid-session-id', '会话 ID 无效。'))
       return
     }

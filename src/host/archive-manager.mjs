@@ -40,6 +40,7 @@ const scanArchivedEvents = async (sessionQuery, archivedSessionIds, query, signa
     signal?.throwIfAborted()
     const batch = archivedSessionIds.slice(offset, offset + 4)
     const matches = await Promise.all(batch.map(sessionId => sessionQuery.filterEvents(sessionId, filters)))
+    signal?.throwIfAborted()
     for (let index = 0; index < batch.length; index += 1) {
       const match = Array.isArray(matches[index])
         ? matches[index].find(event => typeof event?.text === 'string' && event.text.trim().length > 0)
@@ -95,6 +96,7 @@ export async function deleteSessionAndReconcileArchive({ workspaceRegistry, dele
 
 /** Search current user/assistant message history inside the archive set only. */
 export async function searchArchivedSessions({ workspaceRegistry, sessionQuery }, query, signal) {
+  signal?.throwIfAborted()
   const normalized = typeof query === 'string' ? query.trim() : ''
   if (normalized.length === 0 || normalized.length > 500 || normalized.includes('\0')) {
     throw new TypeError('invalid archive search query')
@@ -117,6 +119,7 @@ export async function searchArchivedSessions({ workspaceRegistry, sessionQuery }
       ],
       limit: SEARCH_LIMIT,
     }, { signal })
+    signal?.throwIfAborted()
   } catch (error) {
     if (error?.code !== 'SESSION_QUERY_SEARCH_DISABLED') throw error
     return scanArchivedEvents(sessionQuery, archivedSessionIds, normalized, signal)
@@ -237,6 +240,7 @@ export function createArchiveRequestHandlers({ restore, search, warn = console.w
       if (typeof res.once === 'function') res.once('close', abort)
       try {
         const value = await search(query, controller.signal)
+        if (controller.signal.aborted) return
         sendJson(res, 200, { ok: true, value })
       } catch (error) {
         if (controller.signal.aborted) return

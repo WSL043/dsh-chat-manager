@@ -126,7 +126,9 @@ async function removeIsolatedOnboarding(page) {
 export async function runOfficialAcceptance(options) {
   const packagePath = resolve(options.packagePath)
   await access(packagePath)
-  const base = await mkdtemp(join(tmpdir(), 'dsh-session-delete-official-'))
+  const evidenceRoot = process.env.DSH_ACCEPTANCE_EVIDENCE_ROOT
+  if (evidenceRoot) await mkdir(evidenceRoot, { recursive: true })
+  const base = await mkdtemp(join(evidenceRoot || tmpdir(), 'dsh-session-delete-official-'))
   const dshHome = join(base, 'home')
   const workspace = join(base, 'workspace')
   const env = { ...process.env, DSH_HOME: dshHome, DSH_TELEMETRY_MODE: 'DISABLED' }
@@ -358,7 +360,7 @@ export async function runOfficialAcceptance(options) {
   } finally {
     if (server !== undefined) await stopProcess(server)
     await writeFile(join(base, 'web.log'), `${serverStdout}\n${serverStderr}`)
-    if (passed) await rm(base, { recursive: true, force: true })
+    if (passed && !evidenceRoot) await rm(base, { recursive: true, force: true })
     else process.stderr.write(`Acceptance evidence retained: ${base}\n`)
   }
 }
