@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { access, mkdir, mkdtemp, readdir, rm } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -51,7 +51,7 @@ async function waitForSingleTranscript(root, timeoutMs = 30_000) {
       throw error
     })
     const candidates = entries
-      .filter(entry => /(?:^|[\\/])session\.jsonl(?:\.zstd)?$/.test(entry))
+      .filter(entry => /(?:^|[\\/])session(?:\.v[1-9]\d*)?\.jsonl(?:\.zstd)?$/.test(entry))
       .map(entry => join(root, entry))
     if (candidates.length === 1) return candidates[0]
     if (candidates.length > 1) throw new Error(`isolated DSH created ${candidates.length} session transcripts`)
@@ -67,6 +67,7 @@ function run(command, args, options = {}) {
       env: options.env,
       stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
       detached: options.detached ?? false,
+      windowsHide: true,
     })
     let stdout = ''
     let stderr = ''
@@ -130,30 +131,34 @@ export async function runOfficialAcceptance(options) {
   const workspace = join(base, 'workspace')
   const env = { ...process.env, DSH_HOME: dshHome, DSH_TELEMETRY_MODE: 'DISABLED' }
   const dshSpec = `@deepseek-ai/dsh@${options.dshVersion}`
+  const dshCommand = ['dlx', '--allow-build=fs-ext', dshSpec]
   let server
+  let serverStdout = ''
+  let serverStderr = ''
+  let passed = false
   try {
     await mkdir(workspace, { recursive: true })
 
-    await run(pnpmCommand(), ['dlx', dshSpec, 'plugin', '--profile', 'web', 'add', packagePath], {
+    await run(pnpmCommand(), [...dshCommand, 'plugin', '--profile', 'web', 'add', packagePath], {
       cwd: workspace,
       env,
     })
-    await run(pnpmCommand(), ['dlx', dshSpec, '--profile', 'headless', SESSION_TITLE], {
+    const seed = await run(pnpmCommand(), [...dshCommand, '--profile', 'headless', SESSION_TITLE], {
       cwd: workspace,
       env,
       allowFailure: true,
       capture: true,
     })
+    await writeFile(join(base, 'seed.log'), `exit=${seed.code}\n${seed.stdout}\n${seed.stderr}`)
     const transcriptPath = await waitForSingleTranscript(join(dshHome, 'sessions'))
-    let serverStdout = ''
-    let serverStderr = ''
     server = spawnPortable(pnpmCommand(), [
-      'dlx', dshSpec, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', String(options.port),
+      ...dshCommand, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', String(options.port),
     ], {
       cwd: workspace,
       env,
       capture: true,
       detached: process.platform !== 'win32',
+      windowsHide: true,
     })
     server.stdout?.on('data', chunk => { serverStdout += chunk })
     server.stderr?.on('data', chunk => { serverStderr += chunk })
@@ -244,6 +249,8 @@ export async function runOfficialAcceptance(options) {
         ?? /^会话“(.+)”的操作$/.exec(sessionAria ?? '')?.[1]
       if (sessionLabel === undefined) throw new Error(`could not parse official session action label: ${sessionAria}`)
       const row = sessionAction.locator('xpath=ancestor::*[@role="treeitem"][1]')
+      await row.click()
+      await page.waitForFunction(() => document.querySelector('[role="treeitem"][aria-selected="true"]') !== null)
       const openMenu = async () => {
         await row.hover()
         await sessionAction.click()
@@ -342,6 +349,7 @@ export async function runOfficialAcceptance(options) {
     } finally {
       await browser.close()
     }
+    passed = true
     return {
       ok: true,
       dshVersion: options.dshVersion,
@@ -349,7 +357,9 @@ export async function runOfficialAcceptance(options) {
     }
   } finally {
     if (server !== undefined) await stopProcess(server)
-    await rm(base, { recursive: true, force: true })
+    await writeFile(join(base, 'web.log'), `${serverStdout}\n${serverStderr}`)
+    if (passed) await rm(base, { recursive: true, force: true })
+    else process.stderr.write(`Acceptance evidence retained: ${base}\n`)
   }
 }
 

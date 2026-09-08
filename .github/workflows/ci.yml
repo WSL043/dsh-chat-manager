@@ -19,6 +19,7 @@ jobs:
       behavior: ${{ steps.plan.outputs.behavior }}
       delivery: ${{ steps.plan.outputs.delivery }}
       official: ${{ steps.plan.outputs.official }}
+      dsh_versions: ${{ steps.plan.outputs.dsh_versions }}
     steps:
       - uses: actions/checkout@v6
         with: { fetch-depth: 0 }
@@ -32,6 +33,7 @@ jobs:
         run: |
           published="$(npm view dsh-chat-manager dist-tags.latest)"
           node scripts/ci-change-plan.mjs --base "$BASE_SHA" --published "$published"
+          node -e "const c=require('./compatibility.json'); console.log('dsh_versions='+JSON.stringify([...new Set([c.latestTested,c.previews.at(-1)].filter(Boolean))]))" >> "$GITHUB_OUTPUT"
 
   behavior:
     needs: plan
@@ -70,11 +72,15 @@ jobs:
       - run: pnpm run test:delivery
 
   official-dsh:
-    name: Official DSH browser acceptance
+    name: Official DSH browser acceptance (${{ matrix.dsh_version }})
     needs: [plan, behavior]
     if: needs.plan.outputs.official == 'true' && needs.behavior.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        dsh_version: ${{ fromJSON(needs.plan.outputs.dsh_versions) }}
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v5
@@ -87,8 +93,13 @@ jobs:
           name: chat-manager-${{ github.sha }}
           path: .candidate
       - run: pnpm exec playwright install --with-deps chromium
-      - name: Verify isolated official DSH archive UI without deleting a session
+      - name: Verify archive, restore, cancel and confirmed deletion of the generated test session
         run: >-
           node scripts/accept-official-dsh.mjs
-          --dsh-version "$(node -p "require('./compatibility.json').latestTested")"
+          --dsh-version "${{ matrix.dsh_version }}"
           --package "$(find .candidate -maxdepth 1 -name '*.tgz' -print -quit)"
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: official-dsh-failure-${{ matrix.dsh_version }}
+          path: ${{ runner.temp }}/dsh-session-delete-official-*/*.log
