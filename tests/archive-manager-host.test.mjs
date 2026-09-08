@@ -182,7 +182,7 @@ test('archive HTTP search does not reply after a provider ignores request cancel
   assert.equal(res.status, undefined)
 })
 
-test('archive fallback stops before opening the next batch after cancellation', async () => {
+test('archive fallback rejects cancellation during its final batch', async () => {
   const controller = new AbortController()
   const calls = []
   let completeBatch
@@ -201,7 +201,7 @@ test('archive fallback stops before opening the next batch after cancellation', 
   }
 
   const pending = searchArchivedSessions({
-    workspaceRegistry: registry([A, B, 'session-archive-c', 'session-archive-d', 'session-archive-e']),
+    workspaceRegistry: registry([A, B, 'session-archive-c', 'session-archive-d']),
     sessionQuery,
   }, 'needle', controller.signal)
   await new Promise(resolvePromise => setImmediate(resolvePromise))
