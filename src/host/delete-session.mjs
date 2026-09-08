@@ -136,6 +136,7 @@ const sameHeader = (left, right) => (
   && left?.origin === right?.origin
   && (left?.delegationDepth ?? 0) === (right?.delegationDepth ?? 0)
   && left?.agentPreset === right?.agentPreset
+  && left?.isSeeded === right?.isSeeded
 )
 
 const inside = (root, target) => {
@@ -159,7 +160,7 @@ const locationPaths = (sessionRoot, location) => {
   const transcript = resolve(location.path)
   if (!isAbsolute(root) || !isAbsolute(transcript) || !inside(root, transcript)) return undefined
   const parts = relative(root, transcript).split(sep).filter(Boolean)
-  if (parts.length !== 3 || !['session.jsonl', 'session.jsonl.zstd'].includes(parts[2])) return undefined
+  if (parts.length !== 3 || !/^session(?:\.v[1-9]\d*)?\.jsonl(?:\.zstd)?$/.test(parts[2])) return undefined
   return {
     root,
     projectDirectory: join(root, parts[0]),
@@ -213,7 +214,13 @@ const pathExists = async (path) => {
  * before the same path and identity checks used for a cold session.
  */
 export async function deleteSessionSafely(deps, { sessionRoot, sessionId }) {
-  if (!deps.sessionPersistence.supportsRawArtifacts) {
+  const persistence = deps.sessionPersistence
+  const usesHandles = persistence.supportsRawArtifacts === undefined
+    && persistence.name === 'session-persistence-jsonl'
+    && typeof persistence.open === 'function'
+    && typeof persistence.stat === 'function'
+    && typeof persistence.resolveCurrentLog === 'function'
+  if (!persistence.supportsRawArtifacts && !usesHandles) {
     return failure('unsupported-backend', '当前会话存储不是可逐会话删除的 JSONL 后端。')
   }
 
@@ -222,15 +229,19 @@ export async function deleteSessionSafely(deps, { sessionRoot, sessionId }) {
     return failure('deletion-in-progress', '该会话正在删除中，请等待当前操作完成。')
   }
 
+  const ownership = { usesHandles, handle: undefined }
   try {
-    return await deleteReservedSession(deps, { sessionRoot, sessionId })
+    return await deleteReservedSession(deps, { sessionRoot, sessionId }, ownership)
   } finally {
-    releaseReservation?.()
+    try { await ownership.handle?.close() }
+    finally { releaseReservation?.() }
   }
 }
 
-async function deleteReservedSession(deps, { sessionRoot, sessionId }) {
-  let header = (await deps.sessionPersistence.list()).find(item => item.id === sessionId)
+async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownership) {
+  const { usesHandles } = ownership
+  const storedHeaders = async () => (await deps.sessionPersistence.list()).map(item => usesHandles ? item.header : item)
+  let header = (await storedHeaders()).find(item => item.id === sessionId)
     ?? deps.sessions.get(sessionId)?.header
   if (header === undefined) return failure('session-not-found', '会话不存在或已经删除。')
 
@@ -253,15 +264,22 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }) {
   // inspect() waits for the persistence backend's asynchronous retirement
   // drain. A never-materialized blank session is already fully removed here.
   try {
-    const inspected = await deps.sessionPersistence.inspect(sessionId)
+    // The handle API owns the cross-process writer lease until removal finishes.
+    // Opening happens only after the live Agent has drained and released its handle.
+    const inspected = usesHandles
+      ? { meta: (ownership.handle = await deps.sessionPersistence.open(sessionId, 'write')).header }
+      : await deps.sessionPersistence.inspect(sessionId)
     if (!sameHeader(header, inspected.meta)) {
       return failure('unsafe-location', '会话在摘载期间发生了身份变化，未删除任何文件。')
     }
     header = inspected.meta
   } catch (error) {
-    const stillStored = (await deps.sessionPersistence.list()).some(item => item.id === sessionId)
+    const stillStored = (await storedHeaders()).some(item => item.id === sessionId)
     if (!stillStored && deps.sessions.get(sessionId) === undefined && deps.agents.get(sessionId) === undefined) {
-      const missingPaths = locationPaths(sessionRoot, deps.sessionPersistence.locate(header))
+      if (usesHandles && await deps.sessionPersistence.stat(sessionId) === undefined) {
+        return { ok: true, value: { deleted: true } }
+      }
+      const missingPaths = usesHandles ? undefined : locationPaths(sessionRoot, deps.sessionPersistence.locate(header))
       if (missingPaths !== undefined && !await pathExists(missingPaths.sessionDirectory)) {
         return { ok: true, value: { deleted: true } }
       }
@@ -270,8 +288,10 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }) {
     return failure('storage-state-unknown', '无法确认会话存储状态，未继续删除。')
   }
 
-  const location = deps.sessionPersistence.locate(header)
-  const raw = await deps.sessionPersistence.readRaw(sessionId)
+  const location = usesHandles
+    ? { kind: 'jsonl', path: await deps.sessionPersistence.resolveCurrentLog(sessionId) }
+    : deps.sessionPersistence.locate(header)
+  const raw = usesHandles ? { meta: ownership.handle.header } : await deps.sessionPersistence.readRaw(sessionId)
   const paths = locationPaths(sessionRoot, location)
   if (paths === undefined || raw === undefined || !sameHeader(header, raw.meta)) {
     return failure('unsafe-location', '无法验证该会话的独立 JSONL 存储位置。')

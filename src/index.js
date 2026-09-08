@@ -14,7 +14,7 @@ export const name = 'dsh-session-delete'
 export const inject = ['webServer', 'sessionPersistence', 'sessions', 'agents', 'workspaceRegistry']
 
 export function apply(ctx) {
-  const sessionRoot = ctx.sessionPersistence?.root
+  const sessionRoot = ctx.sessionPersistence?.config?.root ?? ctx.sessionPersistence?.root
   if (typeof sessionRoot !== 'string' || sessionRoot.length === 0) {
     throw new Error('dsh-session-delete requires the per-session JSONL persistence backend')
   }

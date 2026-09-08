@@ -76,6 +76,64 @@ test('deletes only the exact cold JSONL session directory', async (t) => {
   await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
 })
 
+test('deletes a versioned JSONL artifact while retaining the handle backend writer lease', async (t) => {
+  const paths = await fixture()
+  t.after(() => rm(paths.base, { recursive: true, force: true }))
+  const transcript = join(paths.sessionDirectory, 'session.v2.jsonl.zstd')
+  await rename(paths.transcript, transcript)
+  const header = { ...HEADER, version: 2, isSeeded: false }
+  let leased = false
+  let closed = false
+  const deps = dependencies({ transcript })
+  deps.sessionPersistence = {
+    name: 'session-persistence-jsonl',
+    list: async () => [{ header, revision: 'fixture' }],
+    stat: async () => ({ header }),
+    open: async (id, access) => {
+      assert.equal(id, HEADER.id)
+      assert.equal(access, 'write')
+      leased = true
+      return { header, close: async () => {
+        await assert.rejects(readFile(transcript), { code: 'ENOENT' })
+        leased = false
+        closed = true
+      } }
+    },
+    resolveCurrentLog: async () => transcript,
+  }
+  deps.removeDirectory = async directory => {
+    assert.equal(leased, true)
+    await rm(directory, { recursive: true })
+  }
+  assert.deepEqual(await deleteSessionSafely(deps, { sessionRoot: paths.root, sessionId: HEADER.id }),
+    { ok: true, value: { deleted: true } })
+  assert.equal(closed, true)
+  assert.equal(leased, false)
+})
+
+test('a handle backend owned by another writer preserves the artifact and releases the reservation', async (t) => {
+  const paths = await fixture()
+  t.after(() => rm(paths.base, { recursive: true, force: true }))
+  let released = false
+  const deps = dependencies({ transcript: paths.transcript, reserve: () => () => { released = true } })
+  deps.sessionPersistence = {
+    name: 'session-persistence-jsonl',
+    list: async () => [{ header: HEADER }],
+    stat: async () => ({ header: HEADER }),
+    open: async () => { throw new Error('another writer owns this session') },
+    resolveCurrentLog: async () => { throw new Error('must not resolve a deletion path without ownership') },
+  }
+  const result = await deleteSessionSafely(deps, { sessionRoot: paths.root, sessionId: HEADER.id })
+  assert.equal(result.ok, false)
+  assert.equal(released, true)
+  assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
+  let lists = 0
+  deps.sessionPersistence.list = async () => ++lists === 1 ? [{ header: HEADER }] : []
+  const raced = await deleteSessionSafely(deps, { sessionRoot: paths.root, sessionId: HEADER.id })
+  assert.equal(raced.error.code, 'storage-state-unknown')
+  assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
+})
+
 test('disposes an opened idle agent before deleting its session', async (t) => {
   const paths = await fixture()
   let liveAgent = { id: HEADER.id, status: 'idle' }
