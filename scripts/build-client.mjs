@@ -84,7 +84,7 @@ const extractClientFactoryBody = (source, label) => {
 export function composeCompatibleClients(stableClient, previewClient) {
   const stableBody = extractClientFactoryBody(stableClient, 'stable factory')
   const previewBody = extractClientFactoryBody(previewClient, 'preview factory')
-  return `// DSH Chat Manager runtime-compatible client: stable and preview implementations are selected by capability.\nwindow.__ModuleLoader__.load({\n\tid: "dsh-chat-manager",\n\tfactory: (require) => {\n\t\tconst stableFactory = (require) => {${stableBody}\n\t\t};\n\t\tconst previewFactory = (require) => {${previewBody}\n\t\t};\n\t\ttry {\n\t\t\trequire("@deepseek-ai/dsh-client-runtime/client");\n\t\t\treturn stableFactory(require);\n\t\t} catch (error) {\n\t\t\tconst message = error instanceof Error ? error.message : String(error);\n\t\t\tif (!/missed the module table|Cannot find module/u.test(message)) throw error;\n\t\t\treturn previewFactory(require);\n\t\t}\n\t}\n});\n`
+  return `// DSH Chat Manager runtime-compatible client: stable and preview implementations are selected by capability.\nwindow.__ModuleLoader__.load({\n\tid: "dsh-chat-manager",\n\tfactory: (require) => {\n\t\tconst stableFactory = (require) => {${stableBody}\n\t\t};\n\t\tconst previewFactory = (require) => {${previewBody}\n\t\t};\n\t\tlet stableRuntimeAvailable = true;\n\t\ttry {\n\t\t\trequire("@deepseek-ai/dsh-client-runtime/client");\n\t\t} catch (error) {\n\t\t\tconst message = error instanceof Error ? error.message : String(error);\n\t\t\tif (!/missed the module table|Cannot find module/u.test(message)) throw error;\n\t\t\tstableRuntimeAvailable = false;\n\t\t}\n\t\treturn stableRuntimeAvailable ? stableFactory(require) : previewFactory(require);\n\t}\n});\n`
 }
 
 /**

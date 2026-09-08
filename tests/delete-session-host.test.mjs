@@ -584,6 +584,10 @@ test('rejects non-POST, non-JSON, malformed, oversized, and invalid-id requests'
   await handler(request(JSON.stringify({ sessionId: '' })), invalidId)
   assert.equal(invalidId.status, 400)
 
+  const nulId = response()
+  await handler(request(JSON.stringify({ sessionId: `session\0id` })), nulId)
+  assert.equal(nulId.status, 400)
+
   const oversized = response()
   await handler(request(JSON.stringify({ sessionId: 'x'.repeat(9 * 1024) })), oversized)
   assert.equal(oversized.status, 413)

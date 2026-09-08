@@ -33,6 +33,22 @@ test('one client artifact selects stable or preview implementation from the runt
   assert.equal(artifact.match(/id: "dsh-chat-manager"/g)?.length, 1)
 })
 
+test('does not reinterpret a stable factory module error as a missing runtime client', () => {
+  const moduleSource = (label, dependency) => `window.__ModuleLoader__.load({\n\tid: "dsh-chat-manager",\n\tfactory: (require) => {\n\t\tconst value = require("${dependency}");\n\t\treturn { label: "${label}", value };\n\t}\n});\n`
+  const artifact = composeCompatibleClients(
+    moduleSource('stable', '@deepseek-ai/dsh-client-stable-internal'),
+    moduleSource('preview', '@deepseek-ai/dsh-client-preview'),
+  )
+  let factory
+  new Function('window', artifact)({ __ModuleLoader__: { load(definition) { factory = definition.factory } } })
+
+  assert.throws(() => factory(name => {
+    if (name === '@deepseek-ai/dsh-client-runtime/client') return 'stable-runtime'
+    if (name === '@deepseek-ai/dsh-client-preview') return 'preview-client'
+    throw new Error(`Cannot find module '${name}'`)
+  }), /Cannot find module/)
+})
+
 test('patches the official workspace client with a native confirmed delete flow', async () => {
   const source = await readFile(resolveUpstreamClient(), 'utf8')
   const patched = patchWorkspaceClient(source)

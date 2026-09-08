@@ -158,6 +158,60 @@ test('archived search rejects empty, oversized, and NUL-bearing queries', async 
   await assert.rejects(searchArchivedSessions(deps, 'bad\0query', signal), /invalid archive search query/)
 })
 
+test('archive HTTP search does not reply after a provider ignores request cancellation', async () => {
+  let observedSignal
+  let completeSearch
+  const handlers = createArchiveRequestHandlers({
+    restore: async () => {},
+    search: async (_query, signal) => {
+      observedSignal = signal
+      await new Promise(resolvePromise => { completeSearch = resolvePromise })
+      return { items: [], hasMore: false }
+    },
+    warn: () => {},
+  })
+  const req = request(JSON.stringify({ query: 'needle' }))
+  const res = response()
+  const pending = handlers.search(req, res)
+  await new Promise(resolvePromise => setImmediate(resolvePromise))
+  req.emit('aborted')
+  completeSearch()
+  await pending
+
+  assert.equal(observedSignal.aborted, true)
+  assert.equal(res.status, undefined)
+})
+
+test('archive fallback stops before opening the next batch after cancellation', async () => {
+  const controller = new AbortController()
+  const calls = []
+  let completeBatch
+  const batchReady = new Promise(resolvePromise => { completeBatch = resolvePromise })
+  const sessionQuery = {
+    async searchSessions() {
+      const error = new Error('search disabled')
+      error.code = 'SESSION_QUERY_SEARCH_DISABLED'
+      throw error
+    },
+    async filterEvents(sessionId) {
+      calls.push(sessionId)
+      await batchReady
+      return []
+    },
+  }
+
+  const pending = searchArchivedSessions({
+    workspaceRegistry: registry([A, B, 'session-archive-c', 'session-archive-d', 'session-archive-e']),
+    sessionQuery,
+  }, 'needle', controller.signal)
+  await new Promise(resolvePromise => setImmediate(resolvePromise))
+  controller.abort()
+  completeBatch()
+  await assert.rejects(pending)
+
+  assert.deepEqual(calls, [A, B, 'session-archive-c', 'session-archive-d'])
+})
+
 test('permanent deletion removes a stale archive marker only after storage deletion succeeds', async () => {
   const workspaceRegistry = registry()
   const result = await deleteSessionAndReconcileArchive({
