@@ -5,6 +5,8 @@
 
 # DSH Chat Manager
 
+Package: `dsh-chat-manager`. [Awesome DSH listing](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/data/plugins/WSL043__dsh-chat-manager.yml) · [Image Viewer](https://github.com/WSL043/dsh-image-viewer)
+
 **Manage DeepSeek Harness chat history from the native sidebar: search archives, restore sessions, and delete safely.**
 
 Archive manager · Conversation search · One-click restore · Safe permanent deletion
