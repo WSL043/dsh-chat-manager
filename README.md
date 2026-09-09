@@ -3,9 +3,11 @@
 
 <div align="center">
 
-# DSH 聊天管理器
+# DSH Chat Manager · 聊天与会话管理器
 
 **在 DeepSeek Harness 原生侧边栏中搜索、恢复和安全清理会话。**
+
+插件包名：`dsh-chat-manager`（原名 `dsh-native-session-manager`）。[Awesome DSH 收录](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/data/plugins/WSL043__dsh-chat-manager.yml) · [图片查看器插件](https://github.com/WSL043/dsh-image-viewer)
 
 归档管理 · 聊天记录搜索 · 一键恢复 · 安全永久删除
 
