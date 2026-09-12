@@ -164,3 +164,12 @@ for (const [version, alias] of Object.entries(compatibility.workspaceFixtures)) 
     assert.doesNotMatch(patched, /window\.location\.reload/)
   })
 }
+
+
+test('new row callbacks survive delete-action injection',async()=>{
+ const source=(await readFile(resolveUpstreamClient(),'utf8')).replace('onFork, onArchive, drag, flat','onFork, onArchive, onReveal, drag, flat')
+ assert.match(source,/onArchive, onReveal, drag/)
+ const patched=patchWorkspaceClient(source)
+ assert.match(patched,/onArchive, onDelete, onReveal, drag/)
+ new Function(patched)
+})
