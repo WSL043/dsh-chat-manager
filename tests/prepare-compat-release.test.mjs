@@ -211,3 +211,19 @@ test('regenerates the exact release-age exceptions from the accepted lock graph'
   assert.doesNotMatch(rewritten, /0\.1\.1-rc\.1/u)
   assert.doesNotMatch(rewritten, /@deepseek-ai\/\*/u)
 })
+
+
+test('reused rc and alpha numbers never overwrite historical fixtures', () => {
+  const state=previewFixture()
+  state.compatibility.workspaceFixtures={'0.1.0-rc.2':'dsh-ui-workspace-rc2'}
+  state.compatibility.legacyWorkspaceFixture='dsh-ui-workspace-rc2'
+  state.manifest.devDependencies['dsh-ui-workspace-rc2']='npm:@deepseek-ai/dsh-client-ui-workspace@0.1.0-rc.2'
+  const stable=planCompatibilityUpdate(state,'0.1.5-rc.1')
+  assert.equal(stable.manifest.devDependencies['dsh-ui-workspace-rc2'],state.manifest.devDependencies['dsh-ui-workspace-rc2'])
+  const previousAlias=stable.compatibility.workspaceFixtures['0.1.1-rc.2']
+  assert.notEqual(previousAlias,'dsh-ui-workspace-rc2')
+  assert.equal(stable.manifest.devDependencies[previousAlias],'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.1-rc.2')
+  const preview=planCompatibilityUpdate(state,'0.1.5-alpha.3')
+  assert.equal(preview.manifest.devDependencies['dsh-ui-workspace-alpha3'],state.manifest.devDependencies['dsh-ui-workspace-alpha3'])
+  assert.equal(preview.manifest.devDependencies[preview.compatibility.previewWorkspaceFixture],'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.5-alpha.3')
+})

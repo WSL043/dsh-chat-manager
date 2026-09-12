@@ -94,11 +94,14 @@ function nextBetaVersion(version) {
   return `${parsed.core.join('.')}-beta.${parsed.prerelease[1] + 1}`
 }
 
-function fixtureName(version) {
+function fixtureName(version, dependencies = {}) {
   const rc = /-rc\.(\d+)$/.exec(version)
   const alpha = /-alpha\.(\d+)$/.exec(version)
-  if (alpha !== null) return `dsh-ui-workspace-alpha${alpha[1]}`
-  return rc === null ? `dsh-ui-workspace-${version.replaceAll('.', '-')}` : `dsh-ui-workspace-rc${rc[1]}`
+  const name = alpha !== null ? `dsh-ui-workspace-alpha${alpha[1]}`
+    : rc === null ? `dsh-ui-workspace-${version.replaceAll('.', '-')}` : `dsh-ui-workspace-rc${rc[1]}`
+  const expected = `npm:@deepseek-ai/dsh-client-ui-workspace@${version}`
+  return dependencies[name] && dependencies[name] !== expected
+    ? `dsh-ui-workspace-${version.replaceAll('.', '-')}` : name
 }
 
 function assertNoSkippedRelease(previous, candidate) {
@@ -132,11 +135,11 @@ export function planCompatibilityUpdate(state, candidate) {
   let previousFixture
   if (preview) {
     compatibility.previews = [...new Set([...compatibility.previews, candidate])].sort(compareDshVersions)
-    compatibility.previewWorkspaceFixture = fixtureName(candidate)
+    compatibility.previewWorkspaceFixture = fixtureName(candidate, state.manifest.devDependencies)
   } else {
     compatibility.latestTested = candidate
     compatibility.supported = [...new Set([...compatibility.supported, candidate])].sort(compareDshVersions)
-    previousFixture = fixtureName(previous)
+    previousFixture = fixtureName(previous, state.manifest.devDependencies)
     compatibility.workspaceFixtures[previous] = previousFixture
   }
 
@@ -151,7 +154,7 @@ export function planCompatibilityUpdate(state, candidate) {
     }
   }
   if (preview) {
-    const previewFixture = fixtureName(candidate)
+    const previewFixture = compatibility.previewWorkspaceFixture
     manifest.devDependencies[previewFixture] = `npm:@deepseek-ai/dsh-client-ui-workspace@${candidate}`
   } else {
     manifest.devDependencies[previousFixture] = `npm:@deepseek-ai/dsh-client-ui-workspace@${previous}`

@@ -98,6 +98,8 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     throw new Error(`unsupported @deepseek-ai/dsh-client-ui-workspace version: ${upstreamVersion}`)
   }
   const sessionTreeSignature = findFunctionSignature(upstream, 'SessionTree')
+  const sessionRowSignature = findFunctionSignature(upstream, 'SessionNodeItem')
+  if (!sessionRowSignature.includes('onFork, onArchive, ')) throw new Error('upstream marker mismatch: session row props')
   const flatListSignature = findFunctionSignature(upstream, 'FlatList')
   const workspaceBrowserSignature = findFunctionSignature(upstream, 'WorkspaceBrowser')
   if (!sessionTreeSignature.includes('onDeleteRequest, onSessionRename, onSessionArchive, insertWorkspaceBefore,')) {
@@ -125,8 +127,8 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     'client module id',
   )
   patch(
-    'function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork, onArchive, drag, flat = false, t }) {',
-    'function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork, onArchive, onDelete, drag, flat = false, t }) {',
+    sessionRowSignature,
+    sessionRowSignature.replace('onFork, onArchive, ', 'onFork, onArchive, onDelete, '),
     'session row props',
   )
   patch(
@@ -161,8 +163,8 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     'flat list props',
   )
   patch(
-    '\t\t\t\t\t\t\tonFork: forkSession,\n\t\t\t\t\t\t\tonArchive: onSessionArchive,\n\t\t\t\t\t\t\tflat: true,\n',
-    '\t\t\t\t\t\t\tonFork: forkSession,\n\t\t\t\t\t\t\tonArchive: onSessionArchive,\n\t\t\t\t\t\t\tonDelete: onSessionDelete,\n\t\t\t\t\t\t\tflat: true,\n',
+    '\t\t\t\t\t\t\tonFork: forkSession,\n\t\t\t\t\t\t\tonArchive: onSessionArchive,\n',
+    '\t\t\t\t\t\t\tonFork: forkSession,\n\t\t\t\t\t\t\tonArchive: onSessionArchive,\n\t\t\t\t\t\t\tonDelete: onSessionDelete,\n',
     'flat row delete prop',
   )
   patch(
