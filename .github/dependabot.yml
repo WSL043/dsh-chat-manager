@@ -1,9 +1,22 @@
 version: 2
 updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        update-types: [minor, patch]
+  # DSH packages and historical fixtures belong to upstream-compatibility.yml.
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: daily
-    open-pull-requests-limit: 1
+      interval: weekly
+    open-pull-requests-limit: 2
     allow:
-      - dependency-name: "@deepseek-ai/dsh-client-ui-workspace"
+      - dependency-name: "clsx"
+      - dependency-name: "playwright"
+    groups:
+      tooling:
+        update-types: [minor, patch]
