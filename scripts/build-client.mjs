@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { registerArchiveSettings } from './archive-settings.mjs'
 
 const require = createRequire(import.meta.url)
 const here = dirname(fileURLToPath(import.meta.url))
@@ -444,6 +445,8 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     /(^\s*\/\/#region \\0dsh-css:@deepseek-ai\/dsh-client-ui-workspace\/)([^\r\n]+)/gm,
     (_, prefix, modulePath) => `${prefix}${modulePath.replaceAll('\\', '/')}`,
   )
+  source = replaceOnce(source, 'function apply(ctx) {', `${registerArchiveSettings.toString()}\nfunction apply(ctx) {\nregisterArchiveSettings(ctx, react, _deepseek_ai_dsh_client_ui_primitives);`, 'archive settings registration')
+  source = source.replace('onClick: () => { setArchiveError(null); setArchiveManagerOpen(true); },', 'onClick: () => { if (typeof window.__DSH_PORTABLE_SETTINGS__?.open === "function") { window.__DSH_PORTABLE_SETTINGS__.open("archived-sessions"); return; } setArchiveError(null); setArchiveManagerOpen(true); },')
   source = normalizeCssModulePrefix(source, 'Rows', 'dcmRows')
   source = normalizeCssModulePrefix(source, 'WorkspacePicker', 'dcmPicker')
   source = normalizeCssModulePrefix(source, 'WorkspaceBrowser', 'dcmBrowser')
