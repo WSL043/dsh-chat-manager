@@ -1,6 +1,6 @@
 // Embedded into the client factory. The public slot restores the official
 // section automatically when this plugin is disabled.
-export function registerArchiveSettings(ctx, React, ui) {
+export function registerArchiveSettings(ctx, React, ui, dangerClass) {
   const h = React.createElement
   const text = (zh, en) => ctx.locale.getSnapshot().active === 'zh' ? zh : en
   async function request(action, sessionId) {
@@ -72,13 +72,13 @@ export function registerArchiveSettings(ctx, React, ui) {
         h(ui.Button, { variant: 'outline', size: 'sm', disabled: busy,
           onClick: () => perform('restore', row), 'aria-label': text('取消归档 ', 'Unarchive ') + row.title }, text('取消归档', 'Unarchive')),
         h(ui.Button, { variant: 'outline', size: 'sm', disabled: busy,
-          onClick: () => { setTarget(row); setError('') }, 'aria-label': text('永久删除 ', 'Delete permanently ') + row.title }, text('永久删除', 'Delete permanently')))),
+          className: dangerClass, onClick: () => { setTarget(row); setError('') }, 'aria-label': text('永久删除 ', 'Delete permanently ') + row.title }, text('永久删除', 'Delete permanently')))),
       h(ui.Modal, { open: target !== null, onClose: close, closeLabel: text('取消', 'Cancel'),
         title: text('永久删除会话？', 'Permanently delete session?'),
         description: text('删除后无法恢复。', 'This cannot be undone.'),
         footer: h('div', { style: { display: 'flex', gap: 8 } },
           h(ui.Button, { variant: 'outline', disabled: busy, onClick: close }, text('取消', 'Cancel')),
-          h(ui.Button, { variant: 'primary', disabled: busy || !target, onClick: () => perform('delete', target) }, text('确认永久删除', 'Confirm permanent deletion'))) },
+          h(ui.Button, { variant: 'outline', className: dangerClass, disabled: busy || !target, onClick: () => perform('delete', target) }, text('确认永久删除', 'Confirm permanent deletion'))) },
         h('p', null, target?.title), error && h('p', { role: 'alert' }, error)))
   }
   let registered = false

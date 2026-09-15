@@ -1,5 +1,12 @@
 # Unified archive candidate
 
+User correction: retain Plugins / Installed during download and installation,
+including installation-triggered reloads. An explicit restart must return to the
+conversation. The earlier restart-to-settings observation below is superseded as
+the desired behavior; the candidate now clears restoration on explicit restart.
+Permanent deletion uses the existing theme-aware red delete-action class in both
+the archive row and the confirmation dialog.
+
 Unreleased 1.3.6 requires Portable's v3 settings navigation for the unified page.
 Older hosts retain the legacy archive dialog and do not get a second settings row.
 The official section is shadowed through the public slot priority, not disabled in
