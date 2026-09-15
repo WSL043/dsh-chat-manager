@@ -445,7 +445,7 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     /(^\s*\/\/#region \\0dsh-css:@deepseek-ai\/dsh-client-ui-workspace\/)([^\r\n]+)/gm,
     (_, prefix, modulePath) => `${prefix}${modulePath.replaceAll('\\', '/')}`,
   )
-  source = replaceOnce(source, 'function apply(ctx) {', `${registerArchiveSettings.toString()}\nfunction apply(ctx) {\nregisterArchiveSettings(ctx, react, _deepseek_ai_dsh_client_ui_primitives);`, 'archive settings registration')
+  source = replaceOnce(source, 'function apply(ctx) {', `${registerArchiveSettings.toString()}\nfunction apply(ctx) {\nregisterArchiveSettings(ctx, react, _deepseek_ai_dsh_client_ui_primitives, WorkspaceBrowser_module_css_default.deleteAction);`, 'archive settings registration')
   source = source.replace('onClick: () => { setArchiveError(null); setArchiveManagerOpen(true); },', 'onClick: () => { if (typeof window.__DSH_PORTABLE_SETTINGS__?.open === "function") { window.__DSH_PORTABLE_SETTINGS__.open("archived-sessions"); return; } setArchiveError(null); setArchiveManagerOpen(true); },')
   source = normalizeCssModulePrefix(source, 'Rows', 'dcmRows')
   source = normalizeCssModulePrefix(source, 'WorkspacePicker', 'dcmPicker')
