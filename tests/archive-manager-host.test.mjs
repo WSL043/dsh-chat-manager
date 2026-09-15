@@ -12,6 +12,29 @@ import {
 const A = 'session-archive-a'
 const B = 'session-archive-b'
 
+test('public unarchive API owns restoration without private registry access', async () => {
+  const workspaceRegistry = {
+    archivedSessionIds: [A, B],
+    async unarchiveSession(id) { this.archivedSessionIds = this.archivedSessionIds.filter(value => value !== id) },
+    requireState() { throw new Error('private registry must not be read') },
+  }
+  assert.deepEqual(await restoreArchivedSession(workspaceRegistry, A), { restored: true, archivedSessionIds: [B] })
+  assert.deepEqual(await restoreArchivedSession(workspaceRegistry, A), { restored: false, archivedSessionIds: [B] })
+})
+
+test('public unarchive rejection never falls back to private writes', async () => {
+  let fallbackCalled = false
+  const workspaceRegistry = {
+    archivedSessionIds: [A],
+    async unarchiveSession() { throw new Error('storage unavailable') },
+    enqueueOperation() { fallbackCalled = true },
+    requireState() {}, setState() {},
+  }
+  await assert.rejects(restoreArchivedSession(workspaceRegistry, A), /storage unavailable/)
+  assert.equal(fallbackCalled, false)
+  assert.deepEqual(workspaceRegistry.archivedSessionIds, [A])
+})
+
 function registry(ids = [A, B]) {
   let state = { initialized: true, workspaceIds: ['workspace-a'], archivedSessionIds: [...ids] }
   return {

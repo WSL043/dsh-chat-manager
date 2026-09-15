@@ -54,11 +54,16 @@ const scanArchivedEvents = async (sessionQuery, archivedSessionIds, query, signa
 
 /**
  * Remove one id from DSH's registry-global archive set without touching the
- * session log or its workspace accounting position. DSH does not expose a
- * public unarchive method yet, so every private seam is checked before use.
+ * session log or its workspace accounting position. Prefer the public DSH
+ * unarchive operation; older cores retain the validated registry fallback.
  */
 export async function restoreArchivedSession(workspaceRegistry, sessionId) {
   const id = assertSessionId(sessionId)
+  if (typeof workspaceRegistry?.unarchiveSession === 'function') {
+    const wasArchived = archiveIds(workspaceRegistry).includes(id)
+    await workspaceRegistry.unarchiveSession(id)
+    return { restored: wasArchived, archivedSessionIds: [...archiveIds(workspaceRegistry)] }
+  }
   if (
     typeof workspaceRegistry?.enqueueOperation !== 'function'
     || typeof workspaceRegistry?.requireState !== 'function'
