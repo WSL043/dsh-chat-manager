@@ -1,4 +1,4 @@
-> Version 1.3.4 is in development and is not yet released. When the official archive section and Portable settings navigation are available, the archive button opens the official page; the adjacent search button retains content search and management. Older hosts retain the existing archive dialog.
+> Version 1.3.4: When the official archive section and Portable settings navigation are available, the archive button opens the official page; the adjacent search button retains content search and management. Older hosts retain the existing archive dialog.
 
 > [!NOTE]
 > This is an actively maintained, independently removable DSH plugin. It adds archive browsing, conversation-content search, restore, and safe permanent deletion. If this session workflow is not for you, uninstalling the plugin leaves existing sessions untouched.

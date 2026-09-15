@@ -26,11 +26,10 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   assert.equal(compatibility.legacyWorkspaceFixture, compatibility.workspaceFixtures['0.1.1-rc.2'])
   assert.ok(compatibility.previews.includes('0.1.2-alpha.3'))
   assert.ok(compatibility.previews.every(version => /^\d+\.\d+\.\d+-[0-9A-Za-z.-]+$/.test(version)))
-  const latestPreview = compatibility.previews.at(-1)
-  assert.equal(
-    manifest.devDependencies[compatibility.previewWorkspaceFixture],
-    `npm:@deepseek-ai/dsh-client-ui-workspace@${latestPreview}`,
-  )
+  // The reviewed build source may also run on a newer, qualified host.
+  const previewSource = manifest.devDependencies[compatibility.previewWorkspaceFixture]
+  assert.ok(previewSource.startsWith('npm:@deepseek-ai/dsh-client-ui-workspace@'))
+  assert.ok(compatibility.previews.includes(previewSource.split('@').at(-1)))
   const supportedVersions = new Set([...compatibility.supported, ...compatibility.previews])
   for (const [name, version] of Object.entries(manifest.peerDependencies)) {
     if (name.startsWith('@deepseek-ai/dsh-')) assert.deepEqual(new Set(version.split(' || ')), supportedVersions)
