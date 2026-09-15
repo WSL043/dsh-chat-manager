@@ -100,7 +100,7 @@ dsh plugin --profile web add dsh-chat-manager@1.3.5
 ## 兼容性
 
 <!-- dsh-compatibility -->
-支持软件包元数据中记录的最新版 DeepSeek Harness（`0.1.5-rc.1`）。
+支持软件包元数据中记录的最新版 DeepSeek Harness（`0.1.5-rc.2`）。
 <!-- /dsh-compatibility -->
 
 归档浏览、恢复和内容搜索使用 DSH 的工作区注册表与会话查询能力；永久删除适用于 DSH 默认的逐会话
