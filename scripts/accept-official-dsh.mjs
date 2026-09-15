@@ -130,6 +130,14 @@ async function removeIsolatedOnboarding(page, dshVersion) {
   }
 }
 
+async function dismissOptionalModelSetup(page, dshVersion) {
+  if (dshVersion !== '0.1.6-alpha.1') return
+  // Clearing the current session opens the no-key onboarding again.
+  const later = page.getByRole('button', { name: /^(Configure later|稍后配置)$/ })
+  const visible = await later.waitFor({ state: 'visible', timeout: 1500 }).then(() => true, () => false)
+  if (visible) await later.click()
+}
+
 export async function runOfficialAcceptance(options) {
   const packagePath = resolve(options.packagePath)
   await access(packagePath)
@@ -278,6 +286,7 @@ export async function runOfficialAcceptance(options) {
 
       await archiveItem.click()
       await sessionAction.waitFor({ state: 'detached' })
+      await dismissOptionalModelSetup(page, options.dshVersion)
       await page.locator('#archived-sessions').click()
       const archiveDialog = page.getByRole('dialog', { name: /^(Archived sessions|归档会话)$/ })
       const restoreAction = archiveDialog.getByRole('button', { name: /^(Restore|恢复)$/ })
@@ -316,6 +325,7 @@ export async function runOfficialAcceptance(options) {
         await openMenu()
         await page.getByRole('menuitem', { name: /^(Archive session|归档会话)$/ }).click()
         await sessionAction.waitFor({ state: 'detached' })
+      await dismissOptionalModelSetup(page, options.dshVersion)
         await page.getByRole('button', { name: /^(Settings|设置)$/ }).click()
         await page.getByRole('button', { name: /^(Archived sessions|已归档会话)$/ }).last().click()
         await page.getByRole('button', { name: /^(Unarchive|取消归档) / }).click()
@@ -336,6 +346,7 @@ export async function runOfficialAcceptance(options) {
       await openMenu()
       await page.getByRole('menuitem', { name: /^(Archive session|归档会话)$/ }).click()
       await sessionAction.waitFor({ state: 'detached' })
+      await dismissOptionalModelSetup(page, options.dshVersion)
       await page.locator('#archived-sessions').click()
       const archivedDeleteDialog = page.getByRole('dialog', { name: /^(Archived sessions|归档会话)$/ })
       const deleteArchived = archivedDeleteDialog.getByRole('button', { name: /^(Delete permanently|永久删除)$/ })
