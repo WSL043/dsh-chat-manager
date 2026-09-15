@@ -105,7 +105,14 @@ async function stopProcess(child) {
   ])
 }
 
-async function removeIsolatedOnboarding(page) {
+async function removeIsolatedOnboarding(page, dshVersion) {
+  if (dshVersion === '0.1.6-alpha.1') {
+    // The current onboarding shares the Settings root. Removing its DOM also
+    // removes Settings; complete the visible, non-credential flow instead.
+    await page.getByRole('button', { name: /^(Continue|继续)$/ }).click()
+    await page.getByRole('button', { name: /^(Configure later|稍后配置)$/ }).click()
+    return
+  }
   const onboarding = page.getByRole('dialog', { name: /^(Internal Testing Notice|内测声明)$/ })
   await onboarding.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
   const dialogs = page.getByRole('dialog')
@@ -196,7 +203,7 @@ export async function runOfficialAcceptance(options) {
         if (navigationArmed && frame === page.mainFrame()) navigations += 1
       })
       await page.goto(url, { waitUntil: 'domcontentloaded' })
-      await removeIsolatedOnboarding(page)
+      await removeIsolatedOnboarding(page, options.dshVersion)
 
       const archiveHeaderAction = page.locator('#archived-sessions')
       const viewHeaderAction = page.getByRole('button', { name: /^(View options|视图选项)$/ })
