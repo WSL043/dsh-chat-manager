@@ -28,7 +28,7 @@ jobs:
       plugin_version: ${{ steps.prepare.outputs.plugin_version }}
       patch_sha256: ${{ steps.patch.outputs.sha256 }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: main
       - uses: pnpm/action-setup@v5
@@ -165,7 +165,7 @@ jobs:
       actions: write
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
