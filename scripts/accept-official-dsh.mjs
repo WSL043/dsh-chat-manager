@@ -305,6 +305,17 @@ export async function runOfficialAcceptance(options) {
       await archiveDialog.waitFor({ state: 'hidden' })
       await sessionAction.waitFor({ state: 'attached' })
 
+      if (options.dshVersion === '0.1.6-alpha.1') {
+        await openMenu()
+        await page.getByRole('menuitem', { name: /^(Archive session|归档会话)$/ }).click()
+        await sessionAction.waitFor({ state: 'detached' })
+        await page.getByRole('button', { name: /^(Settings|设置)$/ }).click()
+        await page.getByRole('button', { name: /^(Archived sessions|已归档会话)$/ }).last().click()
+        await page.getByRole('button', { name: /^(Unarchive|取消归档) / }).click()
+        await sessionAction.waitFor({ state: 'attached' })
+        await page.getByRole('button', { name: /^(Close|关闭)$/ }).last().click()
+      }
+
       await openMenu()
       await page.getByRole('menuitem', { name: /^(Delete session|删除会话)$/ }).click()
 

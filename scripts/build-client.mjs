@@ -28,6 +28,10 @@ export function openOfficialArchives(ctx, probe = false) {
   } catch { return false }
 }
 
+export async function unarchiveSession(sessionId) {
+  await this.workspaces.unarchiveSession(sessionId)
+}
+
 export const resolveUpstreamClient = () => process.env.DSH_WORKSPACE_CLIENT_PATH === undefined
   ? require.resolve('@deepseek-ai/dsh-client-ui-workspace/client')
   : resolve(process.env.DSH_WORKSPACE_CLIENT_PATH)
@@ -131,6 +135,12 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
   }
   const patch = (before, after, label) => {
     source = replaceOnce(source, before, after, label)
+  }
+
+  // Modern workspace bundles own this service; legacy hosts import theirs.
+  if (source.includes('super(ctx, "uiWorkspace")') && !source.includes('async unarchiveSession(sessionId)')) {
+    const archiveMethod = '\t\t\tasync archiveSession(sessionId) {\n\t\t\t\tawait this.workspaces.archiveSession(sessionId);\n\t\t\t}'
+    patch(archiveMethod, `${archiveMethod}\n\t\t\t${unarchiveSession.toString().replace('async function ', 'async ')}`, 'official unarchive service')
   }
 
   patch(
