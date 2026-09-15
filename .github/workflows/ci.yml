@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v6
         with: { version: 11.19.0, run_install: false }
       - uses: actions/setup-node@v6
         with: { node-version: 22.19.0, cache: pnpm }
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v6
         with: { version: 11.19.0, run_install: false }
       - uses: actions/setup-node@v6
         with: { node-version: 22.19.0, cache: pnpm }
@@ -92,7 +92,7 @@ jobs:
         dsh_version: ${{ fromJSON(needs.plan.outputs.dsh_versions) }}
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@v6
         with: { version: 11.19.0, run_install: false }
       - uses: actions/setup-node@v6
         with: { node-version: 22.19.0, cache: pnpm }
