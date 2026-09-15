@@ -113,8 +113,12 @@ test('adds a native archived-session manager with metadata and history search', 
 test('keeps archive, view options, and add workspace actions visible together', async () => {
   const source = await readFile(resolveUpstreamClient(), 'utf8')
   const patched = patchWorkspaceClient(source)
+  // Old Portable bridges treat every open-settings event as an open command,
+  // including probes. Rendering this plugin must never dispatch that event.
+  assert.doesNotMatch(patched, /dsh-portable\/open-settings|openArchivedSettings/)
+  assert.equal(patched.split('id: "archived-sessions"').length - 1, 1)
 
-  assert.match(patched, /_headerActions\{[^}]*max-width:124px/)
+  assert.match(patched, /_headerActions\{[^}]*max-width:92px/)
   assert.doesNotMatch(patched, /_headerActions\{[^}]*max-width:60px/)
   const headerActions = patched.indexOf('WorkspaceBrowser_module_css_default.headerActions')
   const archiveAction = patched.indexOf('id: "archived-sessions"', headerActions)
@@ -159,7 +163,7 @@ for (const [version, alias] of Object.entries(compatibility.workspaceFixtures)) 
 
     assert.match(patched, new RegExp(`^// Modified from @deepseek-ai/dsh-client-ui-workspace ${version.replaceAll('.', '\\.')}`))
     assert.match(patched, /id: "delete-session",[\s\S]{0,240}danger: true/)
-    assert.match(patched, /_headerActions\{[^}]*max-width:124px/)
+    assert.match(patched, /_headerActions\{[^}]*max-width:92px/)
     assert.match(patched, /ctx\.sessions\.refresh\(\)/)
     assert.doesNotMatch(patched, /window\.location\.reload/)
   })

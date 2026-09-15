@@ -1,5 +1,5 @@
 > [!NOTE]
-> 1.3.4：有官方归档设置页且 Portable 支持设置导航时，归档入口优先打开官方页面；旁边的搜索入口保留归档内容搜索与管理。旧环境继续使用原归档弹窗。
+> 1.3.5：侧边栏保留单一归档管理入口，不跳转设置页。官方设置页的取消归档也可正常使用。
 >
 > 这是一个持续维护、可独立卸载的 DSH 插件。它补充归档浏览、聊天内容搜索、恢复与安全永久删除；不喜欢这套会话管理方式时，可以直接卸载，现有会话不会因此被删除。
 
@@ -44,14 +44,14 @@
 ### DSH 标准命令
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.3.4
+dsh plugin --profile web add dsh-chat-manager@1.3.5
 ```
 
 安装完成后，保存工作并按 DSH 的正常方式重启一次，使新的 bundle 配置生效。
 
 ### 交给 Agent
 
-请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.3.4/AGENTS.md)，
+请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.3.5/AGENTS.md)，
 其中写明了安装、更新、验收、卸载和安全边界。不要把 `main` 分支文档当作安装依据。
 
 ## 使用
@@ -108,10 +108,10 @@ JSONL 存储。安装后替换为带会话管理功能的原生工作区列表�
 
 ## 更新与卸载
 
-更新时继续用 DSH 标准命令安装目标 npm 版本。v1.3.4 的命令是：
+更新时继续用 DSH 标准命令安装目标 npm 版本。v1.3.5 的命令是：
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.3.4
+dsh plugin --profile web add dsh-chat-manager@1.3.5
 ```
 
 卸载只移除这个插件的 bundle 层，不删除任何会话：
