@@ -16,6 +16,18 @@ const SUPPORTED_UPSTREAM_VERSIONS = new Set([
   ...(compatibility.previews ?? []),
 ])
 
+
+// A canceled event acknowledges the Portable bridge. Older hosts safely fall back.
+export function openOfficialArchives(ctx, probe = false) {
+  try {
+    const entries = ctx.slots.entries('settings.section')
+    if (!entries.some(entry => (entry.options?.id ?? entry.id) === 'archived-sessions')) return false
+    return !window.dispatchEvent(new CustomEvent('dsh-portable/open-settings', {
+      cancelable: true, detail: { section: 'archived-sessions', probe },
+    }))
+  } catch { return false }
+}
+
 export const resolveUpstreamClient = () => process.env.DSH_WORKSPACE_CLIENT_PATH === undefined
   ? require.resolve('@deepseek-ai/dsh-client-ui-workspace/client')
   : resolve(process.env.DSH_WORKSPACE_CLIENT_PATH)
@@ -171,7 +183,7 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
     workspaceBrowserSignature,
     workspaceBrowserSignature.replace(
       'deleteWorkspace, insertWorkspaceBefore, archiveSession, insertSessionBefore,',
-      'deleteWorkspace, insertWorkspaceBefore, archiveSession, deleteSession, restoreSession, searchArchivedSessions, insertSessionBefore,',
+      'deleteWorkspace, insertWorkspaceBefore, archiveSession, deleteSession, restoreSession, searchArchivedSessions, openArchivedSettings, insertSessionBefore,',
     ),
     'workspace browser delete action prop',
   )
@@ -260,15 +272,26 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 \t\t\t\t\t\t\t\t\t\ttype: "button",
 \t\t\t\t\t\t\t\t\t\tclassName: WorkspaceBrowser_module_css_default.iconButton,
 \t\t\t\t\t\t\t\t\t\t"aria-label": t("archive.manager.title"),
-\t\t\t\t\t\t\t\t\t\tonClick: () => { setArchiveError(null); setArchiveManagerOpen(true); },
+\t\t\t\t\t\t\t\t\t\tonClick: () => { if (openArchivedSettings()) return; setArchiveError(null); setArchiveManagerOpen(true); },
 \t\t\t\t\t\t\t\t\t\tchildren: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconArchiveOutline20, { size: wide ? 16 : 18 })
 \t\t\t\t\t\t\t\t\t})
-\t\t\t\t\t\t\t\t}), wide && (0, react_jsx_runtime.jsx)(ViewOptionsMenu, {`,
+\t\t\t\t\t\t\t\t}), openArchivedSettings(true) && (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+                    label: t("archive.manager.advanced"), side: "bottom", delayMs: 500,
+                    children: (0, react_jsx_runtime.jsx)("button", {
+                        type: "button", className: WorkspaceBrowser_module_css_default.iconButton,
+                        "aria-label": t("archive.manager.advanced"),
+                        onClick: () => { setArchiveError(null); setArchiveManagerOpen(true); },
+                        children: (0, react_jsx_runtime.jsx)("svg", {
+                            width: 16, height: 16, viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", "aria-hidden": true,
+                            children: (0, react_jsx_runtime.jsx)("path", { d: "M11 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm-1 3 4 4" })
+                        })
+                    })
+                }), wide && (0, react_jsx_runtime.jsx)(ViewOptionsMenu, {`,
     'archive manager header action',
   )
   patch(
     'max-width:60px;transition:max-width .18s var(--ds-ease-in-out)',
-    'max-width:92px;transition:max-width .18s var(--ds-ease-in-out)',
+    'max-width:124px;transition:max-width .18s var(--ds-ease-in-out)',
     'workspace header action capacity',
   )
   patch(
@@ -277,7 +300,7 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 \t\t\t\t\t\topen: archiveManagerOpen,
 \t\t\t\t\t\tonClose: () => { if (archiveBusyId === null) setArchiveManagerOpen(false); },
 \t\t\t\t\t\tcloseLabel: t("close"),
-\t\t\t\t\t\ttitle: t("archive.manager.title"),
+\t\t\t\t\t\ttitle: t(openArchivedSettings(true) ? "archive.manager.advanced" : "archive.manager.title"),
 \t\t\t\t\t\tdescription: t("archive.manager.description", { n: archivedSessionIds.length }),
 \t\t\t\t\t\tfooter: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 \t\t\t\t\t\t\tvariant: "outline",
@@ -361,12 +384,12 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
   )
   patch(
     '\t\t\t"menu.archiveSession": "归档会话",\n',
-    '\t\t\t"menu.archiveSession": "归档会话",\n\t\t\t"archive.manager.title": "归档会话",\n\t\t\t"archive.manager.description": "共 {n} 个归档会话。可按名称、工作区或聊天内容搜索。",\n\t\t\t"archive.manager.searchPlaceholder": "搜索归档名称、工作区或聊天内容…",\n\t\t\t"archive.manager.searching": "正在搜索归档聊天记录…",\n\t\t\t"archive.manager.searchUnavailable": "内容搜索暂不可用，仅显示名称与工作区匹配。",\n\t\t\t"archive.manager.empty": "暂无归档会话",\n\t\t\t"archive.manager.noMatches": "没有匹配的归档会话",\n\t\t\t"archive.manager.hasMore": "仅显示前 20 条内容匹配，请缩小搜索范围。",\n\t\t\t"archive.manager.restore": "恢复",\n\t\t\t"archive.manager.restoring": "恢复中…",\n\t\t\t"archive.manager.delete": "永久删除",\n\t\t\t"menu.deleteSession": "删除会话",\n\t\t\t"delete.session.title": "永久删除会话？",\n\t\t\t"delete.session.desc": "“{name}”的会话记录将从本机永久删除，且无法恢复。正在运行的任务会先安全停止。",\n\t\t\t"delete.session.confirm": "永久删除",\n\t\t\t"delete.session.pending": "正在永久删除会话…",\n',
+    '\t\t\t"menu.archiveSession": "归档会话",\n\t\t\t"archive.manager.title": "归档会话",\n\t\t\t"archive.manager.advanced": "归档内容搜索与管理",\n\t\t\t"archive.manager.description": "共 {n} 个归档会话。可按名称、工作区或聊天内容搜索。",\n\t\t\t"archive.manager.searchPlaceholder": "搜索归档名称、工作区或聊天内容…",\n\t\t\t"archive.manager.searching": "正在搜索归档聊天记录…",\n\t\t\t"archive.manager.searchUnavailable": "内容搜索暂不可用，仅显示名称与工作区匹配。",\n\t\t\t"archive.manager.empty": "暂无归档会话",\n\t\t\t"archive.manager.noMatches": "没有匹配的归档会话",\n\t\t\t"archive.manager.hasMore": "仅显示前 20 条内容匹配，请缩小搜索范围。",\n\t\t\t"archive.manager.restore": "恢复",\n\t\t\t"archive.manager.restoring": "恢复中…",\n\t\t\t"archive.manager.delete": "永久删除",\n\t\t\t"menu.deleteSession": "删除会话",\n\t\t\t"delete.session.title": "永久删除会话？",\n\t\t\t"delete.session.desc": "“{name}”的会话记录将从本机永久删除，且无法恢复。正在运行的任务会先安全停止。",\n\t\t\t"delete.session.confirm": "永久删除",\n\t\t\t"delete.session.pending": "正在永久删除会话…",\n',
     'Chinese delete locale',
   )
   patch(
     '\t\t\t"menu.archiveSession": "Archive session",\n',
-    '\t\t\t"menu.archiveSession": "Archive session",\n\t\t\t"archive.manager.title": "Archived sessions",\n\t\t\t"archive.manager.description": "{n} archived sessions. Search by name, workspace, or conversation content.",\n\t\t\t"archive.manager.searchPlaceholder": "Search archived names, workspaces, or conversation content…",\n\t\t\t"archive.manager.searching": "Searching archived conversation history…",\n\t\t\t"archive.manager.searchUnavailable": "Content search is temporarily unavailable. Showing name and workspace matches.",\n\t\t\t"archive.manager.empty": "No archived sessions",\n\t\t\t"archive.manager.noMatches": "No matching archived sessions",\n\t\t\t"archive.manager.hasMore": "Showing the first 20 content matches. Narrow your search.",\n\t\t\t"archive.manager.restore": "Restore",\n\t\t\t"archive.manager.restoring": "Restoring…",\n\t\t\t"archive.manager.delete": "Delete permanently",\n\t\t\t"menu.deleteSession": "Delete session",\n\t\t\t"delete.session.title": "Permanently delete session?",\n\t\t\t"delete.session.desc": "The local record for “{name}” will be permanently deleted and cannot be recovered. Running work will be stopped safely before deletion.",\n\t\t\t"delete.session.confirm": "Delete permanently",\n\t\t\t"delete.session.pending": "Permanently deleting session…",\n',
+    '\t\t\t"menu.archiveSession": "Archive session",\n\t\t\t"archive.manager.title": "Archived sessions",\n\t\t\t"archive.manager.advanced": "Search and manage archived content",\n\t\t\t"archive.manager.description": "{n} archived sessions. Search by name, workspace, or conversation content.",\n\t\t\t"archive.manager.searchPlaceholder": "Search archived names, workspaces, or conversation content…",\n\t\t\t"archive.manager.searching": "Searching archived conversation history…",\n\t\t\t"archive.manager.searchUnavailable": "Content search is temporarily unavailable. Showing name and workspace matches.",\n\t\t\t"archive.manager.empty": "No archived sessions",\n\t\t\t"archive.manager.noMatches": "No matching archived sessions",\n\t\t\t"archive.manager.hasMore": "Showing the first 20 content matches. Narrow your search.",\n\t\t\t"archive.manager.restore": "Restore",\n\t\t\t"archive.manager.restoring": "Restoring…",\n\t\t\t"archive.manager.delete": "Delete permanently",\n\t\t\t"menu.deleteSession": "Delete session",\n\t\t\t"delete.session.title": "Permanently delete session?",\n\t\t\t"delete.session.desc": "The local record for “{name}” will be permanently deleted and cannot be recovered. Running work will be stopped safely before deletion.",\n\t\t\t"delete.session.confirm": "Delete permanently",\n\t\t\t"delete.session.pending": "Permanently deleting session…",\n',
     'English delete locale',
   )
   const archiveActionMarker = findMarker(source, [
@@ -380,7 +403,8 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
   )
   patch(
     '\t\t\t\tinsertSessionBefore: async (workspaceId, sessionId, beforeSessionId) => {\n',
-    `\t\t\t\trestoreSession: async (sessionId) => {
+    `\t\t\t\topenArchivedSettings: (probe = false) => (${openOfficialArchives.toString()})(ctx, probe),
+\t\t\t\trestoreSession: async (sessionId) => {
 \t\t\t\t\tconst response = await fetch("/plugins/dsh-session-delete/restore", {
 \t\t\t\t\t\tmethod: "POST",
 \t\t\t\t\t\theaders: {
