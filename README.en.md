@@ -1,3 +1,5 @@
+> Version 1.3.4 is in development and is not yet released. When the official archive section and Portable settings navigation are available, the archive button opens the official page; the adjacent search button retains content search and management. Older hosts retain the existing archive dialog.
+
 > [!NOTE]
 > This is an actively maintained, independently removable DSH plugin. It adds archive browsing, conversation-content search, restore, and safe permanent deletion. If this session workflow is not for you, uninstalling the plugin leaves existing sessions untouched.
 
@@ -42,7 +44,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 ### Standard DSH command
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.3.3
+dsh plugin --profile web add dsh-chat-manager@1.3.4
 ```
 
 When the command finishes, save your work and restart DSH once through its normal workflow so the new
@@ -50,7 +52,7 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.3.3/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.3.4/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -115,10 +117,10 @@ list with the session-management version; uninstalling restores DSH's original l
 
 ## Update and uninstall
 
-Install the target npm version with the same standard DSH command. For v1.3.3:
+Install the target npm version with the same standard DSH command. For v1.3.4:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.3.3
+dsh plugin --profile web add dsh-chat-manager@1.3.4
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:
