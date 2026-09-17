@@ -1,8 +1,13 @@
 // Embedded into the client factory. The public slot restores the official
 // section automatically when this plugin is disabled.
-export function registerArchiveSettings(ctx, React, ui, dangerClass) {
+export function registerArchiveSettings(ctx, React, ui, dangerClass, options = {}) {
   const h = React.createElement
   const text = (zh, en) => ctx.locale.getSnapshot().active === 'zh' ? zh : en
+  const service = (name, direct) => {
+    if (direct !== undefined) return direct
+    if (typeof ctx.get !== 'function') return undefined
+    try { return ctx.get(name) } catch { return undefined }
+  }
   async function request(action, sessionId) {
     const response = await fetch(`/plugins/dsh-session-delete/${action}`, {
       method: 'POST', headers: { 'content-type': 'application/json',
@@ -12,8 +17,21 @@ export function registerArchiveSettings(ctx, React, ui, dangerClass) {
     })
     const body = await response.json()
     if (!response.ok || body?.ok !== true) throw Error(body?.error?.message || `HTTP ${response.status}`)
-    if (action === 'delete' && ctx.sessions.list.getSnapshot().current === sessionId) ctx.sessions.clear()
-    const refreshes = await Promise.allSettled([ctx.sessions.refresh(), ctx.workspaces.refresh?.()])
+    const sessions = service('sessions', ctx.sessions)
+    const workspaces = service('workspaces', ctx.workspaces)
+    const uiWorkspace = service('uiWorkspace', ctx.uiWorkspace)
+    const snapshot = sessions?.list?.getSnapshot?.() || {}
+    const current = snapshot.current
+      ?? Object.values(snapshot.byId || {}).find(summary => summary?.id === sessionId
+        && (summary.retainedBy?.mainView ?? 0) > 0)?.id
+    if (action === 'delete' && current === sessionId) {
+      if (typeof sessions?.clear === 'function') sessions.clear()
+      else if (typeof uiWorkspace?.clearMain === 'function') uiWorkspace.clearMain()
+    }
+    const refreshes = await Promise.allSettled([
+      typeof sessions?.refresh === 'function' ? sessions.refresh() : Promise.resolve(),
+      typeof workspaces?.refresh === 'function' ? workspaces.refresh() : Promise.resolve(),
+    ])
     for (const result of refreshes) if (result.status === 'rejected') console.warn('Archive action succeeded; list refresh failed:', result.reason)
   }
   function ArchiveSettings({ useSessions, useWorkspaces }) {
@@ -83,7 +101,7 @@ export function registerArchiveSettings(ctx, React, ui, dangerClass) {
   }
   let registered = false
   const register = () => {
-    if (registered || typeof window.__DSH_PORTABLE_SETTINGS__?.open !== 'function') return
+    if (registered || (!options.always && typeof window.__DSH_PORTABLE_SETTINGS__?.open !== 'function')) return
     registered = true
     ctx.slots.inject('settings.section', () => ctx.slots.register({
       name: 'settings.section', id: 'archived-sessions', priority: -10, order: 25,
