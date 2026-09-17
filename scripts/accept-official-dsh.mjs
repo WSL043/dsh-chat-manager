@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { chromium } from 'playwright'
+import { acceptModernOfficial } from './accept-modern-official.mjs'
 
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/
 const SESSION_TITLE = 'Official DSH compatibility smoke'
@@ -106,7 +107,7 @@ async function stopProcess(child) {
 }
 
 async function removeIsolatedOnboarding(page, dshVersion) {
-  if (dshVersion === '0.1.6-alpha.1') {
+  if (['0.1.6-alpha.1', '0.1.6-alpha.2'].includes(dshVersion)) {
     // The current onboarding shares the Settings root. Removing its DOM also
     // removes Settings; complete the visible, non-credential flow instead.
     await page.getByRole('button', { name: /^(Continue|继续)$/ }).click()
@@ -193,13 +194,15 @@ export async function runOfficialAcceptance(options) {
       throw new Error(`${error.message}\n${serverStderr || serverStdout}`, { cause: error })
     })
 
-    const browser = await chromium.launch({ headless: true })
+    const browser = await chromium.launch({ headless: true, channel: process.env.DSH_TEST_BROWSER_CHANNEL || undefined })
     try {
       const page = await browser.newPage({
         viewport: { width: 1440, height: 960 },
         ...(process.env.DSH_ACCEPTANCE_LOCALE === undefined ? {} : { locale: process.env.DSH_ACCEPTANCE_LOCALE }),
       })
       const deleteRequests = []
+      const pageErrors = []
+      page.on('pageerror', error => pageErrors.push(error.message))
       let navigations = 0
       let navigationArmed = false
       page.on('request', request => {
@@ -213,6 +216,9 @@ export async function runOfficialAcceptance(options) {
       await page.goto(url, { waitUntil: 'domcontentloaded' })
       await removeIsolatedOnboarding(page, options.dshVersion)
 
+      if (options.dshVersion === '0.1.6-alpha.2') {
+        await acceptModernOfficial(page, SESSION_TITLE, transcriptPath)
+      } else {
       const archiveHeaderAction = page.locator('#archived-sessions')
       const viewHeaderAction = page.getByRole('button', { name: /^(View options|视图选项)$/ })
       const addWorkspaceHeaderAction = page.getByRole('button', { name: /^(Add workspace|添加工作区)$/ })
@@ -377,6 +383,8 @@ export async function runOfficialAcceptance(options) {
         () => { throw new Error('confirmed deletion left the disposable transcript behind') },
         error => { if (error?.code !== 'ENOENT') throw error },
       )
+      }
+      if (pageErrors.length) throw new Error(`Browser runtime exceptions: ${JSON.stringify(pageErrors)}`)
     } finally {
       await browser.close()
     }
@@ -384,7 +392,7 @@ export async function runOfficialAcceptance(options) {
     return {
       ok: true,
       dshVersion: options.dshVersion,
-      checks: ['official install', 'official boot', 'workspace header actions visible', 'archive list', 'archived history search', 'archive restore', 'red native action', 'second confirmation', 'cancel without request', 'delete from archive manager', 'confirmed JSONL deletion', 'no page reload'],
+      checks: ['official install', 'official boot', options.dshVersion === '0.1.6-alpha.2' ? 'unified archive settings' : 'workspace header actions visible', 'archive list', 'archived history search', 'archive restore', 'red native action', 'second confirmation', 'cancel without request', 'delete from archive manager', 'confirmed JSONL deletion', 'no page reload', 'no runtime exceptions'],
     }
   } finally {
     if (server !== undefined) await stopProcess(server)
