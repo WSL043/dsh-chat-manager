@@ -1,4 +1,4 @@
-> Version 1.3.5: the single sidebar archive button opens the plugin manager without redirecting to Settings. The official Settings Unarchive action also works.
+> Version 1.4 Beta targets DSH 0.1.6-alpha.2 with archive search, unarchive and red permanent-delete actions in Settings. Compatible Portable builds route the sidebar archive shortcut to this section; older cores retain their existing archive interaction. Check the release's qualification status before selecting the beta.
 
 > [!NOTE]
 > This is an actively maintained, independently removable DSH plugin. It adds archive browsing, conversation-content search, restore, and safe permanent deletion. If this session workflow is not for you, uninstalling the plugin leaves existing sessions untouched.
