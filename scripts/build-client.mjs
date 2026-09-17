@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { registerArchiveSettings } from './archive-settings.mjs'
+import { MODERN_WORKSPACE_VERSION, patchModernWorkspaceClient } from './build-modern-client.mjs'
 
 const require = createRequire(import.meta.url)
 const here = dirname(fileURLToPath(import.meta.url))
@@ -39,6 +40,8 @@ const resolveLegacyClient = () => compatibility.legacyWorkspaceFixture === undef
 const resolveLegacyManifest = () => compatibility.legacyWorkspaceFixture === undefined
   ? resolveUpstreamManifest()
   : require.resolve(`${compatibility.legacyWorkspaceFixture}/package.json`)
+const resolveModernClient = () => require.resolve('dsh-ui-workspace-alpha2-modern/client')
+const resolveModernManifest = () => require.resolve('dsh-ui-workspace-alpha2-modern/package.json')
 
 const replaceOnce = (source, before, after, label) => {
   const first = source.indexOf(before)
@@ -86,10 +89,15 @@ const extractClientFactoryBody = (source, label) => {
   return source.slice(start + marker.length, end)
 }
 
-export function composeCompatibleClients(stableClient, previewClient) {
+export function composeCompatibleClients(stableClient, previewClient, modernClient = undefined) {
   const stableBody = extractClientFactoryBody(stableClient, 'stable factory')
   const previewBody = extractClientFactoryBody(previewClient, 'preview factory')
-  return `// DSH Chat Manager runtime-compatible client: stable and preview implementations are selected by capability.\nwindow.__ModuleLoader__.load({\n\tid: "dsh-chat-manager",\n\tfactory: (require) => {\n\t\tconst stableFactory = (require) => {${stableBody}\n\t\t};\n\t\tconst previewFactory = (require) => {${previewBody}\n\t\t};\n\t\tlet stableRuntimeAvailable = true;\n\t\ttry {\n\t\t\trequire("@deepseek-ai/dsh-client-runtime/client");\n\t\t} catch (error) {\n\t\t\tconst message = error instanceof Error ? error.message : String(error);\n\t\t\tif (!/missed the module table|Cannot find module/u.test(message)) throw error;\n\t\t\tstableRuntimeAvailable = false;\n\t\t}\n\t\treturn stableRuntimeAvailable ? stableFactory(require) : previewFactory(require);\n\t}\n});\n`
+  const modernBody = modernClient === undefined ? undefined : extractClientFactoryBody(modernClient, 'modern alpha2 factory')
+  const modernFactory = modernBody === undefined ? '' : `\n\t\tconst modernFactory = (require) => {${modernBody}\n\t\t};`
+  const modernSelection = modernBody === undefined
+    ? `\n\t\tlet stableRuntimeAvailable = true;\n\t\ttry {\n\t\t\trequire("@deepseek-ai/dsh-client-runtime/client");\n\t\t} catch (error) {\n\t\t\tconst message = error instanceof Error ? error.message : String(error);\n\t\t\tif (!/missed the module table|Cannot find module/u.test(message)) throw error;\n\t\t\tstableRuntimeAvailable = false;\n\t\t}\n\t\treturn stableRuntimeAvailable ? stableFactory(require) : previewFactory(require);`
+    : `\n\t\tlet modernAvailable = false;\n\t\ttry {\n\t\t\tconst uiSession = require("@deepseek-ai/dsh-client-ui-session");\n\t\t\tmodernAvailable = typeof uiSession?.UiSession?.prototype?.isMain === "function";\n\t\t} catch (error) {\n\t\t\tconst message = error instanceof Error ? error.message : String(error);\n\t\t\tif (!/missed the module table|Cannot find module/u.test(message)) throw error;\n\t\t}\n\t\tif (modernAvailable) return modernFactory(require);\n\t\tlet stableRuntimeAvailable = true;\n\t\ttry {\n\t\t\trequire("@deepseek-ai/dsh-client-runtime/client");\n\t\t} catch (error) {\n\t\t\tconst message = error instanceof Error ? error.message : String(error);\n\t\t\tif (!/missed the module table|Cannot find module/u.test(message)) throw error;\n\t\t\tstableRuntimeAvailable = false;\n\t\t}\n\t\treturn stableRuntimeAvailable ? stableFactory(require) : previewFactory(require);`
+  return `// DSH Chat Manager runtime-compatible client: stable, preview, and modern implementations are selected by concrete host capabilities.\nwindow.__ModuleLoader__.load({\n\tid: "dsh-chat-manager",\n\tfactory: (require) => {\n\t\tconst stableFactory = (require) => {${stableBody}\n\t\t};\n\t\tconst previewFactory = (require) => {${previewBody}\n\t\t};${modernFactory}${modernSelection}\n\t}\n});\n`
 }
 
 /**
@@ -479,7 +487,12 @@ export async function buildClient() {
     compatibility.legacyWorkspaceFixture === undefined ? resolvePreviewClient() : resolveUpstreamClient(),
     'utf8',
   ), previewManifest.version)
-  const patched = composeCompatibleClients(stable, preview)
+  const modernManifest = JSON.parse(await readFile(resolveModernManifest(), 'utf8'))
+  if (modernManifest.version !== MODERN_WORKSPACE_VERSION) {
+    throw new Error(`unsupported modern @deepseek-ai/dsh-client-ui-workspace version: ${modernManifest.version ?? 'unknown'}`)
+  }
+  const modern = patchModernWorkspaceClient(await readFile(resolveModernClient(), 'utf8'), modernManifest.version)
+  const patched = composeCompatibleClients(stable, preview, modern)
   await mkdir(dirname(output), { recursive: true })
   await writeFile(output, patched, 'utf8')
   return output
