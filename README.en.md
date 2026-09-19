@@ -41,6 +41,8 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 
 ## Install
 
+**For DSH 0.1.6-alpha.2, use `dsh-chat-manager@1.4.0-beta.1`, not the older 1.3.5 commands below.** The older workspace replacement can break text input on alpha.2. In **Plugins → Add plugin**, enter only the package name and version, without `dsh plugin --profile web add`. Follow the official installation result; restart only when requested.
+
 ### Standard DSH command
 
 ```sh
