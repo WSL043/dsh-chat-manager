@@ -266,9 +266,13 @@ test('public-facing copy describes the product without exposing maintenance mech
   assert.doesNotMatch(releaseNotes, /\birm\b|install\.ps1|powershell/i)
 })
 
-test('bundle disables the official workspace row and inserts the native replacement row', async () => {
+test('bundle preserves the official workspace owner and inserts its view extension', async () => {
   const patch = await read('cordis.patch.yml')
-  assert.match(patch, /id:\s*ui-workspace[\s\S]*disabled:\s*true/)
+  assert.doesNotMatch(patch, /disabled:\s*true/)
+  const client = await read('lib/client.js')
+  assert.match(client, /const uiWorkspace = ctx.get\("uiWorkspace"\)/)
+  assert.doesNotMatch(client, /new UiWorkspaceService\(/)
+  assert.doesNotMatch(client, /slots.provideRoot\(/)
   assert.match(patch, /id:\s*ui-workspace-session-delete[\s\S]*name:\s*['"]?dsh-chat-manager/)
 })
 

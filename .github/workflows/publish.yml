@@ -78,11 +78,11 @@ jobs:
       - run: pnpm run build
       - run: git diff --exit-code -- lib
       - run: pnpm exec playwright install --with-deps chromium
-      - name: Qualify the release package on stable and newest supported preview
+      - name: Qualify the release package on its declared target cores
         run: |
           pnpm pack --pack-destination .candidate
           package="$(find .candidate -maxdepth 1 -name '*.tgz' -print -quit)"
-          for version in $(node -e "const c=require('./compatibility.json'); console.log([...new Set([c.latestTested,c.previews.at(-1)].filter(Boolean))].join(' '))"); do
+          for version in $(node -e "const c=require('./compatibility.json'); console.log([...new Set((c.releaseTargets ?? [c.latestTested,c.previews.at(-1)]).filter(Boolean))].join(' '))"); do
             node scripts/accept-official-dsh.mjs --dsh-version "$version" --package "$package"
           done
 

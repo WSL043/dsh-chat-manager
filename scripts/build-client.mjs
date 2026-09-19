@@ -464,35 +464,14 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 }
 
 export async function buildClient() {
-  const stableManifest = JSON.parse(await readFile(resolveLegacyManifest(), 'utf8'))
-  const expectedStableVersion = compatibility.legacyWorkspaceFixture === undefined
-    ? LATEST_UPSTREAM_VERSION
-    : Object.entries(compatibility.workspaceFixtures).find(([, fixture]) => fixture === compatibility.legacyWorkspaceFixture)?.[0]
-  if (stableManifest.version !== expectedStableVersion) {
-    throw new Error(
-      `unsupported stable @deepseek-ai/dsh-client-ui-workspace version: ${stableManifest.version ?? 'unknown'}`,
-    )
-  }
-  const previewManifest = JSON.parse(await readFile(
-    compatibility.legacyWorkspaceFixture === undefined ? resolvePreviewManifest() : resolveUpstreamManifest(),
-    'utf8',
-  ))
-  if (compatibility.legacyWorkspaceFixture === undefined
-    ? !compatibility.previews.includes(previewManifest.version)
-    : previewManifest.version !== LATEST_UPSTREAM_VERSION) {
-    throw new Error(`unreviewed DSH preview ${String(previewManifest.version)}`)
-  }
-  const stable = patchWorkspaceClient(await readFile(resolveLegacyClient(), 'utf8'), stableManifest.version)
-  const preview = patchWorkspaceClient(await readFile(
-    compatibility.legacyWorkspaceFixture === undefined ? resolvePreviewClient() : resolveUpstreamClient(),
-    'utf8',
-  ), previewManifest.version)
   const modernManifest = JSON.parse(await readFile(resolveModernManifest(), 'utf8'))
   if (modernManifest.version !== MODERN_WORKSPACE_VERSION) {
     throw new Error(`unsupported modern @deepseek-ai/dsh-client-ui-workspace version: ${modernManifest.version ?? 'unknown'}`)
   }
   const modern = patchModernWorkspaceClient(await readFile(resolveModernClient(), 'utf8'), modernManifest.version)
-  const patched = composeCompatibleClients(stable, preview, modern)
+  // The 1.4 preview targets alpha.2. Older releases keep their existing builds;
+  // do not select a legacy service-replacing implementation on this host.
+  const patched = modern
   await mkdir(dirname(output), { recursive: true })
   await writeFile(output, patched, 'utf8')
   return output
