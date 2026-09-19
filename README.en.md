@@ -41,12 +41,12 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 
 ## Install
 
-**For DSH 0.1.6-alpha.2, use `dsh-chat-manager@1.4.0-beta.1`, not the older 1.3.5 commands below.** The older workspace replacement can break text input on alpha.2. In **Plugins → Add plugin**, enter only the package name and version, without `dsh plugin --profile web add`. Follow the official installation result; restart only when requested.
+**For DSH 0.1.6-alpha.2, use `dsh-chat-manager@1.4.0-beta.1`, the examples below target this beta; 1.3.5 is for its verified older cores only.** The older workspace replacement can break text input on alpha.2. In **Plugins → Add plugin**, enter only the package name and version, without `dsh plugin --profile web add`. Follow the official installation result; restart only when requested.
 
 ### Standard DSH command
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.3.5
+dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.1
 ```
 
 When the command finishes, save your work and restart DSH once through its normal workflow so the new
@@ -54,7 +54,7 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.3.5/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.4.0-beta.1/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -119,10 +119,10 @@ list with the session-management version; uninstalling restores DSH's original l
 
 ## Update and uninstall
 
-Install the target npm version with the same standard DSH command. For v1.3.5:
+Install the target npm version with the same standard DSH command. For v1.4.0-beta.1:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.3.5
+dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.1
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:
