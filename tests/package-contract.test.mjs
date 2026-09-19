@@ -207,12 +207,13 @@ test('documentation uses the standard one-command bundle lifecycle and second co
     read('README.md'),
     read('AGENTS.md'),
   ])
-  const documentedVersion = chinese.match(/dsh-chat-manager@(\d+\.\d+\.\d+)/)?.[1]
-  assert.match(documentedVersion ?? '', /^\d+\.\d+\.\d+$/)
+  const documentedVersion = chinese.match(/dsh-chat-manager@(\d+\.\d+\.\d+(?:-beta\.\d+)?)/)?.[1]
+  assert.equal(documentedVersion, JSON.parse(await read('package.json')).version)
   const releaseVersion = documentedVersion.replaceAll('.', '\\.')
   for (const document of [chinese, english, agents]) {
     assert.match(document, /dsh-chat-manager@\d+\.\d+\.\d+/)
-    assert.doesNotMatch(document, /dsh-chat-manager@\d+\.\d+\.\d+-beta\.\d+/)
+    assert.ok(document.includes(`dsh-chat-manager@${documentedVersion}`))
+    if (!documentedVersion.includes('-')) assert.doesNotMatch(document, /dsh-chat-manager@\d+\.\d+\.\d+-beta\.\d+/)
   }
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
