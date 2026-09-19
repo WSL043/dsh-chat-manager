@@ -1,4 +1,5 @@
 {
+  "releaseTargets": ["0.1.6-alpha.2"],
   "latestTested": "0.1.5-rc.2",
   "supported": [
     "0.1.0-rc.6",

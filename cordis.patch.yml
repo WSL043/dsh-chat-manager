@@ -1,7 +1,4 @@
-# Replace the official workspace row only while this bundle is enabled.
-- id: ui-workspace
-  disabled: true
-
+# The official workspace keeps ownership of active sessions during plugin HMR.
 - insert:
     - id: ui-workspace-session-delete
       name: dsh-chat-manager

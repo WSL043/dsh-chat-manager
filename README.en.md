@@ -1,4 +1,5 @@
-> Version 1.4 Beta targets DSH 0.1.6-alpha.2 with archive search, unarchive and red permanent-delete actions in Settings. Compatible Portable builds route the sidebar archive shortcut to this section; older cores retain their existing archive interaction. Check the release's qualification status before selecting the beta.
+> Version 1.4 Beta targets DSH 0.1.6-alpha.2 with archive search, unarchive and red permanent-delete actions in Settings. Compatible Portable builds route the sidebar archive shortcut to this section. Older cores require their previously verified plugin releases.
+> The development branch fixes the missing composer after toggling the plugin by retaining the official workspace service and extending only its views. This fix is not yet published; the released beta.1 does not contain it.
 
 > [!NOTE]
 > This is an actively maintained, independently removable DSH plugin. It adds archive browsing, conversation-content search, restore, and safe permanent deletion. If this session workflow is not for you, uninstalling the plugin leaves existing sessions untouched.

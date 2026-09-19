@@ -2,6 +2,27 @@ import { registerArchiveSettings } from './archive-settings.mjs'
 
 export const MODERN_WORKSPACE_VERSION = '0.1.6-alpha.2'
 
+// Reuse the official native/browser picker through its public slot registry.
+// The extension owns only the forwarding registrations, never the providers.
+export function mirrorDirectoryFlow(ctx) {
+  const source = 'sidebar.workspaces.directoryFlow'
+  const target = 'dsh-chat-manager.directoryFlow'
+  ctx.slots.inject(source, () => ctx.slots.inject(target, () => {
+    let disposers = []
+    const clear = () => { for (const dispose of disposers.splice(0)) dispose() }
+    const sync = () => {
+      clear()
+      for (const entry of ctx.slots.entries(source)) {
+        disposers.push(ctx.slots.register({ name: target, ...entry.options,
+          inject: entry.inject, locale: entry.locale }, entry.component))
+      }
+    }
+    sync()
+    const unsubscribe = ctx.slots.subscribe(source, sync)
+    return () => { unsubscribe(); clear() }
+  }))
+}
+
 const replaceOnce = (source, before, after, label) => {
   const first = source.indexOf(before)
   if (first === -1 || source.indexOf(before, first + before.length) !== -1) {
@@ -250,6 +271,31 @@ export function patchModernWorkspaceClient(upstream, upstreamVersion = MODERN_WO
     'archive settings registration',
   )
 
+  // The official workspace owns retained sessions. Replacing that service during
+  // bundle HMR releases the session behind the still-mounted composer. Enhance
+  // its view slots instead; disabling this plugin then removes only our views.
+  source = replaceOnce(source,
+    'const uiWorkspace = new UiWorkspaceService(ctx, ctx.remote.directoryPicker, workspaces, sessions);',
+    'const uiWorkspace = ctx.get("uiWorkspace");', 'reuse official workspace owner')
+  source = replaceOnce(source,
+    'ctx.slots.provideRoot({ hooks: { workspaces: workspaces.list } });',
+    '// Root hooks remain owned by the official workspace.', 'preserve official workspace root hooks')
+  source = replaceOnce(source, 'const NS = "workspace";',
+    'const NS = "dsh-chat-manager-workspace";', 'isolate extension dictionaries')
+  source = replaceOnce(source, '"remote.directoryPicker",\n\t\t\t"layout"',
+    '"remote.directoryPicker",\n\t\t\t"uiWorkspace",\n\t\t\t"layout"', 'require official workspace owner')
+  source = replaceOnce(source, 'name: "sidebar.workspaces",',
+    'name: "sidebar.workspaces",\n                priority: -10,', 'enhance workspace browser')
+  source = source.replaceAll('sidebar.workspaces.directoryFlow', 'dsh-chat-manager.directoryFlow')
+  const pickerStart = source.indexOf('\t\t\tctx.slots.inject("conversation.hero.workspace",')
+  const pickerClose = source.indexOf('}, WorkspacePicker));', pickerStart)
+  if (pickerStart < 0 || pickerClose < pickerStart) throw new Error('missing official picker registration')
+  const pickerEnd = pickerClose + '}, WorkspacePicker));'.length
+  source = source.slice(0, pickerStart) + source.slice(pickerEnd)
+  source = replaceOnce(source, 'const uiWorkspace = ctx.get("uiWorkspace");',
+    'const uiWorkspace = ctx.get("uiWorkspace");\n(' + mirrorDirectoryFlow.toString() + ')(ctx);', 'reuse official directory flow providers')
+
+
   source = replaceOnce(source,
     'children: [wide && (0, react_jsx_runtime.jsx)(ViewOptionsMenu, {',
     'children: [typeof window.__DSH_PORTABLE_SETTINGS__?.open === "function" && (0, react_jsx_runtime.jsx)("button", { type: "button", id: "archived-sessions", className: WorkspaceBrowser_module_css_default.iconButton, "aria-label": t("archive.open"), onClick: () => window.__DSH_PORTABLE_SETTINGS__?.open("archived-sessions"), children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconArchiveOutline20, { size: 16 }) }), wide && (0, react_jsx_runtime.jsx)(ViewOptionsMenu, {',
@@ -257,6 +303,10 @@ export function patchModernWorkspaceClient(upstream, upstreamVersion = MODERN_WO
   source = replaceOnce(source, '"menu.archiveSession": "归档会话",', '"archive.open": "已归档会话",\n\t\t\t"menu.archiveSession": "归档会话",', 'archive shortcut Chinese');
   source = replaceOnce(source, '"menu.archiveSession": "Archive session",', '"archive.open": "Archived sessions",\n\t\t\t"menu.archiveSession": "Archive session",', 'archive shortcut English');
 
+  // Both clients coexist; official CSS tag identities would suppress our added
+  // danger-button rules when the official module has loaded first.
+  source = source.replaceAll('@deepseek-ai/dsh-client-ui-workspace/', 'dsh-chat-manager/')
+    .replaceAll('tag.dataset.plugin = "@deepseek-ai/dsh-client-ui-workspace"', 'tag.dataset.plugin = "dsh-chat-manager"')
   const notice = `// Modified from @deepseek-ai/dsh-client-ui-workspace ${upstreamVersion} by DSH Chat Manager. See THIRD_PARTY_NOTICES.md.\n`
   return `${notice}${source}`
 }

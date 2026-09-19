@@ -31,9 +31,9 @@ The v1.4.0-beta.1 package is a standard DSH bundle with a `dsh.bundle` profile p
 dsh-chat-manager@1.4.0-beta.1
 ```
 
-The bundle disables the official workspace row while installed and inserts a uniquely identified native
-workspace row. Removing `dsh-chat-manager` removes that layer, allowing DSH to restore the official
-workspace row. Do not install the tarball under `@deepseek-ai/dsh-client-ui-workspace`; that old aliasing
+The development candidate preserves the official workspace service and adds view-slot extensions.
+Disabling it removes those extensions without releasing the official active session. The published
+beta.1 still replaces the workspace; this lifecycle fix has not been published. Do not install the tarball under `@deepseek-ai/dsh-client-ui-workspace`; that old aliasing
 approach is not the v1.4.0-beta.1 contract. The product is shown to users as **DSH Chat Manager**.
 
 ## Detect the target DSH
