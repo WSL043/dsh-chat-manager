@@ -21,7 +21,7 @@ export function registerArchiveSettings(ctx, React, ui, dangerClass, options = {
     const workspaces = service('workspaces')
     const uiWorkspace = service('uiWorkspace')
     const snapshot = sessions?.list?.getSnapshot?.() || {}
-    const current = snapshot.current
+    const current = uiWorkspace?.selection?.getSnapshot?.().sessionId ?? snapshot.current
       ?? Object.values(snapshot.byId || {}).find(summary => summary?.id === sessionId
         && (summary.retainedBy?.mainView ?? 0) > 0)?.id
     if (action === 'delete' && current === sessionId) {

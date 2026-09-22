@@ -10,10 +10,13 @@ Acceptance on Windows with actual published DSH 0.1.7-alpha.1, an isolated DSH h
 - Cancel sends no deletion; a disposable V4 session was deleted successfully.
 - Three plugin enable/disable transitions preserved an editable composer, with zero browser page errors.
 - Settings contains one archive section; a content-only marker absent from the title matched an archived V4 session. The red delete action, cancelled confirmation and confirmed deletion passed.
-- 103 repository tests passed.
+- Light-theme archive restoration and deleting the active V4 session passed. After deletion, opening a new session produces an editable composer; confirmation was visually inspected.
+- 104 repository tests passed, including preserving a different session opened while deletion is pending.
 
 Failures retained: initial icon import used the old `IconTrashOutline16`, which no longer exists; switched to the verified `IconTrashOutlineRegular`. Direct menu color styling was ignored by MenuItemButton; switched to its public `danger` property. New stores do not all expose refresh(); refresh is optional. Archive actions previously read optional services directly from ctx; use guarded public get() lookup to avoid a post-deletion UI failure. Harness corrections included the current accessible new-session label and expanding the ungrouped folder. Initial failures are not erased by later passes.
 
 Local evidence is in the sibling Portable checkout build directory: alpha7-menu.png, alpha7-delete-confirm.png, alpha7-lifecycle-result.log, alpha7-archive-content-search.png, alpha7-archive-lookup-fix.log, and the original *failure* logs. The full source test result is .artifacts/alpha7-plugin-full-tests.log.
 
-Still pending: light theme, active-session deletion, archive restoration, native WebView2, distribution packaging/peer declarations, old-to-new plugin upgrade and integration with the Portable candidate. Do not publish this candidate as fully qualified.
+Active deletion now checks the official workspace selection instead of a session-list row that host events may already have removed. The initial composer assertion also assumed an empty selection immediately shows an editor; the credential-free fixture instead shows official onboarding/workspace selection. The corrected test opens a new session and types into its composer. Original failures remain in alpha7-restore-active.log, alpha7-restore-active-fix.log and alpha7-active-diagnostic.log; passing evidence is alpha7-active-final.log and alpha7-light-active-delete.png. Full regression results are .artifacts/alpha7-selection-tests.log.
+
+Still pending: native WebView2, distribution packaging/peer declarations, old-to-new plugin upgrade and integration with the Portable candidate. Do not publish this candidate as fully qualified.

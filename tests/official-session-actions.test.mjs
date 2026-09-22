@@ -3,15 +3,15 @@ import assert from 'node:assert/strict'
 import vm from 'node:vm'
 import { registerOfficialSessionActions, buildOfficialSlotClient } from '../scripts/official-session-actions.mjs'
 
-function fixture(fetch) {
+function fixture(fetch, selected = () => 'synthetic') {
   const entries = [], cleanups = []
   let closed = 0, refreshed = 0, cleared = 0
   const React = { createElement: (type, props, ...children) => ({ type, props: props || {}, children }),
     useSyncExternalStore: (_subscribe, snapshot) => snapshot() }
   const ui = { MenuItemButton: 'MenuItem', IconTrashOutlineRegular: 'Trash', Modal: 'Modal', Button: 'Button' }
   const ctx = { locale: { getSnapshot: () => ({ active: 'zh' }) },
-    get: name => name === 'uiWorkspace' ? { clearMain: () => cleared++ } : {
-      list: { getSnapshot: () => ({ byId: { synthetic: { retainedBy: { mainView: 1 } } } }) }, refresh: async () => { refreshed++ },
+    get: name => name === 'uiWorkspace' ? { selection: { getSnapshot: () => ({ sessionId: selected() }) }, clearMain: () => cleared++ } : {
+      list: { getSnapshot: () => ({ byId: {} }) }, refresh: async () => { refreshed++ },
     },
     effect: fn => cleanups.push(fn()), slots: {
       inject: (_name, fn) => fn(), register: (meta, component) => { entries.push({ meta, component }); return () => {} },
@@ -63,6 +63,19 @@ test('rejected deletion stays visible and leaves the official current session un
   assert.equal(bed.dialog().children[1].props.role, 'alert')
   assert.equal(bed.dialog().children[1].children[0], 'session busy')
   assert.equal(bed.counts().cleared, 0)
+  bed.dispose()
+})
+
+test('switching sessions while deletion is pending preserves the new selection', async () => {
+  let selected = 'synthetic', complete
+  const bed = fixture(() => new Promise(resolve => { complete = resolve }), () => selected)
+  bed.menu().props.onSelect()
+  const pending = bed.dialog().props.footer.children[1].props.onClick()
+  selected = 'other-session'
+  complete({ ok: true, json: async () => ({ ok: true }) })
+  await pending
+  assert.equal(bed.counts().cleared, 0)
+  assert.equal(bed.dialog(), null)
   bed.dispose()
 })
 
