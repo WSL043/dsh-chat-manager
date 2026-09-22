@@ -79,12 +79,23 @@ jobs:
       - run: git diff --exit-code -- lib
       - run: pnpm exec playwright install --with-deps chromium
       - name: Qualify the release package on its declared target cores
+        env:
+          DSH_ACCEPTANCE_EVIDENCE_ROOT: ${{ runner.temp }}/chat-release-acceptance
         run: |
           pnpm pack --pack-destination .candidate
           package="$(find .candidate -maxdepth 1 -name '*.tgz' -print -quit)"
           for version in $(node -e "const c=require('./compatibility.json'); console.log([...new Set((c.releaseTargets ?? [c.latestTested,c.previews.at(-1)]).filter(Boolean))].join(' '))"); do
             node scripts/accept-official-dsh.mjs --dsh-version "$version" --package "$package"
           done
+      - name: Preserve visual acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: chat-release-visual-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/chat-release-acceptance/**/*.png
+            ${{ runner.temp }}/chat-release-acceptance/**/modern-failure.txt
+          if-no-files-found: ignore
 
   release:
     needs: verify

@@ -24,3 +24,9 @@ Visual inspection found duplicated archive tabs on unmodified upstream alpha.2. 
 Final package source passed 98 tests. Stock DSH light and dark runs passed one-tab navigation, native delete/cancel, and four enable/disable transitions with real editable-composer checks. Portable's actual cached alpha.2 runtime was used read-only with a separate synthetic profile; three toggles, single settings archive tab, restore/search/permanent delete and no browser exceptions passed. No current user profile was changed. Evidence: `.artifacts/visual-beta2-fixed.log`, `.artifacts/visual-beta2-light.log`, `.artifacts/portable-beta2-v2-20260922.log` and screenshot directories. These are headless browser acceptance against real hosts, not Windows WebView2 foreground acceptance.
 
 The first Portable count assertion included the sidebar shortcut; the corrected assertion scopes to the Settings dialog. The screenshot confirmed one tab. The earlier stock duplicate was real and was corrected in product source.
+
+## Sidebar archive entry
+
+The final Portable run clicks the sidebar archive icon directly, repeatedly opens/closes the Settings archive page, and confirms no legacy archive dialog, one Settings tab, working restore/delete and no browser exceptions. Screenshot `portable-beta2-sidebar-shortcut.png` confirms the icon above the session tree. The disabled plugin contributes no icon by design. Official alpha.2 archive search matches only title/workspace; the extension adds message-content search. Evidence: `.artifacts/portable-beta2-shortcut-20260922.log`.
+
+Release CI originally failed because its English New Session label differed from a case-sensitive locator. The corrected accessible-role locator passed the English real-host run and 16 delivery tests; product behavior was not changed for that harness failure.
