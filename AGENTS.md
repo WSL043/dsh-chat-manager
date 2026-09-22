@@ -23,7 +23,7 @@ requirements. A cancelled confirmation is the safe default and must not send a d
 This candidate targets DSH 0.1.6-alpha.2. Check the target core before installation;
 use the corresponding stable release guide for older verified cores.
 
-The beta.2 candidate is not yet published. Do not run its registry installation commands until publication is verified.
+Verify registry publication before running the beta.2 installation command.
 
 ## Fixed package and standard bundle
 
@@ -33,9 +33,9 @@ The v1.4.0-beta.2 package is a standard DSH bundle with a `dsh.bundle` profile p
 dsh-chat-manager@1.4.0-beta.2
 ```
 
-The development candidate preserves the official workspace service and adds view-slot extensions.
+The beta.2 package preserves the official workspace service and adds view-slot extensions.
 Disabling it removes those extensions without releasing the official active session. The published
-beta.1 still replaces the workspace; this lifecycle fix has not been published. Do not install the tarball under `@deepseek-ai/dsh-client-ui-workspace`; that old aliasing
+beta.1 still replaces the workspace; beta.2 contains the lifecycle fix. Do not install the tarball under `@deepseek-ai/dsh-client-ui-workspace`; that old aliasing
 approach is not the v1.4.0-beta.2 contract. The product is shown to users as **DSH Chat Manager**.
 
 ## Detect the target DSH
@@ -125,3 +125,5 @@ On failure, report the sanitized command error, DSH version, selected profile, r
 what changed, rollback state, and what remains unverified. Do not attempt an irreversible session deletion
 as a recovery step. If the bundle was added but verification failed, stop and obtain permission before any
 further profile change.
+
+On stock alpha.2, keep the official archive page. Enhanced archive search and permanent deletion in Settings require Portable settings integration; native session-menu deletion works without that integration.

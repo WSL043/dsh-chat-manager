@@ -267,7 +267,7 @@ export function patchModernWorkspaceClient(upstream, upstreamVersion = MODERN_WO
   source = replaceOnce(
     source,
     'function apply(ctx) {',
-    `${registerArchiveSettings.toString()}\nfunction apply(ctx) {\nregisterArchiveSettings(ctx, react, _deepseek_ai_dsh_client_ui_primitives, WorkspaceBrowser_module_css_default.deleteAction, { always: true });`,
+    `${registerArchiveSettings.toString()}\nfunction apply(ctx) {\nregisterArchiveSettings(ctx, react, _deepseek_ai_dsh_client_ui_primitives, WorkspaceBrowser_module_css_default.deleteAction);`,
     'archive settings registration',
   )
 
