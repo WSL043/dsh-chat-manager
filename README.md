@@ -1,5 +1,5 @@
 > [!NOTE]
-> 1.5 Beta 面向 DSH 0.1.7-alpha.1，使用官方会话菜单扩展接口。归档搜索、取消归档和红色永久删除整合在设置页；兼容 Portable 提供侧边栏归档入口。旧内核请保留对应的旧版插件。
+> 1.5 面向 DSH 0.1.7-alpha.1，使用官方会话菜单扩展接口。归档搜索、取消归档和红色永久删除整合在设置页；兼容 Portable 提供侧边栏归档入口。旧内核请保留对应的旧版插件。
 >
 > 这是一个持续维护、可独立卸载的 DSH 插件。它补充归档浏览、聊天内容搜索、恢复与安全永久删除；不喜欢这套会话管理方式时，可以直接卸载，现有会话不会因此被删除。
 
@@ -47,24 +47,24 @@
 2. 在“包名或地址”中粘贴下面这一行，再点击安装：
 
 ```text
-dsh-chat-manager@1.5.0-beta.1
+dsh-chat-manager@1.5.0
 ```
 
 3. 查看安装结果；仅在页面要求时刷新或重启。安装失败时留在插件页查看错误，不必重复安装。
 
-**1.5 Beta 适配 DSH 0.1.7-alpha.1。DSH 0.1.6-alpha.2 请使用 1.4.0-beta.3。** 不要把整条 `dsh plugin ...` 命令粘贴进包名框，也不要把仓库的 `main` 分支当作已验证发布包。
+**1.5 适配 DSH 0.1.7-alpha.1。DSH 0.1.6-alpha.2 请使用 1.4.0-beta.3。** 不要把整条 `dsh plugin ...` 命令粘贴进包名框，也不要把仓库的 `main` 分支当作已验证发布包。
 
 ### 终端安装（可选）
 
 在 DSH 或 Portable 的终端中执行：
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.0-beta.1
+dsh plugin --profile web add dsh-chat-manager@1.5.0
 ```
 
 如果 DSH 正在运行，命令完成后保存工作并重新启动，以加载终端改动。旧内核请选择对应发布说明中已验证的插件版本。
 
-交给 Agent 安装时使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.0-beta.1/AGENTS.md)。
+交给 Agent 安装时使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.0/AGENTS.md)。
 
 ## 使用
 
@@ -112,20 +112,20 @@ dsh plugin --profile web add dsh-chat-manager@1.5.0-beta.1
 ## 兼容性
 
 <!-- dsh-compatibility -->
-当前安装示例对应 DSH `0.1.7-alpha.1` 与插件 `1.5.0-beta.1`；其他内核请查看对应发布说明。
+当前安装示例对应 DSH `0.1.7-alpha.1` 与插件 `1.5.0`；其他内核请查看对应发布说明。
 <!-- /dsh-compatibility -->
 
 归档浏览、恢复和内容搜索使用 DSH 的工作区注册表与会话查询能力；永久删除适用于 DSH 默认的逐会话
-JSONL 存储。当前候选版保留官方工作区服务，仅扩展菜单与归档设置；卸载后撤去这些扩展。
+JSONL 存储。本版本保留官方工作区服务，仅扩展菜单与归档设置；卸载后撤去这些扩展。
 
 ## 更新与卸载
 
 优先在官方 **插件** 页面查看已安装插件，使用该插件提供的更新或卸载操作；更新按钮未出现时，可在“添加插件”中填写已发布的目标 `包名@版本`。完成后按页面提示操作，不强制重启。以下是可选的终端方式。
 
-更新时继续用 DSH 标准命令安装目标 npm 版本。v1.5.0-beta.1 的命令是：
+更新时继续用 DSH 标准命令安装目标 npm 版本。v1.5.0 的命令是：
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.0-beta.1
+dsh plugin --profile web add dsh-chat-manager@1.5.0
 ```
 
 卸载只移除这个插件的 bundle 层，不删除任何会话：
@@ -144,6 +144,6 @@ DSH-Portable 同样支持官方插件页和标准 `dsh plugin` 命令。终端�
 
 MIT。修改后的上游客户端及其许可说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-### alpha.2 界面边界
+### 官方界面与 Portable
 
 原生 DSH 保留官方归档页，侧边栏菜单提供红色「删除会话」。Portable 支持设置扩展时，归档页还提供搜索、取消归档和永久删除，且只有一个归档标签。关闭插件会恢复官方界面，不接管会话服务。

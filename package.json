@@ -1,16 +1,20 @@
 {
   "name": "dsh-chat-manager",
-  "version": "1.5.0-beta.1",
+  "version": "1.5.0",
   "packageManager": "pnpm@11.19.0",
   "description": "DeepSeek Harness chat history and session management: search archives, restore conversations, and delete safely",
   "type": "module",
   "main": "./src/index.js",
+  "icon": "./assets/icon.svg",
   "exports": {
     ".": "./src/index.js",
     "./client": "./lib/client.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*": "./locale/*"
   },
   "files": [
+    "assets/icon.svg",
+    "locale/*.json",
     "compatibility.json",
     "cordis.patch.yml",
     "lib/client.js",
