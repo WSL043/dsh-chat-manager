@@ -15,3 +15,12 @@ Validation on Windows, headless Chrome, official DSH 0.1.6-alpha.2, freshly inst
 Original acceptance failures remain recorded. Windows pnpm.cmd seeded a title containing literal quotes; the fixture now uses a shell-independent title. The lifecycle harness initially assumed the New session entry was a button; it now uses the visible navigation label. Failed modern acceptance captures a screenshot and synthetic page text before closing the browser.
 
 Remaining: release CI on the exact candidate, immutable npm/GitHub publication, Portable default-plugin lock update after registry integrity is available, and user installation acceptance without changing their disabled preference implicitly.
+
+
+## Final visual qualification
+
+Visual inspection found duplicated archive tabs on unmodified upstream alpha.2. Its settings navigation enumerates shadowed registrations. The enhanced archive page is now enabled only on Portable hosts exposing the settings adapter; stock DSH retains its native archive page and the plugin supplies the native red delete menu. This avoids an intrusive settings-service replacement. README documents this boundary.
+
+Final package source passed 98 tests. Stock DSH light and dark runs passed one-tab navigation, native delete/cancel, and four enable/disable transitions with real editable-composer checks. Portable's actual cached alpha.2 runtime was used read-only with a separate synthetic profile; three toggles, single settings archive tab, restore/search/permanent delete and no browser exceptions passed. No current user profile was changed. Evidence: `.artifacts/visual-beta2-fixed.log`, `.artifacts/visual-beta2-light.log`, `.artifacts/portable-beta2-v2-20260922.log` and screenshot directories. These are headless browser acceptance against real hosts, not Windows WebView2 foreground acceptance.
+
+The first Portable count assertion included the sidebar shortcut; the corrected assertion scopes to the Settings dialog. The screenshot confirmed one tab. The earlier stock duplicate was real and was corrected in product source.

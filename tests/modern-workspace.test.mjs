@@ -17,7 +17,7 @@ test('alpha2 unknown shape is rejected instead of producing a partly patched cli
 test('alpha2 archive shortcut targets the unified settings section without old modal state', () => {
   assert.match(patched, /open\("archived-sessions"\)/)
   assert.doesNotMatch(patched, /setArchiveManagerOpen/)
-  assert.match(patched, /always: true/)
+  assert.doesNotMatch(patched, /always: true/)
 })
 
 test('directory flow follows official providers and unload removes only forwarded registrations', () => {

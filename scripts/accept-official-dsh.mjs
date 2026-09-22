@@ -199,6 +199,7 @@ export async function runOfficialAcceptance(options) {
     try {
       const page = await browser.newPage({
         viewport: { width: 1440, height: 960 },
+        colorScheme: process.env.DSH_ACCEPTANCE_COLOR_SCHEME || 'dark',
         ...(process.env.DSH_ACCEPTANCE_LOCALE === undefined ? {} : { locale: process.env.DSH_ACCEPTANCE_LOCALE }),
       })
       const deleteRequests = []
@@ -218,7 +219,7 @@ export async function runOfficialAcceptance(options) {
       await removeIsolatedOnboarding(page, options.dshVersion)
 
       if (options.dshVersion === '0.1.6-alpha.2') {
-        await acceptModernOfficial(page, SESSION_TITLE, transcriptPath).catch(async error => {
+        await acceptModernOfficial(page, SESSION_TITLE, transcriptPath, base).catch(async error => {
           await page.screenshot({ path: join(base, 'modern-failure.png'), fullPage: true })
           await writeFile(join(base, 'modern-failure.txt'), await page.locator('body').innerText())
           throw error
@@ -397,7 +398,7 @@ export async function runOfficialAcceptance(options) {
     return {
       ok: true,
       dshVersion: options.dshVersion,
-      checks: ['official install', 'official boot', options.dshVersion === '0.1.6-alpha.2' ? 'unified archive settings' : 'workspace header actions visible', 'archive list', 'archived history search', 'archive restore', 'red native action', 'second confirmation', 'cancel without request', 'delete from archive manager', 'confirmed JSONL deletion', 'no page reload', ...(options.dshVersion === '0.1.6-alpha.2' ? ['four plugin toggles preserve editable composer'] : []), 'no runtime exceptions'],
+      checks: ['official install', 'official boot', options.dshVersion === '0.1.6-alpha.2' ? 'one official archive settings entry' : 'workspace header actions visible', ...(options.dshVersion === '0.1.6-alpha.2' ? [] : ['archive list', 'archived history search', 'archive restore']), 'red native action', 'second confirmation', 'cancel without request', ...(options.dshVersion === '0.1.6-alpha.2' ? ['native menu deletion'] : ['delete from archive manager']), 'confirmed JSONL deletion', 'no page reload', ...(options.dshVersion === '0.1.6-alpha.2' ? ['four plugin toggles preserve editable composer'] : []), 'no runtime exceptions'],
     }
   } finally {
     if (server !== undefined) await stopProcess(server)
