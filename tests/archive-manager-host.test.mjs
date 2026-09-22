@@ -12,6 +12,24 @@ import {
 const A = 'session-archive-a'
 const B = 'session-archive-b'
 
+test('verified absent transcript clears only its stale archive marker', async () => {
+  const workspaceRegistry = registry()
+  const result = await deleteSessionAndReconcileArchive({ workspaceRegistry,
+    deleteSession: async () => ({ ok: true, value: { deleted: false, alreadyAbsent: true } }),
+  }, A)
+  assert.deepEqual(result, { ok: true, value: { deleted: false, alreadyAbsent: true, archiveReconciled: true } })
+  assert.deepEqual(workspaceRegistry.archivedSessionIds, [B])
+})
+
+test('failed stale-marker reconciliation is not reported as deletion success', async () => {
+  const result = await deleteSessionAndReconcileArchive({
+    workspaceRegistry: { archivedSessionIds: [A], unarchiveSession: async () => { throw Error('write failed') } },
+    deleteSession: async () => ({ ok: true, value: { deleted: false, alreadyAbsent: true } }), warn() {},
+  }, A)
+  assert.equal(result.ok, false)
+  assert.equal(result.error.code, 'archive-reconcile-failed')
+})
+
 test('public unarchive API owns restoration without private registry access', async () => {
   const workspaceRegistry = {
     archivedSessionIds: [A, B],
