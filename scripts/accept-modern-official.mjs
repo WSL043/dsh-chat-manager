@@ -7,6 +7,17 @@ export async function acceptModernOfficial(page, title, transcriptPath, evidence
   const capture = async name => {
     if (evidenceRoot) await page.screenshot({ path: path.join(evidenceRoot, `${name}.png`) })
   }
+  if (await page.locator('#archived-sessions').count()) {
+    const header = page.locator('#archived-sessions').locator('..').locator('..')
+    const buttons = header.getByRole('button')
+    assert.equal(await buttons.count(), 4, 'retain search, archive, view options and add workspace')
+    for (const button of await buttons.all()) {
+      assert.equal(await button.evaluate(el => {
+        const r = el.getBoundingClientRect()
+        return [r.left + 2, r.right - 2].every(x => el.contains(document.elementFromPoint(x, r.top + r.height / 2)))
+      }), true, 'every header action must be fully clickable, not clipped')
+    }
+  }
   const requests = []
   let navigations = 0
   page.on('request', request => {

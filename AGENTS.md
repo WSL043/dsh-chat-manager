@@ -6,7 +6,7 @@ or remove `dsh-chat-manager` in a selected DeepSeek Harness profile.
 ## Safety and responsibility boundary
 
 - Confirm the target DSH installation and profile. Use `web` only when it is the user's target.
-- Use the fixed v1.4.0-beta.2 package below; never substitute a moving branch or an unreviewed source.
+- Use the fixed v1.4.0-beta.3 package below; never substitute a moving branch or an unreviewed source.
 - Do not print session contents, full profile files, transcript paths, credentials, or other private data.
 - Do not start, stop, or restart DSH without explicit permission.
 - Preserve all sessions, unrelated plugins, and user-owned profile changes.
@@ -27,16 +27,16 @@ Verify registry publication before running the beta.2 installation command.
 
 ## Fixed package and standard bundle
 
-The v1.4.0-beta.2 package is a standard DSH bundle with a `dsh.bundle` profile patch. Its exact package spec is:
+The v1.4.0-beta.3 package is a standard DSH bundle with a `dsh.bundle` profile patch. Its exact package spec is:
 
 ```text
-dsh-chat-manager@1.4.0-beta.2
+dsh-chat-manager@1.4.0-beta.3
 ```
 
 The beta.2 package preserves the official workspace service and adds view-slot extensions.
 Disabling it removes those extensions without releasing the official active session. The published
 beta.1 still replaces the workspace; beta.2 contains the lifecycle fix. Do not install the tarball under `@deepseek-ai/dsh-client-ui-workspace`; that old aliasing
-approach is not the v1.4.0-beta.2 contract. The product is shown to users as **DSH Chat Manager**.
+approach is not the v1.4.0-beta.3 contract. The product is shown to users as **DSH Chat Manager**.
 
 ## Detect the target DSH
 
@@ -60,7 +60,7 @@ record the selected profile's relevant metadata before invoking it, without prin
 With an existing `dsh` command, run exactly:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.2
+dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.3
 ```
 
 Use the same `add` command to update or repair. The DSH CLI owns target selection, dependency resolution,
@@ -78,7 +78,7 @@ dsh plugin --profile web list dsh-chat-manager --depth 0
 ```
 
 1. The `dsh-chat-manager` bundle appears exactly once in the requested profile.
-2. Its direct package spec is the fixed `dsh-chat-manager@1.4.0-beta.2` npm version above.
+2. Its direct package spec is the fixed `dsh-chat-manager@1.4.0-beta.3` npm version above.
 3. The profile contains the bundle patch and no duplicate official workspace row from this plugin.
 4. No unrelated dependency, profile patch, or session data was changed by the operation.
 
