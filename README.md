@@ -1,6 +1,6 @@
 > [!NOTE]
 > 1.4 Beta 适配 DSH 0.1.6-alpha.2：归档管理融入设置页，保留搜索、取消归档与红色永久删除按钮。在兼容的 Portable 中，侧边栏归档入口直接打开该设置页。旧内核请使用对应的已验证旧版插件。
-> 开发分支已修复开关插件导致输入框消失的问题：保留官方工作区服务，只扩展界面。此修复尚未发布，已发布的 beta.1 不包含它。
+> 当前开发候选为 1.4.0-beta.2，尚未发布。它修复开关插件导致输入框消失的问题：保留官方工作区服务，只扩展界面。已发布的 beta.1 不包含此修复；以下 beta.2 安装命令需等待发布后使用。
 >
 > 这是一个持续维护、可独立卸载的 DSH 插件。它补充归档浏览、聊天内容搜索、恢复与安全永久删除；不喜欢这套会话管理方式时，可以直接卸载，现有会话不会因此被删除。
 
@@ -42,19 +42,19 @@
 
 ## 安装
 
-**DSH 0.1.6-alpha.2 请使用 `dsh-chat-manager@1.4.0-beta.1`，旧版 1.3.5 仅用于其已验证的旧内核。** 旧版会接管不兼容的工作区界面，可能导致无法输入。新版 DSH 的 **插件 → 添加插件** 只填写包名与版本，不粘贴 `dsh plugin --profile web add`。安装后按官方页面结果操作；无需重启时不额外重启。
+**DSH 0.1.6-alpha.2 请使用 `dsh-chat-manager@1.4.0-beta.2`，旧版 1.3.5 仅用于其已验证的旧内核。** 旧版会接管不兼容的工作区界面，可能导致无法输入。新版 DSH 的 **插件 → 添加插件** 只填写包名与版本，不粘贴 `dsh plugin --profile web add`。安装后按官方页面结果操作；无需重启时不额外重启。
 
 ### DSH 标准命令
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.1
+dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.2
 ```
 
 安装完成后，保存工作并按 DSH 的正常方式重启一次，使新的 bundle 配置生效。
 
 ### 交给 Agent
 
-请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.4.0-beta.1/AGENTS.md)，
+请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.4.0-beta.2/AGENTS.md)，
 其中写明了安装、更新、验收、卸载和安全边界。不要把 `main` 分支文档当作安装依据。
 
 ## 使用
@@ -111,10 +111,10 @@ JSONL 存储。安装后替换为带会话管理功能的原生工作区列表�
 
 ## 更新与卸载
 
-更新时继续用 DSH 标准命令安装目标 npm 版本。v1.4.0-beta.1 的命令是：
+更新时继续用 DSH 标准命令安装目标 npm 版本。v1.4.0-beta.2 的命令是：
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.1
+dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.2
 ```
 
 卸载只移除这个插件的 bundle 层，不删除任何会话：

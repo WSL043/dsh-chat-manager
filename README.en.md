@@ -1,5 +1,5 @@
 > Version 1.4 Beta targets DSH 0.1.6-alpha.2 with archive search, unarchive and red permanent-delete actions in Settings. Compatible Portable builds route the sidebar archive shortcut to this section. Older cores require their previously verified plugin releases.
-> The development branch fixes the missing composer after toggling the plugin by retaining the official workspace service and extending only its views. This fix is not yet published; the released beta.1 does not contain it.
+> The current development candidate is 1.4.0-beta.2, not yet published. It fixes the missing composer after toggling the plugin by retaining the official workspace service and extending only its views. Released beta.1 does not contain this fix; the beta.2 commands below require its publication first.
 
 > [!NOTE]
 > This is an actively maintained, independently removable DSH plugin. It adds archive browsing, conversation-content search, restore, and safe permanent deletion. If this session workflow is not for you, uninstalling the plugin leaves existing sessions untouched.
@@ -42,12 +42,12 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 
 ## Install
 
-**For DSH 0.1.6-alpha.2, use `dsh-chat-manager@1.4.0-beta.1`, the examples below target this beta; 1.3.5 is for its verified older cores only.** The older workspace replacement can break text input on alpha.2. In **Plugins → Add plugin**, enter only the package name and version, without `dsh plugin --profile web add`. Follow the official installation result; restart only when requested.
+**For DSH 0.1.6-alpha.2, use `dsh-chat-manager@1.4.0-beta.2`, the examples below target this beta; 1.3.5 is for its verified older cores only.** The older workspace replacement can break text input on alpha.2. In **Plugins → Add plugin**, enter only the package name and version, without `dsh plugin --profile web add`. Follow the official installation result; restart only when requested.
 
 ### Standard DSH command
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.1
+dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.2
 ```
 
 When the command finishes, save your work and restart DSH once through its normal workflow so the new
@@ -55,7 +55,7 @@ bundle configuration becomes active.
 
 ### Agent installation
 
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.4.0-beta.1/AGENTS.md).
+Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.4.0-beta.2/AGENTS.md).
 It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
 branch document as an installation contract.
 
@@ -120,10 +120,10 @@ list with the session-management version; uninstalling restores DSH's original l
 
 ## Update and uninstall
 
-Install the target npm version with the same standard DSH command. For v1.4.0-beta.1:
+Install the target npm version with the same standard DSH command. For v1.4.0-beta.2:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.1
+dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.2
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:
