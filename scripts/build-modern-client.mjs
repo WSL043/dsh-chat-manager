@@ -298,10 +298,16 @@ export function patchModernWorkspaceClient(upstream, upstreamVersion = MODERN_WO
 
   source = replaceOnce(source,
     'children: [wide && (0, react_jsx_runtime.jsx)(ViewOptionsMenu, {',
-    'children: [typeof window.__DSH_PORTABLE_SETTINGS__?.open === "function" && (0, react_jsx_runtime.jsx)("button", { type: "button", id: "archived-sessions", className: WorkspaceBrowser_module_css_default.iconButton, "aria-label": t("archive.open"), onClick: () => window.__DSH_PORTABLE_SETTINGS__?.open("archived-sessions"), children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconArchiveOutline20, { size: 16 }) }), wide && (0, react_jsx_runtime.jsx)(ViewOptionsMenu, {',
+    'children: [typeof window.__DSH_PORTABLE_SETTINGS__?.open === "function" && (0, react_jsx_runtime.jsx)("button", { type: "button", id: "archived-sessions", className: WorkspaceBrowser_module_css_default.iconButton, "aria-label": t("archive.open"), title: t("archive.open"), onClick: () => window.__DSH_PORTABLE_SETTINGS__?.open("archived-sessions"), children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconArchiveOutline20, { size: 16 }) }), wide && (0, react_jsx_runtime.jsx)(ViewOptionsMenu, {',
     'archive settings shortcut');
   source = replaceOnce(source, '"menu.archiveSession": "归档会话",', '"archive.open": "已归档会话",\n\t\t\t"menu.archiveSession": "归档会话",', 'archive shortcut Chinese');
   source = replaceOnce(source, '"menu.archiveSession": "Archive session",', '"archive.open": "Archived sessions",\n\t\t\t"menu.archiveSession": "Archive session",', 'archive shortcut English');
+
+  // The official header reserves 60px for two 28px actions and one gap.
+  // Archive adds a third action; retain the zero-width search-expanded rule.
+  const headerWidth = /([.][\w-]+_headerActions\{[^}]*?)max-width:60px;/g
+  if ([...source.matchAll(headerWidth)].length !== 1) throw new Error('missing official header action width')
+  source = source.replace(headerWidth, '$1max-width:92px;')
 
   // Both clients coexist; official CSS tag identities would suppress our added
   // danger-button rules when the official module has loaded first.

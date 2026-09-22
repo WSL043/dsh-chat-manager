@@ -46,3 +46,10 @@ test('directory flow follows official providers and unload removes only forwarde
   assert.equal(listener, undefined)
   assert.equal(entries[0], provider)
 })
+
+test('archive leaves room for every official header action without breaking expanded search', () => {
+  assert.match(patched, /_headerActions\{[^}]*max-width:92px;/)
+  assert.match(patched, /_headerActionsHidden\{[^}]*max-width:0;/)
+  assert.match(patched, /title: t\("archive.open"\)/)
+  assert.throws(() => patchModernWorkspaceClient(upstream.replace('max-width:60px;', 'max-width:61px;')))
+})
