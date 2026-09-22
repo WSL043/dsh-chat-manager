@@ -81,6 +81,19 @@ export function registerOfficialSessionActions(ctx, React, ui) {
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay', id: 'dsh-chat-manager.delete-dialog',
   }, DeleteDialog))
+  function ArchiveShortcut({ className }) {
+    return h('button', {
+      type: 'button', id: 'archived-sessions', className,
+      title: text('已归档会话', 'Archived sessions'),
+      'aria-label': text('已归档会话', 'Archived sessions'),
+      onClick: () => window.__DSH_PORTABLE_SETTINGS__?.open('archived-sessions'),
+    }, h(ui.IconArchiveOutlineRegular, { size: 16 }))
+  }
+  // Portable exposes this narrow header slot. Stock DSH retains its own
+  // workspace and archive filter; there is no DOM insertion or second dialog.
+  ctx.slots.inject('sidebar.workspaces.header.action', () => ctx.slots.register({
+    name: 'sidebar.workspaces.header.action', id: 'dsh-chat-manager.archives',
+  }, ArchiveShortcut))
 }
 
 export function buildOfficialSlotClient() {

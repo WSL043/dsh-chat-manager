@@ -6,6 +6,7 @@ import { registerOfficialSessionActions, buildOfficialSlotClient } from '../scri
 function fixture(fetch, selected = () => 'synthetic') {
   const entries = [], cleanups = []
   let closed = 0, refreshed = 0, cleared = 0
+  const openedSections = []
   const React = { createElement: (type, props, ...children) => ({ type, props: props || {}, children }),
     useSyncExternalStore: (_subscribe, snapshot) => snapshot() }
   const ui = { MenuItemButton: 'MenuItem', IconTrashOutlineRegular: 'Trash', Modal: 'Modal', Button: 'Button' }
@@ -17,15 +18,16 @@ function fixture(fetch, selected = () => 'synthetic') {
       inject: (_name, fn) => fn(), register: (meta, component) => { entries.push({ meta, component }); return () => {} },
     },
   }
-  vm.runInNewContext(`(${registerOfficialSessionActions.toString()})(ctx,React,ui)`, { ctx, React, ui, fetch, AbortController, console })
+  vm.runInNewContext(`(${registerOfficialSessionActions.toString()})(ctx,React,ui)`, { ctx, React, ui, fetch, AbortController, console,
+    window: { __DSH_PORTABLE_SETTINGS__: { open: section => openedSections.push(section) } } })
   const menu = () => entries[0].component({ sessionId: 'synthetic', displayTitle: 'Disposable', useMenuOpenState: () => [true, () => closed++] })
   const dialog = () => entries[1].component()
-  return { entries, menu, dialog, dispose: () => cleanups.forEach(fn => fn()), counts: () => ({ closed, refreshed, cleared }) }
+  return { entries, menu, dialog, openedSections, dispose: () => cleanups.forEach(fn => fn()), counts: () => ({ closed, refreshed, cleared }) }
 }
 
 test('official session slots add only deletion; cancellation does not contact the host', () => {
   const bed = fixture(() => { throw Error('must not delete') })
-  assert.deepEqual(bed.entries.map(e => e.meta.name), ['sidebar.workspaces.session.menu.item', 'shell.overlay'])
+  assert.deepEqual(bed.entries.map(e => e.meta.name), ['sidebar.workspaces.session.menu.item', 'shell.overlay', 'sidebar.workspaces.header.action'])
   bed.menu().props.onSelect()
   assert.equal(bed.menu().props.danger, true)
   const dialog = bed.dialog()
@@ -63,6 +65,16 @@ test('rejected deletion stays visible and leaves the official current session un
   assert.equal(bed.dialog().children[1].props.role, 'alert')
   assert.equal(bed.dialog().children[1].children[0], 'session busy')
   assert.equal(bed.counts().cleared, 0)
+  bed.dispose()
+})
+
+test('archive shortcut delegates to the single settings page and preserves host styling', () => {
+  const bed = fixture(() => { throw Error('shortcut must not mutate sessions') })
+  const shortcut = bed.entries[2].component({ className: 'official-header-button' })
+  assert.equal(shortcut.props.className, 'official-header-button')
+  shortcut.props.onClick()
+  assert.deepEqual(bed.openedSections, ['archived-sessions'])
+  assert.equal(bed.dialog(), null)
   bed.dispose()
 })
 
