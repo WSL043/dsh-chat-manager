@@ -24,9 +24,8 @@ export async function acceptModernOfficial(page, title, transcriptPath, evidence
     await actions.click()
   }
   async function openArchive() {
-    await page.getByRole('button', { name: /^(Settings|设置)$/ }).click()
+    await page.locator('#archived-sessions').click()
     assert.equal(await page.getByRole('dialog', { name: /^(Settings|设置)$/ }).getByRole('button', { name: /^(Archived sessions|已归档会话)$/ }).count(), 1)
-    await page.getByRole('dialog', { name: /^(Settings|设置)$/ }).getByRole('button', { name: /^(Archived sessions|已归档会话)$/ }).click()
     await page.getByRole('searchbox', { name: /^(Search archived sessions|搜索已归档会话)$/ }).waitFor()
     assert.equal(await page.getByRole('dialog', { name: /^(Archived sessions|归档会话)$/ }).count(), 0)
   }
@@ -122,7 +121,7 @@ export async function acceptModernOfficial(page, title, transcriptPath, evidence
     const enabled = await toggle.getAttribute('aria-checked') === 'true'
     await toggle.click()
     await page.waitForFunction(expected => document.querySelector('[data-plugin-package="dsh-chat-manager"] [role="switch"]')?.getAttribute('aria-checked') === expected, String(!enabled))
-    await page.getByText(/^(New session|新会话)$/).first().click()
+    await page.getByRole('button', { name: /^(New session|新建会话)$/i }).first().click()
     const composer = page.locator('[contenteditable="true"],textarea').first()
     await composer.waitFor()
     assert.equal(await composer.isEditable(), true)
