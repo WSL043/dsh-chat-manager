@@ -6,7 +6,7 @@ or remove `dsh-chat-manager` in a selected DeepSeek Harness profile.
 ## Safety and responsibility boundary
 
 - Confirm the target DSH installation and profile. Use `web` only when it is the user's target.
-- Use the fixed v1.5.0-beta.1 package below; never substitute a moving branch or an unreviewed source.
+- Use the fixed v1.5.0 package below; never substitute a moving branch or an unreviewed source.
 - Do not print session contents, full profile files, transcript paths, credentials, or other private data.
 - Do not start, stop, or restart DSH without explicit permission.
 - Preserve all sessions, unrelated plugins, and user-owned profile changes.
@@ -20,23 +20,23 @@ external attachments, caches, logs, backups, cloud copies, and non-JSONL stores 
 The user is responsible for authority to delete the selected data and for applicable retention or privacy
 requirements. A cancelled confirmation is the safe default and must not send a delete request.
 
-This candidate targets DSH 0.1.7-alpha.1. Check the target core before installation;
+This release targets DSH 0.1.7-alpha.1. Check the target core before installation;
 use the corresponding stable release guide for older verified cores.
 
-Verify registry publication before running the beta.2 installation command.
+Verify registry publication before running the installation command.
 
 ## Fixed package and standard bundle
 
-The v1.5.0-beta.1 package is a standard DSH bundle with a `dsh.bundle` profile patch. Its exact package spec is:
+The v1.5.0 package is a standard DSH bundle with a `dsh.bundle` profile patch. Its exact package spec is:
 
 ```text
-dsh-chat-manager@1.5.0-beta.1
+dsh-chat-manager@1.5.0
 ```
 
-The beta.2 package preserves the official workspace service and adds view-slot extensions.
+The package preserves the official workspace service and adds view-slot extensions.
 Disabling it removes those extensions without releasing the official active session. The published
 Version 1.5 uses official extension slots and never replaces the workspace. Do not install the tarball under `@deepseek-ai/dsh-client-ui-workspace`; that old aliasing
-approach is not the v1.5.0-beta.1 contract. The product is shown to users as **DSH Chat Manager**.
+approach is not the v1.5.0 contract. The product is shown to users as **DSH Chat Manager**.
 
 ## Detect the target DSH
 
@@ -60,7 +60,7 @@ record the selected profile's relevant metadata before invoking it, without prin
 With an existing `dsh` command, run exactly:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.0-beta.1
+dsh plugin --profile web add dsh-chat-manager@1.5.0
 ```
 
 Use the same `add` command to update or repair. The DSH CLI owns target selection, dependency resolution,
@@ -78,7 +78,7 @@ dsh plugin --profile web list dsh-chat-manager --depth 0
 ```
 
 1. The `dsh-chat-manager` bundle appears exactly once in the requested profile.
-2. Its direct package spec is the fixed `dsh-chat-manager@1.5.0-beta.1` npm version above.
+2. Its direct package spec is the fixed `dsh-chat-manager@1.5.0` npm version above.
 3. The profile contains the bundle patch and no duplicate official workspace row from this plugin.
 4. No unrelated dependency, profile patch, or session data was changed by the operation.
 
@@ -126,4 +126,4 @@ what changed, rollback state, and what remains unverified. Do not attempt an irr
 as a recovery step. If the bundle was added but verification failed, stop and obtain permission before any
 further profile change.
 
-On stock alpha.2, keep the official archive page. Enhanced archive search and permanent deletion in Settings require Portable settings integration; native session-menu deletion works without that integration.
+On stock DSH 0.1.7-alpha.1, keep the official archive page. Enhanced archive search and permanent deletion in Settings require Portable settings integration; native session-menu deletion works without that integration.
