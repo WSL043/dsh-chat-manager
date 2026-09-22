@@ -41,8 +41,10 @@ export function registerOfficialSessionActions(ctx, React, ui) {
       if (!response.ok || result?.ok !== true) throw Error(result?.error?.message || `HTTP ${response.status}`)
       if (disposed) return
       const sessions = ctx.get('sessions'), workspaces = ctx.get('workspaces')
-      const current = sessions.list.getSnapshot().byId?.[target.id]
-      if ((current?.retainedBy?.mainView ?? 0) > 0) ctx.get('uiWorkspace')?.clearMain?.()
+      const workspace = ctx.get('uiWorkspace')
+      // Host events may already have removed the deleted row. Read the view's
+      // selection, not row retention; never clear a different newly opened view.
+      if (workspace?.selection?.getSnapshot?.().sessionId === target.id) workspace.clearMain()
       // Current official stores receive host events; older stores additionally
       // expose refresh(). Absence is not a failed deletion.
       const refreshed = await Promise.allSettled([
