@@ -464,7 +464,8 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 }
 
 export async function buildClient() {
-  if (process.env.DSH_CLIENT_TARGET === '0.1.7-alpha.1') {
+  const compatibility = JSON.parse(await readFile(new URL('../compatibility.json', import.meta.url), 'utf8'))
+  if ((process.env.DSH_CLIENT_TARGET || compatibility.clientTarget) === '0.1.7-alpha.1') {
     const { buildOfficialSlotClient } = await import('./official-session-actions.mjs')
     await mkdir(dirname(output), { recursive: true })
     await writeFile(output, buildOfficialSlotClient(), 'utf8')

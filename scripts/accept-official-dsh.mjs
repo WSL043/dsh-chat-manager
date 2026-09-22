@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { access, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -108,7 +108,7 @@ async function stopProcess(child) {
 }
 
 async function removeIsolatedOnboarding(page, dshVersion) {
-  if (['0.1.6-alpha.1', '0.1.6-alpha.2'].includes(dshVersion)) {
+  if (['0.1.6-alpha.1', '0.1.6-alpha.2', '0.1.7-alpha.1'].includes(dshVersion)) {
     // The current onboarding shares the Settings root. Removing its DOM also
     // removes Settings; complete the visible, non-credential flow instead.
     await page.getByRole('button', { name: /^(Continue|继续)$/ }).click()
@@ -150,7 +150,15 @@ export async function runOfficialAcceptance(options) {
   const workspace = join(base, 'workspace')
   const env = { ...process.env, DSH_HOME: dshHome, DSH_TELEMETRY_MODE: 'DISABLED' }
   const dshSpec = `@deepseek-ai/dsh@${options.dshVersion}`
-  const dshCommand = ['dlx', '--allow-build=fs-ext', dshSpec]
+  const runtimeRoot = process.env.DSH_TEST_RUNTIME
+  let dshExecutable = pnpmCommand()
+  let dshCommand = ['dlx', '--allow-build=fs-ext', dshSpec]
+  if (runtimeRoot) {
+    const manifest = JSON.parse(await readFile(join(runtimeRoot, 'package.json'), 'utf8'))
+    if (manifest.name !== '@deepseek-ai/dsh' || manifest.version !== options.dshVersion || manifest.bin?.dsh !== 'lib/bin.js') throw new Error('acceptance runtime identity does not match requested official version')
+    dshExecutable = process.execPath
+    dshCommand = [join(runtimeRoot, 'lib/bin.js')]
+  }
   let server
   let serverStdout = ''
   let serverStderr = ''
@@ -158,11 +166,11 @@ export async function runOfficialAcceptance(options) {
   try {
     await mkdir(workspace, { recursive: true })
 
-    await run(pnpmCommand(), [...dshCommand, 'plugin', '--profile', 'web', 'add', packagePath], {
+    await run(dshExecutable, [...dshCommand, 'plugin', '--profile', 'web', 'add', packagePath], {
       cwd: workspace,
       env,
     })
-    const seed = await run(pnpmCommand(), [...dshCommand, '--profile', 'headless', SESSION_TITLE], {
+    const seed = await run(dshExecutable, [...dshCommand, '--profile', 'headless', SESSION_TITLE], {
       cwd: workspace,
       env,
       allowFailure: true,
@@ -170,7 +178,7 @@ export async function runOfficialAcceptance(options) {
     })
     await writeFile(join(base, 'seed.log'), `exit=${seed.code}\n${seed.stdout}\n${seed.stderr}`)
     const transcriptPath = await waitForSingleTranscript(join(dshHome, 'sessions'))
-    server = spawnPortable(pnpmCommand(), [
+    server = spawnPortable(dshExecutable, [
       ...dshCommand, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', String(options.port),
     ], {
       cwd: workspace,
@@ -218,7 +226,7 @@ export async function runOfficialAcceptance(options) {
       await page.goto(url, { waitUntil: 'domcontentloaded' })
       await removeIsolatedOnboarding(page, options.dshVersion)
 
-      if (options.dshVersion === '0.1.6-alpha.2') {
+      if (['0.1.6-alpha.2', '0.1.7-alpha.1'].includes(options.dshVersion)) {
         await acceptModernOfficial(page, SESSION_TITLE, transcriptPath, base).catch(async error => {
           await page.screenshot({ path: join(base, 'modern-failure.png'), fullPage: true })
           await writeFile(join(base, 'modern-failure.txt'), await page.locator('body').innerText())
@@ -398,7 +406,7 @@ export async function runOfficialAcceptance(options) {
     return {
       ok: true,
       dshVersion: options.dshVersion,
-      checks: ['official install', 'official boot', options.dshVersion === '0.1.6-alpha.2' ? 'one official archive settings entry' : 'workspace header actions visible', ...(options.dshVersion === '0.1.6-alpha.2' ? [] : ['archive list', 'archived history search', 'archive restore']), 'red native action', 'second confirmation', 'cancel without request', ...(options.dshVersion === '0.1.6-alpha.2' ? ['native menu deletion'] : ['delete from archive manager']), 'confirmed JSONL deletion', 'no page reload', ...(options.dshVersion === '0.1.6-alpha.2' ? ['four plugin toggles preserve editable composer'] : []), 'no runtime exceptions'],
+      checks: ['official install', 'official boot', ['0.1.6-alpha.2', '0.1.7-alpha.1'].includes(options.dshVersion) ? 'one official archive settings entry' : 'workspace header actions visible', ...(['0.1.6-alpha.2', '0.1.7-alpha.1'].includes(options.dshVersion) ? [] : ['archive list', 'archived history search', 'archive restore']), 'red native action', 'second confirmation', 'cancel without request', ...(['0.1.6-alpha.2', '0.1.7-alpha.1'].includes(options.dshVersion) ? ['native menu deletion'] : ['delete from archive manager']), 'confirmed JSONL deletion', 'no page reload', ...(['0.1.6-alpha.2', '0.1.7-alpha.1'].includes(options.dshVersion) ? ['four plugin toggles preserve editable composer'] : []), 'no runtime exceptions'],
     }
   } finally {
     if (server !== undefined) await stopProcess(server)
