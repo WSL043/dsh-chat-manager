@@ -1,4 +1,4 @@
-import { lstat, mkdtemp, realpath, rename, rm } from 'node:fs/promises'
+import { lstat, mkdtemp, readdir, realpath, rename, rm } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 const failure = (code, message) => ({ ok: false, error: { code, message } })
@@ -243,7 +243,30 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownership
   const storedHeaders = async () => (await deps.sessionPersistence.list()).map(item => usesHandles ? item.header : item)
   let header = (await storedHeaders()).find(item => item.id === sessionId)
     ?? deps.sessions.get(sessionId)?.header
-  if (header === undefined) return failure('session-not-found', '会话不存在或已经删除。')
+  if (header === undefined) {
+    // A stale archive marker can outlive its transcript. Only acknowledge an
+    // absent session after both the public backend and physical layout agree;
+    // unreadable/corrupt artifacts must never be mistaken for successful deletion.
+    if (usesHandles && /^[A-Za-z0-9_-]+$/.test(sessionId)
+      && deps.sessions.get(sessionId) === undefined && deps.agents.get(sessionId) === undefined
+      && await deps.sessionPersistence.stat(sessionId) === undefined) {
+      const projects = await readdir(sessionRoot, { withFileTypes: true })
+      let absent = true
+      for (const project of projects) {
+        if (project.isSymbolicLink()) { absent = false; break }
+        if (!project.isDirectory()) continue
+        const entries = await readdir(join(sessionRoot, project.name))
+        if (entries.some(name => name === sessionId || name.startsWith(`${sessionId}.`))) {
+          absent = false; break
+        }
+      }
+      if (absent && await deps.sessionPersistence.stat(sessionId) === undefined
+        && deps.sessions.get(sessionId) === undefined && deps.agents.get(sessionId) === undefined) {
+        return { ok: true, value: { deleted: false, alreadyAbsent: true } }
+      }
+    }
+    return failure('session-not-found', '会话不存在或已经删除。')
+  }
 
   if (deps.agents.get(sessionId) !== undefined) {
     let disposed

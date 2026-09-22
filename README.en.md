@@ -47,7 +47,7 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 2. Paste this line into **Package name or address**, then select Install:
 
 ```text
-dsh-chat-manager@1.5.0
+dsh-chat-manager@1.5.1
 ```
 
 3. Follow the result shown on the page. Refresh or restart only when requested. If installation fails, read its error before retrying.
@@ -59,12 +59,12 @@ dsh-chat-manager@1.5.0
 Run in the DSH or Portable terminal:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.0
+dsh plugin --profile web add dsh-chat-manager@1.5.1
 ```
 
 If DSH is running, save your work and restart after this terminal operation to load the change. For older cores, choose the plugin version verified in its release notes.
 
-For Agent installation, use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.0/AGENTS.md).
+For Agent installation, use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.1/AGENTS.md).
 
 ## Use
 
@@ -118,7 +118,7 @@ without warranty.
 ## Compatibility
 
 <!-- dsh-compatibility -->
-The installation examples target DSH `0.1.7-alpha.1` with plugin `1.5.0`; consult the matching release notes for other cores.
+The installation examples target DSH `0.1.7-alpha.1` with plugin `1.5.1`; consult the matching release notes for other cores.
 <!-- /dsh-compatibility -->
 
 Archive browsing, restore, and content search use DSH's workspace registry and session-query capabilities.
@@ -128,10 +128,10 @@ Permanent deletion supports DSH's default per-session JSONL storage. The current
 
 Prefer the update or uninstall action for the installed plugin on the official **Plugins** page. If no update action is offered, use **Add plugin** with the published target `package@version`. Follow the page result; a restart is not always required. Terminal alternatives follow.
 
-Install the target npm version with the same standard DSH command. For v1.5.0:
+Install the target npm version with the same standard DSH command. For v1.5.1:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.0
+dsh plugin --profile web add dsh-chat-manager@1.5.1
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:

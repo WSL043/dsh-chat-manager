@@ -94,6 +94,10 @@ export async function deleteSessionAndReconcileArchive({ workspaceRegistry, dele
     await restoreArchivedSession(workspaceRegistry, sessionId)
     return { ok: true, value: { ...result.value, archiveReconciled: true } }
   } catch (error) {
+    if (result.value?.alreadyAbsent === true) {
+      warn('absent session archive marker could not be reconciled:', error)
+      return { ok: false, error: { code: 'archive-reconcile-failed', message: '会话记录已不存在，但归档列表清理失败，请重试。' } }
+    }
     warn('session storage was deleted but its archive marker could not be reconciled:', error)
     return { ok: true, value: { ...result.value, archiveReconciled: false } }
   }

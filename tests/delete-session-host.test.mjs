@@ -18,6 +18,35 @@ const HEADER = Object.freeze({
   cwd: 'C:\\workspace',
 })
 
+test('absent modern session acknowledges only verified absence, preserving corrupt directories', async t => {
+  const paths = await fixture()
+  t.after(() => rm(paths.base, { recursive: true, force: true }))
+  const deps = dependencies({ transcript: paths.transcript, listed: [] })
+  deps.sessionPersistence = {
+    name: 'session-persistence-jsonl', list: async () => [],
+    stat: async () => undefined, open: async () => { throw Error('must not open') },
+    resolveCurrentLog: async () => undefined,
+  }
+  const args = { sessionRoot: paths.root, sessionId: HEADER.id }
+  assert.equal((await deleteSessionSafely(deps, args)).ok, false)
+  await rm(paths.sessionDirectory, { recursive: true })
+  assert.deepEqual(await deleteSessionSafely(deps, args), {
+    ok: true, value: { deleted: false, alreadyAbsent: true },
+  })
+  deps.sessionPersistence.stat = async () => { throw Error('unreadable storage') }
+  await assert.rejects(deleteSessionSafely(deps, args), /unreadable storage/)
+})
+
+test('absent session cannot be acknowledged while an agent still owns it', async t => {
+  const paths = await fixture()
+  t.after(() => rm(paths.base, { recursive: true, force: true }))
+  await rm(paths.sessionDirectory, { recursive: true })
+  const deps = dependencies({ transcript: paths.transcript, listed: [], agentLive: true })
+  deps.sessionPersistence = { name: 'session-persistence-jsonl', list: async () => [],
+    stat: async () => undefined, open() {}, resolveCurrentLog() {} }
+  assert.equal((await deleteSessionSafely(deps, { sessionRoot: paths.root, sessionId: HEADER.id })).ok, false)
+})
+
 async function fixture() {
   const base = await mkdtemp(join(tmpdir(), 'dsh-session-delete-'))
   const root = join(base, 'sessions')
