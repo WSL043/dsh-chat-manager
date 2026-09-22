@@ -81,5 +81,20 @@ export async function acceptModernOfficial(page, title, transcriptPath) {
   await closeArchive()
   await openArchive()
   await closeArchive()
+  // Regression: disabling the extension must not dispose the official composer.
+  for (let cycle = 0; cycle < 4; cycle++) {
+    await page.getByRole('button', { name: /^(Plugins|插件)$/ }).first().click()
+    const toggle = page.locator('[data-plugin-package="dsh-chat-manager"]').getByRole('switch')
+    await toggle.waitFor()
+    const enabled = await toggle.getAttribute('aria-checked') === 'true'
+    await toggle.click()
+    await page.waitForFunction(expected => document.querySelector('[data-plugin-package="dsh-chat-manager"] [role="switch"]')?.getAttribute('aria-checked') === expected, String(!enabled))
+    await page.getByText(/^(New session|新会话)$/).first().click()
+    const composer = page.locator('[contenteditable="true"],textarea').first()
+    await composer.waitFor()
+    assert.equal(await composer.isEditable(), true)
+    await composer.fill('isolated-lifecycle-probe')
+    await composer.fill('')
+  }
   assert.equal(navigations, 0)
 }

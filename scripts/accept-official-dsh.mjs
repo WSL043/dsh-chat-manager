@@ -8,7 +8,8 @@ import { chromium } from 'playwright'
 import { acceptModernOfficial } from './accept-modern-official.mjs'
 
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/
-const SESSION_TITLE = 'Official DSH compatibility smoke'
+// Avoid shell-dependent quoting in the Windows pnpm.cmd fixture seed.
+const SESSION_TITLE = 'Official-DSH-compatibility-smoke'
 
 export function parseOfficialAcceptanceArgs(argv) {
   const values = {}
@@ -217,7 +218,11 @@ export async function runOfficialAcceptance(options) {
       await removeIsolatedOnboarding(page, options.dshVersion)
 
       if (options.dshVersion === '0.1.6-alpha.2') {
-        await acceptModernOfficial(page, SESSION_TITLE, transcriptPath)
+        await acceptModernOfficial(page, SESSION_TITLE, transcriptPath).catch(async error => {
+          await page.screenshot({ path: join(base, 'modern-failure.png'), fullPage: true })
+          await writeFile(join(base, 'modern-failure.txt'), await page.locator('body').innerText())
+          throw error
+        })
       } else {
       const archiveHeaderAction = page.locator('#archived-sessions')
       const viewHeaderAction = page.getByRole('button', { name: /^(View options|视图选项)$/ })
@@ -392,7 +397,7 @@ export async function runOfficialAcceptance(options) {
     return {
       ok: true,
       dshVersion: options.dshVersion,
-      checks: ['official install', 'official boot', options.dshVersion === '0.1.6-alpha.2' ? 'unified archive settings' : 'workspace header actions visible', 'archive list', 'archived history search', 'archive restore', 'red native action', 'second confirmation', 'cancel without request', 'delete from archive manager', 'confirmed JSONL deletion', 'no page reload', 'no runtime exceptions'],
+      checks: ['official install', 'official boot', options.dshVersion === '0.1.6-alpha.2' ? 'unified archive settings' : 'workspace header actions visible', 'archive list', 'archived history search', 'archive restore', 'red native action', 'second confirmation', 'cancel without request', 'delete from archive manager', 'confirmed JSONL deletion', 'no page reload', ...(options.dshVersion === '0.1.6-alpha.2' ? ['four plugin toggles preserve editable composer'] : []), 'no runtime exceptions'],
     }
   } finally {
     if (server !== undefined) await stopProcess(server)
