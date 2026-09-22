@@ -58,7 +58,7 @@ export async function acceptModernOfficial(page, title, transcriptPath, evidence
     return body
   }
   await openSessionMenu()
-  const nativeDelete = page.getByRole('menuitem', { name: /^(Delete session|删除会话)$/ })
+  const nativeDelete = page.getByRole('menuitem', { name: /^(Delete session|删除会话|Delete permanently|永久删除)$/ })
   const nativeArchive = page.getByRole('menuitem', { name: /^(Archive session|归档会话)$/ })
   assert.notEqual(await nativeDelete.evaluate(e => getComputedStyle(e).color), await nativeArchive.evaluate(e => getComputedStyle(e).color))
   if (!await page.evaluate(() => typeof window.__DSH_PORTABLE_SETTINGS__?.open === 'function')) {
@@ -77,7 +77,7 @@ export async function acceptModernOfficial(page, title, transcriptPath, evidence
     await openSessionMenu()
     await nativeDelete.click()
     const removed = endpoint('delete')
-    await dialog.getByRole('button', { name: /^(Delete permanently|永久删除)$/ }).click()
+    await dialog.getByRole('button', { name: /^(Delete permanently|永久删除|Confirm permanent deletion|确认永久删除)$/ }).click()
     await successful(removed)
     await dialog.waitFor({ state: 'hidden' })
     await assert.rejects(access(transcriptPath), { code: 'ENOENT' })

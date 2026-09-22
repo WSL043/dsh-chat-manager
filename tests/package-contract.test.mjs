@@ -30,20 +30,11 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   const previewSource = manifest.devDependencies[compatibility.previewWorkspaceFixture]
   assert.ok(previewSource.startsWith('npm:@deepseek-ai/dsh-client-ui-workspace@'))
   assert.ok(compatibility.previews.includes(previewSource.split('@').at(-1)))
-  const supportedVersions = new Set([...compatibility.supported, ...compatibility.previews])
+  const supportedVersions = new Set(compatibility.releaseTargets)
   for (const [name, version] of Object.entries(manifest.peerDependencies)) {
     if (name.startsWith('@deepseek-ai/dsh-')) assert.deepEqual(new Set(version.split(' || ')), supportedVersions)
   }
-  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-connection'))
-  for (const dependency of [
-    '@deepseek-ai/dsh-api-remotes',
-    '@deepseek-ai/dsh-api-session-controller',
-    '@deepseek-ai/dsh-api-workspace-controller',
-    '@deepseek-ai/dsh-client-ui-renderer',
-    '@deepseek-ai/dsh-client-ui-session',
-  ]) {
-    assert.ok(manifest.dsh.client.inject.includes(dependency), `missing RC1 client graph edge ${dependency}`)
-  }
+  assert.deepEqual(manifest.dsh.client.inject, ['@deepseek-ai/dsh-client-ui-workspace', '@deepseek-ai/dsh-client-ui-primitives', '@deepseek-ai/dsh-client-locale'])
   assert.ok(!manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-runtime'))
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined)
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], '0.1.1-rc.2')
@@ -271,11 +262,11 @@ test('public-facing copy describes the product without exposing maintenance mech
   assert.doesNotMatch(releaseNotes, /\birm\b|install\.ps1|powershell/i)
 })
 
-test('bundle preserves the official workspace owner and inserts its view extension', async () => {
+test('bundle uses official session slots without replacing the workspace', async () => {
   const patch = await read('cordis.patch.yml')
   assert.doesNotMatch(patch, /disabled:\s*true/)
   const client = await read('lib/client.js')
-  assert.match(client, /const uiWorkspace = ctx.get\("uiWorkspace"\)/)
+  assert.match(client, /sidebar\.workspaces\.session\.menu\.item/)
   assert.doesNotMatch(client, /new UiWorkspaceService\(/)
   assert.doesNotMatch(client, /slots.provideRoot\(/)
   assert.match(patch, /id:\s*ui-workspace-session-delete[\s\S]*name:\s*['"]?dsh-chat-manager/)
