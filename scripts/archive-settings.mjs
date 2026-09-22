@@ -17,9 +17,9 @@ export function registerArchiveSettings(ctx, React, ui, dangerClass, options = {
     })
     const body = await response.json()
     if (!response.ok || body?.ok !== true) throw Error(body?.error?.message || `HTTP ${response.status}`)
-    const sessions = service('sessions', ctx.sessions)
-    const workspaces = service('workspaces', ctx.workspaces)
-    const uiWorkspace = service('uiWorkspace', ctx.uiWorkspace)
+    const sessions = service('sessions')
+    const workspaces = service('workspaces')
+    const uiWorkspace = service('uiWorkspace')
     const snapshot = sessions?.list?.getSnapshot?.() || {}
     const current = snapshot.current
       ?? Object.values(snapshot.byId || {}).find(summary => summary?.id === sessionId

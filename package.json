@@ -16,6 +16,7 @@
     "lib/client.js",
     "scripts/build-client.mjs",
     "scripts/build-modern-client.mjs",
+    "scripts/official-session-actions.mjs",
     "scripts/archive-settings.mjs",
     "scripts/smoke-ui.mjs",
     "src/index.js",
