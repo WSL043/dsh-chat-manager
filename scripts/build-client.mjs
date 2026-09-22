@@ -464,6 +464,12 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 }
 
 export async function buildClient() {
+  if (process.env.DSH_CLIENT_TARGET === '0.1.7-alpha.1') {
+    const { buildOfficialSlotClient } = await import('./official-session-actions.mjs')
+    await mkdir(dirname(output), { recursive: true })
+    await writeFile(output, buildOfficialSlotClient(), 'utf8')
+    return output
+  }
   const modernManifest = JSON.parse(await readFile(resolveModernManifest(), 'utf8'))
   if (modernManifest.version !== MODERN_WORKSPACE_VERSION) {
     throw new Error(`unsupported modern @deepseek-ai/dsh-client-ui-workspace version: ${modernManifest.version ?? 'unknown'}`)
