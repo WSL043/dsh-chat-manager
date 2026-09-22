@@ -42,22 +42,30 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 
 ## Install
 
-**For DSH 0.1.6-alpha.2, use `dsh-chat-manager@1.4.0-beta.3`, the examples below target this beta; 1.3.5 is for its verified older cores only.** The older workspace replacement can break text input on alpha.2. In **Plugins → Add plugin**, enter only the package name and version, without `dsh plugin --profile web add`. Follow the official installation result; restart only when requested.
+### Official plugin page (recommended)
 
-### Standard DSH command
+1. Open **Plugins → Add plugin** in DSH.
+2. Paste this line into **Package name or address**, then select Install:
+
+```text
+dsh-chat-manager@1.4.0-beta.3
+```
+
+3. Follow the result shown on the page. Refresh or restart only when requested. If installation fails, read its error before retrying.
+
+**This release is verified with DSH 0.1.6-alpha.2. Support for 0.1.7-alpha.1 is still undergoing acceptance and has not been published.** Do not paste a complete `dsh plugin ...` command into the package field or treat the repository's `main` branch as a qualified release package.
+
+### Terminal installation (optional)
+
+Run in the DSH or Portable terminal:
 
 ```sh
 dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.3
 ```
 
-When the command finishes, save your work and restart DSH once through its normal workflow so the new
-bundle configuration becomes active.
+If DSH is running, save your work and restart after this terminal operation to load the change. For older cores, choose the plugin version verified in its release notes.
 
-### Agent installation
-
-Use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.4.0-beta.3/AGENTS.md).
-It defines installation, update, acceptance, uninstall, and safety boundaries. Do not use the `main`
-branch document as an installation contract.
+For Agent installation, use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.4.0-beta.3/AGENTS.md).
 
 ## Use
 
@@ -111,14 +119,15 @@ without warranty.
 ## Compatibility
 
 <!-- dsh-compatibility -->
-Supports the latest DeepSeek Harness release recorded in the package metadata (`0.1.2-rc.1`).
+The installation examples target DSH `0.1.6-alpha.2` with plugin `1.4.0-beta.3`; consult the matching release notes for other cores.
 <!-- /dsh-compatibility -->
 
 Archive browsing, restore, and content search use DSH's workspace registry and session-query capabilities.
-Permanent deletion supports DSH's default per-session JSONL storage. Installing replaces the native workspace
-list with the session-management version; uninstalling restores DSH's original list.
+Permanent deletion supports DSH's default per-session JSONL storage. The current candidate preserves the official workspace service and extends menu/settings views; uninstalling removes those extensions.
 
 ## Update and uninstall
+
+Prefer the update or uninstall action for the installed plugin on the official **Plugins** page. If no update action is offered, use **Add plugin** with the published target `package@version`. Follow the page result; a restart is not always required. Terminal alternatives follow.
 
 Install the target npm version with the same standard DSH command. For v1.4.0-beta.3:
 

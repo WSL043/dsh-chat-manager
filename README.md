@@ -42,20 +42,30 @@
 
 ## 安装
 
-**DSH 0.1.6-alpha.2 请使用 `dsh-chat-manager@1.4.0-beta.3`，旧版 1.3.5 仅用于其已验证的旧内核。** 旧版会接管不兼容的工作区界面，可能导致无法输入。新版 DSH 的 **插件 → 添加插件** 只填写包名与版本，不粘贴 `dsh plugin --profile web add`。安装后按官方页面结果操作；无需重启时不额外重启。
+### 在官方插件页面安装（推荐）
 
-### DSH 标准命令
+1. 打开 DSH 的 **插件 → 添加插件**。
+2. 在“包名或地址”中粘贴下面这一行，再点击安装：
+
+```text
+dsh-chat-manager@1.4.0-beta.3
+```
+
+3. 查看安装结果；仅在页面要求时刷新或重启。安装失败时留在插件页查看错误，不必重复安装。
+
+**此版本已验证 DSH 0.1.6-alpha.2。0.1.7-alpha.1 的适配仍在验收，尚未发布。** 不要把整条 `dsh plugin ...` 命令粘贴进包名框，也不要把仓库的 `main` 分支当作已验证发布包。
+
+### 终端安装（可选）
+
+在 DSH 或 Portable 的终端中执行：
 
 ```sh
 dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.3
 ```
 
-安装完成后，保存工作并按 DSH 的正常方式重启一次，使新的 bundle 配置生效。
+如果 DSH 正在运行，命令完成后保存工作并重新启动，以加载终端改动。旧内核请选择对应发布说明中已验证的插件版本。
 
-### 交给 Agent
-
-请使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.4.0-beta.3/AGENTS.md)，
-其中写明了安装、更新、验收、卸载和安全边界。不要把 `main` 分支文档当作安装依据。
+交给 Agent 安装时使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.4.0-beta.3/AGENTS.md)。
 
 ## 使用
 
@@ -103,13 +113,15 @@ dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.3
 ## 兼容性
 
 <!-- dsh-compatibility -->
-支持软件包元数据中记录的最新版 DeepSeek Harness（`0.1.5-rc.2`）。
+当前安装示例对应 DSH `0.1.6-alpha.2` 与插件 `1.4.0-beta.3`；其他内核请查看对应发布说明。
 <!-- /dsh-compatibility -->
 
 归档浏览、恢复和内容搜索使用 DSH 的工作区注册表与会话查询能力；永久删除适用于 DSH 默认的逐会话
-JSONL 存储。安装后替换为带会话管理功能的原生工作区列表；卸载后恢复 DSH 原有列表。
+JSONL 存储。当前候选版保留官方工作区服务，仅扩展菜单与归档设置；卸载后撤去这些扩展。
 
 ## 更新与卸载
+
+优先在官方 **插件** 页面查看已安装插件，使用该插件提供的更新或卸载操作；更新按钮未出现时，可在“添加插件”中填写已发布的目标 `包名@版本`。完成后按页面提示操作，不强制重启。以下是可选的终端方式。
 
 更新时继续用 DSH 标准命令安装目标 npm 版本。v1.4.0-beta.3 的命令是：
 
@@ -123,8 +135,7 @@ dsh plugin --profile web add dsh-chat-manager@1.4.0-beta.3
 dsh plugin --profile web remove dsh-chat-manager
 ```
 
-DSH-Portable 同样使用标准的 `dsh plugin` 命令。完成安装、更新或卸载后，按 DSH 的正常方式重启，
-使配置重新组合。
+DSH-Portable 同样支持官方插件页和标准 `dsh plugin` 命令。终端改动完成后再重启正在运行的 DSH。
 
 ## 支持与许可证
 
