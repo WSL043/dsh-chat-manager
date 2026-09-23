@@ -107,8 +107,11 @@ async function stopProcess(child) {
   ])
 }
 
+const SLOT_HOSTS = new Set(['0.1.6-alpha.2', '0.1.7-alpha.1', '0.1.7-alpha.2'])
+const CURRENT_ONBOARDING_HOSTS = new Set(['0.1.6-alpha.1', ...SLOT_HOSTS])
+
 async function removeIsolatedOnboarding(page, dshVersion) {
-  if (['0.1.6-alpha.1', '0.1.6-alpha.2', '0.1.7-alpha.1'].includes(dshVersion)) {
+  if (CURRENT_ONBOARDING_HOSTS.has(dshVersion)) {
     // The current onboarding shares the Settings root. Removing its DOM also
     // removes Settings; complete the visible, non-credential flow instead.
     await page.getByRole('button', { name: /^(Continue|继续)$/ }).click()
@@ -226,7 +229,7 @@ export async function runOfficialAcceptance(options) {
       await page.goto(url, { waitUntil: 'domcontentloaded' })
       await removeIsolatedOnboarding(page, options.dshVersion)
 
-      if (['0.1.6-alpha.2', '0.1.7-alpha.1'].includes(options.dshVersion)) {
+      if (SLOT_HOSTS.has(options.dshVersion)) {
         await acceptModernOfficial(page, SESSION_TITLE, transcriptPath, base).catch(async error => {
           await page.screenshot({ path: join(base, 'modern-failure.png'), fullPage: true })
           await writeFile(join(base, 'modern-failure.txt'), await page.locator('body').innerText())
@@ -406,7 +409,7 @@ export async function runOfficialAcceptance(options) {
     return {
       ok: true,
       dshVersion: options.dshVersion,
-      checks: ['official install', 'official boot', ['0.1.6-alpha.2', '0.1.7-alpha.1'].includes(options.dshVersion) ? 'one official archive settings entry' : 'workspace header actions visible', ...(['0.1.6-alpha.2', '0.1.7-alpha.1'].includes(options.dshVersion) ? [] : ['archive list', 'archived history search', 'archive restore']), 'red native action', 'second confirmation', 'cancel without request', ...(['0.1.6-alpha.2', '0.1.7-alpha.1'].includes(options.dshVersion) ? ['native menu deletion'] : ['delete from archive manager']), 'confirmed JSONL deletion', 'no page reload', ...(['0.1.6-alpha.2', '0.1.7-alpha.1'].includes(options.dshVersion) ? ['four plugin toggles preserve editable composer'] : []), 'no runtime exceptions'],
+      checks: ['official install', 'official boot', SLOT_HOSTS.has(options.dshVersion) ? 'one official archive settings entry' : 'workspace header actions visible', ...(SLOT_HOSTS.has(options.dshVersion) ? [] : ['archive list', 'archived history search', 'archive restore']), 'red native action', 'second confirmation', 'cancel without request', ...(SLOT_HOSTS.has(options.dshVersion) ? ['native menu deletion'] : ['delete from archive manager']), 'confirmed JSONL deletion', 'no page reload', ...(SLOT_HOSTS.has(options.dshVersion) ? ['four plugin toggles preserve editable composer'] : []), 'no runtime exceptions'],
     }
   } finally {
     if (server !== undefined) await stopProcess(server)
