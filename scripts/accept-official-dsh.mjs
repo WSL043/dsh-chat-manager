@@ -366,23 +366,30 @@ export async function runOfficialAcceptance(options) {
       if (deleteRequests.length !== 0) throw new Error('cancel sent a deletion request')
       await sessionAction.waitFor({ state: 'attached' })
 
-      await openMenu()
-      await page.getByRole('menuitem', { name: /^(Archive session|归档会话)$/ }).click()
-      await sessionAction.waitFor({ state: 'detached' })
-      await dismissOptionalModelSetup(page, options.dshVersion)
-      await page.locator('#archived-sessions').click()
-      const archivedDeleteDialog = page.getByRole('dialog', { name: /^(Archived sessions|归档会话)$/ })
-      const deleteArchived = archivedDeleteDialog.getByRole('button', { name: /^(Delete permanently|永久删除)$/ })
-      await deleteArchived.waitFor()
-      if (await deleteArchived.count() !== 1) throw new Error('isolated archive manager did not expose exactly one delete action')
-      await deleteArchived.click()
+      const activeDelete = process.env.DSH_ACCEPT_ACTIVE_DELETE === '1'
+      let archivedDeleteDialog
+      if (activeDelete) {
+        await openMenu()
+        await page.getByRole('menuitem', { name: /^(Delete session|删除会话)$/ }).click()
+      } else {
+        await openMenu()
+        await page.getByRole('menuitem', { name: /^(Archive session|归档会话)$/ }).click()
+        await sessionAction.waitFor({ state: 'detached' })
+        await dismissOptionalModelSetup(page, options.dshVersion)
+        await page.locator('#archived-sessions').click()
+        archivedDeleteDialog = page.getByRole('dialog', { name: /^(Archived sessions|归档会话)$/ })
+        const deleteArchived = archivedDeleteDialog.getByRole('button', { name: /^(Delete permanently|永久删除)$/ })
+        await deleteArchived.waitFor()
+        if (await deleteArchived.count() !== 1) throw new Error('isolated archive manager did not expose exactly one delete action')
+        await deleteArchived.click()
+      }
       dialog = page.getByRole('dialog', { name: /^(Permanently delete session\?|永久删除会话？)$/ })
       navigationArmed = true
       const confirmedResponse = page.waitForResponse(response => (
         new URL(response.url()).pathname === '/plugins/dsh-session-delete/delete'
         && response.request().method() === 'POST'
       ))
-      await dialog.getByRole('button', { name: /^(Delete permanently|永久删除)$/ }).click()
+      await dialog.getByRole('button', { name: /^(Delete permanently|永久删除|Confirm permanent deletion|确认永久删除)$/ }).click()
       const deleteResponse = await confirmedResponse
       const deletePayload = await deleteResponse.json().catch(() => null)
       if (deleteResponse.status() !== 200 || deletePayload?.ok !== true) {
@@ -394,8 +401,10 @@ export async function runOfficialAcceptance(options) {
         throw new Error(`expected one confirmed POST, observed ${JSON.stringify(deleteRequests)}`)
       }
       if (navigations !== 0) throw new Error(`confirmed deletion caused ${navigations} page navigation(s)`)
-      await archivedDeleteDialog.getByRole('button', { name: /^(Close|关闭)$/ }).filter({ hasText: /^(Close|关闭)$/ }).click()
-      await archivedDeleteDialog.waitFor({ state: 'hidden' })
+      if (archivedDeleteDialog) {
+        await archivedDeleteDialog.getByRole('button', { name: /^(Close|关闭)$/ }).filter({ hasText: /^(Close|关闭)$/ }).click()
+        await archivedDeleteDialog.waitFor({ state: 'hidden' })
+      }
       await access(transcriptPath).then(
         () => { throw new Error('confirmed deletion left the disposable transcript behind') },
         error => { if (error?.code !== 'ENOENT') throw error },
