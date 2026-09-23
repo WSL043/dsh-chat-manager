@@ -71,6 +71,18 @@ test('queues the oldest untested registry version so missed releases need no man
     selectNextUntestedVersion(['0.1.2-alpha.2', '0.1.2-alpha.3', '0.1.2-alpha.4'], previewFixture().compatibility),
     '0.1.2-alpha.4',
   )
+  assert.equal(selectNextUntestedVersion(['0.1.7-alpha.1', '0.1.7-alpha.2'], {
+    latestTested: '0.1.5-rc.2', supported: ['0.1.5-rc.2'],
+    previews: ['0.1.6-alpha.2'], releaseTargets: ['0.1.7-alpha.1'],
+  }), '0.1.7-alpha.2')
+})
+
+test('preview release retains the previous shipped target and qualifies the new one', () => {
+  const state = previewFixture()
+  state.compatibility.releaseTargets = ['0.1.2-alpha.3']
+  const update = planCompatibilityUpdate(state, '0.1.2-alpha.4')
+  assert.deepEqual(update.compatibility.releaseTargets, ['0.1.2-alpha.4'])
+  assert.deepEqual(update.compatibility.previews, ['0.1.2-alpha.3', '0.1.2-alpha.4'])
 })
 
 test('plans preview support without moving stable docs or the stable compatibility lane', () => {

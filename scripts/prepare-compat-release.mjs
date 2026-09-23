@@ -51,8 +51,8 @@ export function selectNextUntestedVersion(versions, current) {
     ? { latestTested: current, supported: [current], previews: [] }
     : current
   parseVersion(compatibility.latestTested)
-  const tested = new Set([...(compatibility.supported ?? []), ...(compatibility.previews ?? [])])
-  const previewFloor = [...(compatibility.previews ?? [])].sort(compareDshVersions).at(-1)
+  const tested = new Set([...(compatibility.supported ?? []), ...(compatibility.previews ?? []), ...(compatibility.releaseTargets ?? [])])
+  const previewFloor = [...(compatibility.previews ?? []), ...(compatibility.releaseTargets ?? []).filter(isPreviewVersion)].sort(compareDshVersions).at(-1)
     ?? compatibility.latestTested
   const candidates = [...new Set(versions)]
     .filter(version => typeof version === 'string'
@@ -134,7 +134,8 @@ export function planCompatibilityUpdate(state, candidate) {
   compatibility.previews ??= []
   let previousFixture
   if (preview) {
-    compatibility.previews = [...new Set([...compatibility.previews, candidate])].sort(compareDshVersions)
+    compatibility.previews = [...new Set([...compatibility.previews, ...(compatibility.releaseTargets ?? []).filter(isPreviewVersion), candidate])].sort(compareDshVersions)
+    compatibility.releaseTargets = [candidate]
     compatibility.previewWorkspaceFixture = fixtureName(candidate, state.manifest.devDependencies)
   } else {
     compatibility.latestTested = candidate
