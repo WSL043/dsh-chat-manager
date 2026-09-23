@@ -11,21 +11,32 @@ const MAX_REQUEST_BYTES = 8 * 1024
  * own supported order.
  */
 export function installAgentHandleTracker(agents, sessions) {
+  // Cordis supplies a context-local service proxy. Assigning methods through
+  // that proxy only shadows them for this plugin; the official session
+  // controller keeps calling the shared service. Patch the original service
+  // so calls from every owner context are observed, while Reflect.apply below
+  // retains the caller's receiver and therefore its lifecycle ownership.
+  const originalSymbol = Symbol.for('cordis.original')
+  const wrapperOrigin = Symbol.for('dsh-chat-manager.agent-tracker-origin')
+  const agentService = agents[originalSymbol] ?? agents
+  const sessionService = sessions?.[originalSymbol] ?? sessions
   const handles = new Map()
   const reservations = new Set()
-  const originalCreate = agents.create
-  const originalResume = agents.resume
-  const originalAgentEnter = agents.enter
-  const originalSessionEnter = sessions?.enter
+  let released = false
+  const originalCreate = agentService.create
+  const originalResume = agentService.resume
+  const originalAgentEnter = agentService.enter
+  const originalSessionEnter = sessionService?.enter
 
   const assertAvailable = (sessionId) => {
+    if (released) return
     if (typeof sessionId === 'string' && reservations.has(sessionId)) {
       throw new Error(`session "${sessionId}" is being permanently deleted`)
     }
   }
 
   const track = (handle) => {
-    if (handle?.agent?.id !== undefined && typeof handle.dispose === 'function') {
+    if (!released && handle?.agent?.id !== undefined && typeof handle.dispose === 'function') {
       handles.set(handle.agent.id, handle)
     }
     return handle
@@ -51,12 +62,24 @@ export function installAgentHandleTracker(agents, sessions) {
       }
     : undefined
 
-  agents.create = wrappedCreate
-  agents.resume = wrappedResume
-  if (wrappedAgentEnter !== undefined) agents.enter = wrappedAgentEnter
-  if (wrappedSessionEnter !== undefined) sessions.enter = wrappedSessionEnter
+  // A plugin reload may install a new tracker while an old deletion still
+  // drains. Once both release, remove every inactive wrapper in that stack.
+  const unwrapReleased = (method) => {
+    while (method?.[wrapperOrigin]?.released()) method = method[wrapperOrigin].original
+    return method
+  }
+  for (const [wrapped, original] of [
+    [wrappedCreate, originalCreate], [wrappedResume, originalResume],
+    [wrappedAgentEnter, originalAgentEnter], [wrappedSessionEnter, originalSessionEnter],
+  ]) {
+    if (wrapped) Object.defineProperty(wrapped, wrapperOrigin, { value: { original, released: () => released } })
+  }
+
+  agentService.create = wrappedCreate
+  agentService.resume = wrappedResume
+  if (wrappedAgentEnter !== undefined) agentService.enter = wrappedAgentEnter
+  if (wrappedSessionEnter !== undefined) sessionService.enter = wrappedSessionEnter
   let releaseStarted = false
-  let released = false
   let resolveRelease
   let releaseTask
 
@@ -64,10 +87,10 @@ export function installAgentHandleTracker(agents, sessions) {
     if (!releaseStarted || released || reservations.size !== 0) return
     released = true
     handles.clear()
-    if (agents.create === wrappedCreate) agents.create = originalCreate
-    if (agents.resume === wrappedResume) agents.resume = originalResume
-    if (wrappedAgentEnter !== undefined && agents.enter === wrappedAgentEnter) agents.enter = originalAgentEnter
-    if (wrappedSessionEnter !== undefined && sessions.enter === wrappedSessionEnter) sessions.enter = originalSessionEnter
+    if (agentService.create === wrappedCreate) agentService.create = unwrapReleased(originalCreate)
+    if (agentService.resume === wrappedResume) agentService.resume = unwrapReleased(originalResume)
+    if (wrappedAgentEnter !== undefined && agentService.enter === wrappedAgentEnter) agentService.enter = unwrapReleased(originalAgentEnter)
+    if (wrappedSessionEnter !== undefined && sessionService.enter === wrappedSessionEnter) sessionService.enter = unwrapReleased(originalSessionEnter)
     resolveRelease?.()
   }
 
