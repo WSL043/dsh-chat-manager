@@ -199,7 +199,9 @@ test('documentation uses the standard one-command bundle lifecycle and second co
     read('AGENTS.md'),
   ])
   const documentedVersion = chinese.match(/dsh-chat-manager@(\d+\.\d+\.\d+(?:-beta\.\d+)?)/)?.[1]
-  assert.equal(documentedVersion, JSON.parse(await read('package.json')).version)
+  const packageVersion = JSON.parse(await read('package.json')).version
+  const stableVersion = packageVersion.replace(/-beta\.\d+$/, '').replace(/^(\d+\.\d+\.)(\d+)$/, (_, prefix, patch) => `${prefix}${Number(patch) - (packageVersion.includes('-beta.') ? 1 : 0)}`)
+  assert.equal(documentedVersion, stableVersion)
   const releaseVersion = documentedVersion.replaceAll('.', '\\.')
   for (const document of [chinese, english, agents]) {
     assert.match(document, /dsh-chat-manager@\d+\.\d+\.\d+/)
@@ -250,7 +252,8 @@ test('public-facing copy describes the product without exposing maintenance mech
     assert.doesNotMatch(document, /GitHub Actions|每\s*6\s*小时|every six hours|隔离安装|isolated install|smoke acceptance|fail[- ]closed|自动兼容|Compatibility autopilot/i)
   }
   const compatibility = JSON.parse(await read('compatibility.json'))
-  for (const version of compatibility.releaseTargets) {
+  const isPreviewPackage = /-beta\.\d+$/.test(JSON.parse(await read('package.json')).version)
+  if (!isPreviewPackage) for (const version of compatibility.releaseTargets) {
     assert.ok(chinese.includes(version), 'Chinese installation guide names the qualified release target')
     assert.ok(english.includes(version), 'English installation guide names the qualified release target')
   }

@@ -160,7 +160,9 @@ export function planCompatibilityUpdate(state, candidate) {
   } else {
     manifest.devDependencies[previousFixture] = `npm:@deepseek-ai/dsh-client-ui-workspace@${previous}`
   }
-  const supportedRange = [...compatibility.supported, ...compatibility.previews].sort(compareDshVersions).join(' || ')
+  // A preview package is qualified for its one candidate host. Historical
+  // versions remain available in previous npm releases, not in this peer claim.
+  const supportedRange = preview ? candidate : [...compatibility.supported, ...compatibility.previews].sort(compareDshVersions).join(' || ')
   for (const name of Object.keys(manifest.peerDependencies)) {
     if (name.startsWith('@deepseek-ai/dsh-')) manifest.peerDependencies[name] = supportedRange
   }
