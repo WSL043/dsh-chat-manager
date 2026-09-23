@@ -52,14 +52,18 @@ jobs:
             candidate="$REQUESTED_VERSION"
           else
             pnpm view @deepseek-ai/dsh versions --json > "$RUNNER_TEMP/dsh-versions.json"
+            gh api 'repos/deepseek-ai/deepseek-harness/releases?per_page=100' \
+              --jq '[.[] | select(.draft == false and .immutable == true and (.tag_name | test("^dsh-v[0-9]+\\.[0-9]+\\.[0-9]+"))) | .tag_name[5:]]' \
+              > "$RUNNER_TEMP/official-releases.json"
             candidate="$(node --input-type=module -e '
               import { readFileSync } from "node:fs";
               import { selectNextUntestedVersion } from "./scripts/prepare-compat-release.mjs";
+              const official = new Set(JSON.parse(readFileSync(process.argv[3], "utf8")));
               process.stdout.write(selectNextUntestedVersion(
-                JSON.parse(readFileSync(process.argv[1], "utf8")),
+                JSON.parse(readFileSync(process.argv[1], "utf8")).filter(version => official.has(version)),
                 JSON.parse(readFileSync(process.argv[2], "utf8")),
               ) ?? "");
-            ' "$RUNNER_TEMP/dsh-versions.json" compatibility.json)"
+            ' "$RUNNER_TEMP/dsh-versions.json" compatibility.json "$RUNNER_TEMP/official-releases.json")"
             if [ -z "$candidate" ]; then
               candidate="$current"
             fi
