@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import test from 'node:test'
+import { Context, Service } from '@deepseek-ai/cordis'
 
 import {
   createDeleteRequestHandler,
@@ -410,6 +411,56 @@ test('tracks handles returned by agent create and resume and restores methods on
   tracker.release()
   assert.equal(registry.create, originalCreate)
   assert.equal(registry.resume, originalResume)
+})
+
+test('tracks handles created through another Cordis context without taking its ownership', async t => {
+  const owners = []
+  const disposed = []
+  class Agents extends Service {
+    constructor(ctx) { super(ctx, 'agents') }
+    async resume({ resumeSessionId }) {
+      owners.push(this.ctx)
+      const agent = { id: resumeSessionId }
+      this.current = agent
+      return { agent, dispose: async () => { disposed.push(resumeSessionId); this.current = undefined } }
+    }
+    async create({ sessionId }) { return this.resume({ resumeSessionId: sessionId }) }
+    get(id) { return this.current?.id === id ? this.current : undefined }
+  }
+  const root = new Context()
+  t.after(() => root.fiber.dispose())
+  await root.plugin(Agents)
+  const plugin = root.extend()
+  const officialController = root.extend()
+  const officialMarker = Symbol('official controller context')
+  officialController[officialMarker] = true
+  assert.notEqual(plugin.agents, officialController.agents)
+  const raw = plugin.agents[Symbol.for('cordis.original')]
+  const originalResume = raw.resume
+  const tracker = installAgentHandleTracker(plugin.agents)
+  await officialController.agents.resume({ resumeSessionId: 'cross-context' })
+  assert.equal(owners[0][officialMarker], true)
+  assert.equal(await tracker.dispose('cross-context'), true)
+  assert.deepEqual(disposed, ['cross-context'])
+  await tracker.release()
+  assert.equal(raw.resume, originalResume)
+})
+
+test('a hot reload leaves no inactive tracker on the shared service', async () => {
+  const agents = {
+    resume: async ({ resumeSessionId }) => ({ agent: { id: resumeSessionId }, dispose: async () => {} }),
+    create: async ({ sessionId }) => ({ agent: { id: sessionId }, dispose: async () => {} }),
+    get: () => undefined,
+  }
+  const originalResume = agents.resume
+  const first = installAgentHandleTracker(agents)
+  const finishDeletion = first.reserve('busy')
+  const firstReleased = first.release()
+  const second = installAgentHandleTracker(agents)
+  finishDeletion()
+  await firstReleased
+  await second.release()
+  assert.equal(agents.resume, originalResume)
 })
 
 test('reserves a session against duplicate deletion and every session or agent re-entry path', async () => {
