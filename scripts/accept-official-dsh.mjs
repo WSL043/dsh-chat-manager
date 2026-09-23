@@ -107,7 +107,7 @@ async function stopProcess(child) {
   ])
 }
 
-const SLOT_HOSTS = new Set(['0.1.6-alpha.2', '0.1.7-alpha.1', '0.1.7-alpha.2'])
+const SLOT_HOSTS = new Set(['0.1.6-alpha.2', '0.1.7-alpha.1', '0.1.7-alpha.2', '0.1.7-rc.1'])
 const CURRENT_ONBOARDING_HOSTS = new Set(['0.1.6-alpha.1', ...SLOT_HOSTS])
 
 async function removeIsolatedOnboarding(page, dshVersion) {
