@@ -56,6 +56,21 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   assert.ok(manifest.files.includes('THIRD_PARTY_NOTICES.md'))
 })
 
+test('shipped installation guides select this exact package for its qualified host', async () => {
+  const manifest = JSON.parse(await read('package.json'))
+  const compatibility = JSON.parse(await read('compatibility.json'))
+  const target = compatibility.releaseTargets.at(-1)
+  for (const filename of ['README.md', 'README.en.md', 'AGENTS.md']) {
+    const guide = await read(filename)
+    assert.ok(guide.includes(`dsh-chat-manager@${manifest.version}`), `${filename} lacks the shipped package version`)
+    assert.ok(guide.includes(target), `${filename} lacks the qualified DSH target`)
+  }
+  for (const filename of ['README.md', 'README.en.md']) {
+    const guide = await read(filename)
+    assert.ok(guide.includes(`/v${manifest.version}/AGENTS.md`), `${filename} links an obsolete Agent guide`)
+  }
+})
+
 test('compatibility autopilot is fail-closed and publishes only after both host lanes pass', async () => {
   const workflow = await read('.github/workflows/upstream-compatibility.yml')
 
@@ -201,8 +216,7 @@ test('documentation uses the standard one-command bundle lifecycle and second co
   ])
   const documentedVersion = chinese.match(/dsh-chat-manager@(\d+\.\d+\.\d+(?:-beta\.\d+)?)/)?.[1]
   const packageVersion = JSON.parse(await read('package.json')).version
-  const stableVersion = packageVersion.replace(/-beta\.\d+$/, '').replace(/^(\d+\.\d+\.)(\d+)$/, (_, prefix, patch) => `${prefix}${Number(patch) - (packageVersion.includes('-beta.') ? 1 : 0)}`)
-  assert.equal(documentedVersion, stableVersion)
+  assert.equal(documentedVersion, packageVersion)
   const releaseVersion = documentedVersion.replaceAll('.', '\\.')
   for (const document of [chinese, english, agents]) {
     assert.match(document, /dsh-chat-manager@\d+\.\d+\.\d+/)

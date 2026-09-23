@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat-manager",
-  "version": "1.5.2-beta.1",
+  "version": "1.5.2-beta.2",
   "packageManager": "pnpm@11.19.0",
   "description": "DeepSeek Harness chat history and session management: search archives, restore conversations, and delete safely",
   "type": "module",
