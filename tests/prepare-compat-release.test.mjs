@@ -8,6 +8,7 @@ import {
   planCompatibilityUpdate,
   rewriteCompatibilityBlock,
   rewriteDshVersion,
+  rewritePreviewDocumentation,
   rewriteReleaseVersion,
   rewriteReleaseAgeCohort,
   rewriteWorkspaceCohort,
@@ -95,8 +96,21 @@ test('plans preview support without moving stable docs or the stable compatibili
   assert.equal(update.manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.1-rc.2')
   assert.equal(update.manifest.devDependencies['dsh-ui-workspace-alpha4'], 'npm:@deepseek-ai/dsh-client-ui-workspace@0.1.2-alpha.4')
   assert.equal(update.manifest.peerDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.2-alpha.4')
-  assert.deepEqual(boundedArtifactPaths(update), [])
+  assert.deepEqual(boundedArtifactPaths(update), []) // first preview requires an explicit installation-guide decision
   assert.equal(rewriteWorkspaceCohort('stable release-age policy', update), 'stable release-age policy')
+})
+
+test('subsequent preview intake advances the exact published installation guide', () => {
+  const state = previewFixture()
+  state.manifest.version = '1.3.1-beta.1'
+  state.compatibility.releaseTargets = ['0.1.2-alpha.3']
+  const update = planCompatibilityUpdate(state, '0.1.2-alpha.4')
+  assert.deepEqual(boundedArtifactPaths(update), ['README.md', 'README.en.md', 'AGENTS.md'])
+  assert.equal(
+    rewritePreviewDocumentation('install dsh-chat-manager@1.3.1-beta.1 on 0.1.2-alpha.3', update),
+    'install dsh-chat-manager@1.3.1-beta.2 on 0.1.2-alpha.4',
+  )
+  assert.throws(() => rewritePreviewDocumentation('install an old package', update), /out of sync/)
 })
 
 test('promotes a beta candidate by rewriting the previously documented stable version', () => {

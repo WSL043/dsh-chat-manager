@@ -180,7 +180,19 @@ export function planCompatibilityUpdate(state, candidate) {
 }
 
 export function boundedArtifactPaths(update) {
-  return update.updateStableReferences ? ['README.md', 'README.en.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.md'] : []
+  if (update.updateStableReferences) return ['README.md', 'README.en.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.md']
+  // Once a preview is public, its next qualified host must not ship a package
+  // that still tells users and installation agents to install the old version.
+  return /-beta\.\d+$/.test(update.previousPluginVersion) ? ['README.md', 'README.en.md', 'AGENTS.md'] : []
+}
+
+export function rewritePreviewDocumentation(source, update) {
+  if (!source.includes(update.previousPluginVersion) || !source.includes(update.previousDshVersion)) {
+    throw new Error(`preview installation guide is out of sync with ${update.previousPluginVersion} / ${update.previousDshVersion}`)
+  }
+  return source
+    .replaceAll(update.previousPluginVersion, update.pluginVersion)
+    .replaceAll(update.previousDshVersion, update.dshVersion)
 }
 
 export function rewriteWorkspaceCohort(workspace, update) {
@@ -267,11 +279,9 @@ async function main() {
   }
   const textPaths = boundedArtifactPaths(update)
   const textSources = await Promise.all(textPaths.map(path => readFile(resolve(root, path), 'utf8')))
-  const rewritten = textSources.map(source => rewriteReleaseVersion(
-    source,
-    update.previousDocumentedPluginVersion,
-    update.pluginVersion,
-  ))
+  const rewritten = textSources.map(source => update.updateStableReferences
+    ? rewriteReleaseVersion(source, update.previousDocumentedPluginVersion, update.pluginVersion)
+    : rewritePreviewDocumentation(source, update))
   if (update.updateStableReferences) {
     rewritten[0] = rewriteCompatibilityBlock(rewritten[0], update.compatibility.supported, 'zh')
     rewritten[1] = rewriteCompatibilityBlock(rewritten[1], update.compatibility.supported, 'en')
