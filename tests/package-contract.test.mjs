@@ -69,6 +69,7 @@ test('compatibility autopilot is fail-closed and publishes only after both host 
   assert.match(workflow, /git push origin HEAD:main[\s\S]*gh workflow run publish\.yml/)
   assert.match(workflow, /release_kind=compatibility/)
   assert.match(workflow, /dsh_version="\$DSH_VERSION"/)
+  assert.match(workflow, /- name: Dispatch and await the trusted release workflow\s+env:\s+GH_TOKEN: \$\{\{ github\.token \}\}\s+DSH_VERSION: \$\{\{ needs\.preflight\.outputs\.dsh_version \}\}/)
   assert.match(workflow, /request_id="compat-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"/)
   assert.match(workflow, /select\(\.displayTitle == \$title\)/)
   assert.match(workflow, /compatibility\.supported[\s\S]*compatibility\.previews/)
