@@ -1,4 +1,4 @@
-> The current preview targets DSH 0.1.7-rc.2 through official session-menu extension slots. Archive search, unarchive and red permanent-delete actions appear in Settings. Compatible Portable builds provide the sidebar archive shortcut. Older cores require their corresponding plugin releases.
+> The current stable Portable build includes the published chat manager `1.5.1` for DSH `0.1.7-alpha.1`. The DSH `0.1.7-rc.2` adaptation, `1.5.2-beta.5`, stays on a separate preview channel; it is not the default install for everyone. Archive search, unarchive, and red permanent-delete actions appear in Settings. Compatible Portable builds provide the sidebar archive shortcut.
 
 > [!NOTE]
 > This is an actively maintained, independently removable DSH plugin. It adds archive browsing, conversation-content search, restore, and safe permanent deletion. If this session workflow is not for you, uninstalling the plugin leaves existing sessions untouched.
@@ -47,19 +47,19 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 2. Paste this line into **Package name or address**, then select Install:
 
 ```text
-dsh-chat-manager@1.5.2-beta.5
+dsh-chat-manager@1.5.1
 ```
 
 3. Follow the result shown on the page. Refresh or restart only when requested. If installation fails, read its error before retrying.
 
-**Match the plugin to the core:** use `1.5.2-beta.5` for DSH `0.1.7-rc.2`, `1.5.2-beta.4` for `0.1.7-rc.1`, `1.5.2-beta.3` for `0.1.7-alpha.2`, `1.5.1` for `0.1.7-alpha.1`, or `1.4.0-beta.3` for `0.1.6-alpha.2`. Do not paste a complete `dsh plugin ...` command into the package field or treat the repository's `main` branch as a qualified release package.
+**Match the plugin to the core:** stable `1.5.1` above is for DSH `0.1.7-alpha.1`. For DSH `0.1.7-rc.2`, enter the preview `dsh-chat-manager@1.5.2-beta.5`; use `1.5.2-beta.4` for `0.1.7-rc.1`, `1.5.2-beta.3` for `0.1.7-alpha.2`, or `1.4.0-beta.3` for `0.1.6-alpha.2`. Do not paste a complete `dsh plugin ...` command into the package field or treat the repository's `main` branch as a qualified release package.
 
 ### Terminal installation (optional)
 
 Run in the DSH or Portable terminal:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.2-beta.5
+dsh plugin --profile web add dsh-chat-manager@1.5.1
 ```
 
 If DSH is running, save your work and restart after this terminal operation to load the change. For older cores, choose the plugin version verified in its release notes.
@@ -118,7 +118,7 @@ without warranty.
 ## Compatibility
 
 <!-- dsh-compatibility -->
-The installation examples target DSH `0.1.7-rc.2` with plugin `1.5.2-beta.5`; use the matching version above for other cores.
+The default installation example above matches the current stable Portable baseline, DSH `0.1.7-alpha.1` with stable plugin `1.5.1`; DSH `0.1.7-rc.2` uses the separate preview plugin `1.5.2-beta.5`.
 <!-- /dsh-compatibility -->
 
 Archive browsing, restore, and content search use DSH's workspace registry and session-query capabilities.
