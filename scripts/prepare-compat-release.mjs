@@ -146,6 +146,7 @@ export function planCompatibilityUpdate(state, candidate) {
   } else {
     compatibility.latestTested = candidate
     compatibility.supported = [...new Set([...compatibility.supported, candidate])].sort(compareDshVersions)
+    compatibility.releaseTargets = [candidate]
     previousFixture = fixtureName(previous, state.manifest.devDependencies)
     compatibility.workspaceFixtures[previous] = previousFixture
   }
@@ -166,9 +167,11 @@ export function planCompatibilityUpdate(state, candidate) {
   } else {
     manifest.devDependencies[previousFixture] = `npm:@deepseek-ai/dsh-client-ui-workspace@${previous}`
   }
-  // A preview package is qualified for its one candidate host. Historical
-  // versions remain available in previous npm releases, not in this peer claim.
-  const supportedRange = preview ? candidate : [...compatibility.supported, ...compatibility.previews].sort(compareDshVersions).join(' || ')
+  // Each published package is accepted against its release target only. The
+  // history in compatibility.json tracks past packages, not extra host claims
+  // for this build. In particular, promoting a preview to stable must not
+  // silently claim every older preview host without testing it.
+  const supportedRange = candidate
   for (const name of Object.keys(manifest.peerDependencies)) {
     if (name.startsWith('@deepseek-ai/dsh-')) manifest.peerDependencies[name] = supportedRange
   }

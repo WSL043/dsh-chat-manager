@@ -138,6 +138,18 @@ test('keeps a new RC in the active preview lane with one exact host peer', () =>
   assert.equal(update.manifest.peerDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.2-rc.2')
 })
 
+test('promoting a preview to stable accepts the released core, not the previous RC', () => {
+  const state = previewFixture()
+  state.manifest.version = '1.3.1-beta.2'
+  state.compatibility.previews.push('0.1.2-rc.2')
+  state.compatibility.releaseTargets = ['0.1.2-rc.2']
+  const update = planCompatibilityUpdate(state, '0.1.2')
+  assert.equal(update.pluginVersion, '1.3.1')
+  assert.deepEqual(update.compatibility.releaseTargets, ['0.1.2'])
+  assert.equal(update.compatibility.latestTested, '0.1.2')
+  assert.equal(update.manifest.peerDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.2')
+})
+
 test('selects the newest official dist-tag instead of assuming next always wins', () => {
   assert.equal(selectNewestPublishedTag({ latest: '0.1.0', next: '0.2.0-rc.1' }), '0.2.0-rc.1')
   assert.equal(selectNewestPublishedTag({ latest: '0.2.0', next: '0.2.0-rc.9' }), '0.2.0')
@@ -161,7 +173,7 @@ test('plans an immutable patch release for one newly tested DSH version', () => 
   assert.equal(update.manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.0-rc.9')
   assert.equal(
     update.manifest.peerDependencies['@deepseek-ai/dsh-client-ui-workspace'],
-    '0.1.0-rc.6 || 0.1.0-rc.7 || 0.1.0-rc.8 || 0.1.0-rc.9',
+    '0.1.0-rc.9',
   )
   assert.equal(update.manifest.peerDependencies.react, '^18.2.0')
 })
