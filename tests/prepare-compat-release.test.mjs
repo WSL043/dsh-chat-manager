@@ -113,18 +113,29 @@ test('subsequent preview intake advances the exact published installation guide'
   assert.throws(() => rewritePreviewDocumentation('install an old package', update), /out of sync/)
 })
 
-test('promotes a beta candidate by rewriting the previously documented stable version', () => {
+test('keeps the first RC after an Alpha in the same preview lane', () => {
   const state = previewFixture()
   state.manifest.version = '1.3.1-beta.1'
   const update = planCompatibilityUpdate(state, '0.1.2-rc.1')
 
-  assert.equal(update.pluginVersion, '1.3.1')
-  assert.equal(update.previousDocumentedPluginVersion, '1.3.0')
+  assert.equal(update.pluginVersion, '1.3.1-beta.2')
+  assert.equal(update.updateStableReferences, false)
+  assert.deepEqual(update.compatibility.releaseTargets, ['0.1.2-rc.1'])
+  assert.equal(update.manifest.peerDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.2-rc.1')
   assert.equal(update.manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], '0.1.1-rc.2')
-  assert.equal(
-    rewriteReleaseVersion('install dsh-chat-manager@1.3.0', update.previousDocumentedPluginVersion, update.pluginVersion),
-    'install dsh-chat-manager@1.3.1',
-  )
+})
+
+test('keeps a new RC in the active preview lane with one exact host peer', () => {
+  const state = previewFixture()
+  state.manifest.version = '1.3.1-beta.1'
+  state.compatibility.previews.push('0.1.2-rc.1')
+  state.compatibility.releaseTargets = ['0.1.2-rc.1']
+  const update = planCompatibilityUpdate(state, '0.1.2-rc.2')
+  assert.equal(update.pluginVersion, '1.3.1-beta.2')
+  assert.equal(update.updateStableReferences, false)
+  assert.equal(update.compatibility.latestTested, '0.1.1-rc.2')
+  assert.deepEqual(update.compatibility.releaseTargets, ['0.1.2-rc.2'])
+  assert.equal(update.manifest.peerDependencies['@deepseek-ai/dsh-client-ui-workspace'], '0.1.2-rc.2')
 })
 
 test('selects the newest official dist-tag instead of assuming next always wins', () => {

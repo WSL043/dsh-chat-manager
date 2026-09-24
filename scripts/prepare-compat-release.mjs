@@ -120,7 +120,13 @@ function assertNoSkippedRelease(previous, candidate) {
 
 export function planCompatibilityUpdate(state, candidate) {
   parseVersion(candidate)
+  // An RC following an actively supported Alpha/Beta of the same core remains
+  // in that preview lane. Do not turn an unshipped RC into a stable plugin or
+  // claim every historical host through a broad peer range.
   const preview = isPreviewVersion(candidate)
+    || (/-rc\.\d+$/.test(candidate)
+      && /-beta\.\d+$/.test(state.manifest.version)
+      && (state.compatibility.previews ?? []).some(version => version.split('-')[0] === candidate.split('-')[0]))
   const lane = preview ? (state.compatibility.previews ?? []) : state.compatibility.supported
   const previous = preview
     ? [...lane].sort(compareDshVersions).at(-1) ?? state.compatibility.latestTested
