@@ -214,14 +214,20 @@ test('documentation uses the standard one-command bundle lifecycle and second co
     read('README.md'),
     read('AGENTS.md'),
   ])
-  const documentedVersion = chinese.match(/dsh-chat-manager@(\d+\.\d+\.\d+(?:-beta\.\d+)?)/)?.[1]
+  const defaultVersion = chinese.match(/dsh-chat-manager@(\d+\.\d+\.\d+(?:-beta\.\d+)?)/)?.[1]
   const packageVersion = JSON.parse(await read('package.json')).version
-  assert.equal(documentedVersion, packageVersion)
-  const releaseVersion = documentedVersion.replaceAll('.', '\\.')
+  assert.equal(english.match(/dsh-chat-manager@(\d+\.\d+\.\d+(?:-beta\.\d+)?)/)?.[1], defaultVersion)
+  if (packageVersion.includes('-')) {
+    assert.match(defaultVersion, /^\d+\.\d+\.\d+$/)
+    assert.notEqual(defaultVersion, packageVersion)
+  } else {
+    assert.equal(defaultVersion, packageVersion)
+  }
+  const releaseVersion = packageVersion.replaceAll('.', '\\.')
   for (const document of [chinese, english, agents]) {
     assert.match(document, /dsh-chat-manager@\d+\.\d+\.\d+/)
-    assert.ok(document.includes(`dsh-chat-manager@${documentedVersion}`))
-    if (!documentedVersion.includes('-')) assert.doesNotMatch(document, /dsh-chat-manager@\d+\.\d+\.\d+-beta\.\d+/)
+    assert.ok(document.includes(`dsh-chat-manager@${packageVersion}`))
+    if (!packageVersion.includes('-')) assert.doesNotMatch(document, /dsh-chat-manager@\d+\.\d+\.\d+-beta\.\d+/)
   }
   assert.match(chinese, /再次\s*确认/)
   assert.match(chinese, /永久删除无法撤销/)
