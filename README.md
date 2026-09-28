@@ -46,24 +46,24 @@
 2. 在“包名或地址”中粘贴下面这一行，再点击安装：
 
 ```text
-dsh-chat-manager@1.5.2
+dsh-chat-manager@1.5.3
 ```
 
 3. 查看安装结果；仅在页面要求时刷新或重启。安装失败时留在插件页查看错误，不必重复安装。
 
-**1.5.2 使用同一个包支持 DSH 0.1.7-alpha.1 与 0.1.7-rc.2。** 发布前必须通过两个目标的真实操作验收；本版不声明支持其他内核。在“插件 → 添加插件”中仅填写包名与版本，按宿主给出的刷新或重启操作生效。
+**1.5.3 使用同一个包支持 DSH 0.1.7-alpha.1、0.1.7-rc.2 与 0.2.0-rc.1。** 发布前必须通过三个目标的真实操作验收；本版不声明支持其他内核。在“插件 → 添加插件”中仅填写包名与版本，按宿主给出的刷新或重启操作生效。
 
 ### 终端安装（可选）
 
 在 DSH 或 Portable 的终端中执行：
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.2
+dsh plugin --profile web add dsh-chat-manager@1.5.3
 ```
 
 如果 DSH 正在运行，命令完成后保存工作并重新启动，以加载终端改动。旧内核请选择对应发布说明中已验证的插件版本。
 
-交给 Agent 安装时使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.2/AGENTS.md)。
+交给 Agent 安装时使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.3/AGENTS.md)。
 
 ## 使用
 
@@ -120,10 +120,10 @@ JSONL 存储。本版本保留官方工作区服务，仅扩展菜单与归档�
 
 优先在官方 **插件** 页面查看已安装插件，使用该插件提供的更新或卸载操作；更新按钮未出现时，可在“添加插件”中填写已发布的目标 `包名@版本`。完成后按页面提示操作，不强制重启。以下是可选的终端方式。
 
-更新时继续用 DSH 标准命令安装目标 npm 版本。DSH `0.1.7-rc.2` 的命令是：
+更新时继续用 DSH 标准命令安装目标 npm 版本；本版三个合格内核均使用以下命令：
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.2
+dsh plugin --profile web add dsh-chat-manager@1.5.3
 ```
 
 卸载只移除这个插件的 bundle 层，不删除任何会话：
