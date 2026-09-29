@@ -46,24 +46,24 @@ Archive manager · Conversation search · One-click restore · Safe permanent de
 2. Paste this line into **Package name or address**, then select Install:
 
 ```text
-dsh-chat-manager@1.5.3
+dsh-chat-manager@1.5.4
 ```
 
 3. Follow the result shown on the page. Refresh or restart only when requested. If installation fails, read its error before retrying.
 
-**Version 1.5.3 targets DSH 0.1.7-alpha.1, 0.1.7-rc.2, and 0.2.0-rc.1 with the same package.** Release publication requires real-operation acceptance on all three targets. Other core versions are not covered by this release. Enter only the package spec in Plugins → Add plugin; follow the host refresh/restart action.
+**Version 1.5.4 targets DSH 0.1.7-alpha.1, 0.1.7-rc.2, 0.2.0-rc.1, and 0.2.0-rc.2 with the same package.** Release publication requires real-operation acceptance on all four targets. Other core versions are not covered by this release. Enter only the package spec in Plugins → Add plugin; follow the host refresh/restart action.
 
 ### Terminal installation (optional)
 
 Run in the DSH or Portable terminal:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.3
+dsh plugin --profile web add dsh-chat-manager@1.5.4
 ```
 
 If DSH is running, save your work and restart after this terminal operation to load the change. For older cores, choose the plugin version verified in its release notes.
 
-For Agent installation, use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.3/AGENTS.md).
+For Agent installation, use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.4/AGENTS.md).
 
 ## Use
 
@@ -129,7 +129,7 @@ Prefer the update or uninstall action for the installed plugin on the official *
 Install the target npm version with the same standard DSH command for any of this release's qualified core targets:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.3
+dsh plugin --profile web add dsh-chat-manager@1.5.4
 ```
 
 Uninstall removes only this plugin's bundle layer and never deletes sessions:
