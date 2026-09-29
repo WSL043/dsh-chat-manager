@@ -9,7 +9,7 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   const compatibility = JSON.parse(await read('compatibility.json'))
 
   assert.equal(manifest.name, 'dsh-chat-manager')
-  assert.equal(manifest.version, '1.5.3')
+  assert.equal(manifest.version, '1.5.4')
   assert.match(manifest.version, /^\d+\.\d+\.\d+(?:-beta\.\d+)?$/)
   assert.equal(manifest.private, undefined)
   assert.equal(manifest.license, 'MIT')
@@ -27,7 +27,8 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   assert.equal(compatibility.legacyWorkspaceFixture, compatibility.workspaceFixtures['0.1.1-rc.2'])
   assert.ok(compatibility.previews.includes('0.1.2-alpha.3'))
   assert.ok(compatibility.previews.includes('0.2.0-rc.1'))
-  assert.deepEqual(compatibility.releaseTargets, ['0.1.7-alpha.1', '0.1.7-rc.2', '0.2.0-rc.1'])
+  assert.ok(compatibility.previews.includes('0.2.0-rc.2'))
+  assert.deepEqual(compatibility.releaseTargets, ['0.1.7-alpha.1', '0.1.7-rc.2', '0.2.0-rc.1', '0.2.0-rc.2'])
   assert.ok(compatibility.previews.every(version => /^\d+\.\d+\.\d+-[0-9A-Za-z.-]+$/.test(version)))
   // The reviewed build source may also run on a newer, qualified host.
   const previewSource = manifest.devDependencies[compatibility.previewWorkspaceFixture]

@@ -2,7 +2,8 @@
   "releaseTargets": [
     "0.1.7-alpha.1",
     "0.1.7-rc.2",
-    "0.2.0-rc.1"
+    "0.2.0-rc.1",
+    "0.2.0-rc.2"
   ],
   "latestTested": "0.1.5-rc.2",
   "supported": [
@@ -38,7 +39,8 @@
     "0.1.7-alpha.2",
     "0.1.7-rc.1",
     "0.1.7-rc.2",
-    "0.2.0-rc.1"
+    "0.2.0-rc.1",
+    "0.2.0-rc.2"
   ],
   "previewWorkspaceFixture": "dsh-ui-workspace-0-1-7-rc-2",
   "clientTarget": "0.1.7-alpha.1"
