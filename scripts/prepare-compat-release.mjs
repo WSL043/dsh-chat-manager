@@ -223,14 +223,14 @@ export function rewriteDshVersion(source, previousVersion, nextVersion) {
   return rewritten
 }
 
-export function rewriteCompatibilityBlock(source, supported, language) {
+export function rewriteCompatibilityBlock(source, targets, language) {
   const marker = /<!-- dsh-compatibility -->[\s\S]*?<!-- \/dsh-compatibility -->/
   if (!marker.test(source)) throw new Error(`missing generated DSH compatibility block (${language})`)
-  const latest = supported.at(-1)
-  if (latest === undefined) throw new Error('supported DSH versions cannot be empty')
+  if (targets.length === 0) throw new Error('supported DSH versions cannot be empty')
+  const list = targets.map(version => `\`${version}\``).join(language === 'zh' ? '、' : ', ')
   const body = language === 'zh'
-    ? `支持软件包元数据中记录的最新版 DeepSeek Harness（\`${latest}\`）。`
-    : `Supports the latest DeepSeek Harness release recorded in the package metadata (\`${latest}\`).`
+    ? `当前版本支持 DeepSeek Harness ${list}。`
+    : `This release supports DeepSeek Harness ${list}.`
   return source.replace(marker, `<!-- dsh-compatibility -->\n${body}\n<!-- /dsh-compatibility -->`)
 }
 
@@ -292,8 +292,10 @@ async function main() {
     ? rewriteReleaseVersion(source, update.previousDocumentedPluginVersion, update.pluginVersion)
     : rewritePreviewDocumentation(source, update))
   if (update.updateStableReferences) {
-    rewritten[0] = rewriteCompatibilityBlock(rewritten[0], update.compatibility.supported, 'zh')
-    rewritten[1] = rewriteCompatibilityBlock(rewritten[1], update.compatibility.supported, 'en')
+    // releaseTargets are the cores this release is actually qualified for; `supported` is the legacy line.
+    const targets = update.compatibility.releaseTargets ?? update.compatibility.supported
+    rewritten[0] = rewriteCompatibilityBlock(rewritten[0], targets, 'zh')
+    rewritten[1] = rewriteCompatibilityBlock(rewritten[1], targets, 'en')
     rewritten[3] = rewriteDshVersion(rewritten[3], update.previousDshVersion, update.dshVersion)
   }
 
