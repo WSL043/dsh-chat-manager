@@ -13,6 +13,8 @@
 [![Stars](https://img.shields.io/github/stars/WSL043/dsh-chat-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-chat-manager/stargazers)
 [![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
 
+[中文](README.md) · [Install](#install) · [Usage](#usage) · [Safety](#safety-boundaries)
+
 </div>
 
 <p align="center">
@@ -34,7 +36,7 @@ dsh-chat-manager@1.5.4
 
 3. Follow the page result; refresh or restart only when requested.
 
-**Version 1.5.4 supports DSH cores `0.1.7-alpha.1`, `0.1.7-rc.2`, `0.2.0-rc.1`, and `0.2.0-rc.2`.**
+See [Compatibility](#compatibility) for supported DSH cores.
 
 ### Terminal (optional)
 
@@ -85,7 +87,7 @@ This unofficial community plugin is not affiliated with or endorsed by DeepSeek.
 ## Compatibility
 
 <!-- dsh-compatibility -->
-Supports the latest DeepSeek Harness release recorded in the package metadata (`0.1.5-rc.2`).
+This release supports DeepSeek Harness `0.1.7-alpha.1`, `0.1.7-rc.2`, `0.2.0-rc.1`, `0.2.0-rc.2`.
 <!-- /dsh-compatibility -->
 
 ## Update and uninstall

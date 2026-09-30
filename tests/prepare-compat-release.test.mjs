@@ -201,13 +201,11 @@ test('rewrites every release-version reference in bounded public artifacts and g
 
   const document = 'before\n<!-- dsh-compatibility -->stale<!-- /dsh-compatibility -->\nafter'
   const block = rewriteCompatibilityBlock(document, ['0.1.0-rc.6', '0.1.0-rc.9'], 'zh')
-  assert.match(block, /支持软件包元数据中记录的最新版 DeepSeek Harness（`0\.1\.0-rc\.9`）/)
-  assert.doesNotMatch(block, /0\.1\.0-rc\.6/)
+  assert.match(block, /当前版本支持 DeepSeek Harness `0\.1\.0-rc\.6`、`0\.1\.0-rc\.9`。/)
   assert.doesNotMatch(block, /stale/)
 
   const englishBlock = rewriteCompatibilityBlock(document, ['0.1.0-rc.6', '0.1.0-rc.9'], 'en')
-  assert.match(englishBlock, /Supports the latest DeepSeek Harness release recorded in the package metadata \(`0\.1\.0-rc\.9`\)/)
-  assert.doesNotMatch(englishBlock, /0\.1\.0-rc\.6/)
+  assert.match(englishBlock, /This release supports DeepSeek Harness `0\.1\.0-rc\.6`, `0\.1\.0-rc\.9`\./)
 
   assert.match(
     rewriteDshVersion('workspace version 0.1.0-rc.8', '0.1.0-rc.8', '0.1.0-rc.9'),
