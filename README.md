@@ -64,7 +64,11 @@ dsh plugin --profile web add dsh-chat-manager@1.5.4
 
 ### 永久删除
 
-从目标会话旁的原生菜单选择红色 **删除会话**，核对名称后在弹窗中再次确认 **永久删除**，或取消。
+在侧边栏会话右侧点 **⋯**，选择红色的 **永久删除**；核对弹窗里的会话名称，再次确认后点 **确认永久删除**，或取消。
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/session-menu.png" width="450" alt="DSH 侧边栏会话菜单中的永久删除">
+</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/confirm-delete.png" width="382" alt='DSH 永久删除会话的二次确认弹窗'>
