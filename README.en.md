@@ -13,7 +13,7 @@
 [![Stars](https://img.shields.io/github/stars/WSL043/dsh-chat-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-chat-manager/stargazers)
 [![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
 
-[中文](README.md) · [Install](#install) · [Usage](#usage) · [Safety](#safety-boundaries)
+[中文](README.md) · [Install](#install) · [Use](#use) · [Safety](#safety-boundary)
 
 </div>
 
