@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: '17 */3 * * *'
   workflow_dispatch:
-    inputs:
-      dsh_version:
-        description: Exact official DSH version; empty selects the oldest uncovered registry version
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -18,14 +13,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  preflight:
+  prepare:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     outputs:
-      changed: ${{ steps.candidate.outputs.changed }}
-      publish_needed: ${{ steps.candidate.outputs.publish_needed }}
-      dsh_version: ${{ steps.candidate.outputs.dsh_version }}
-      plugin_version: ${{ steps.prepare.outputs.plugin_version }}
+      changed: ${{ steps.targets.outputs.changed }}
+      publish_needed: ${{ steps.targets.outputs.publish_needed }}
+      dsh_versions: ${{ steps.targets.outputs.dsh_versions }}
+      plugin_version: ${{ steps.package.outputs.plugin_version }}
       patch_sha256: ${{ steps.patch.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v7
@@ -39,89 +34,78 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - name: Resolve and authenticate the official DSH release
-        id: candidate
+      - name: Resolve the registry's newest three versions and authenticate immutable releases
+        id: targets
         env:
           GH_TOKEN: ${{ github.token }}
-          REQUESTED_VERSION: ${{ inputs.dsh_version }}
         shell: bash
         run: |
           set -euo pipefail
-          current="$(node -p "require('./compatibility.json').latestTested")"
-          if [ -n "${REQUESTED_VERSION:-}" ]; then
-            candidate="$REQUESTED_VERSION"
-          else
-            pnpm view @deepseek-ai/dsh versions --json > "$RUNNER_TEMP/dsh-versions.json"
-            gh api 'repos/deepseek-ai/deepseek-harness/releases?per_page=100' \
-              --jq '[.[] | select(.draft == false and .immutable == true and (.tag_name | test("^dsh-v[0-9]+\\.[0-9]+\\.[0-9]+"))) | .tag_name[5:]]' \
-              > "$RUNNER_TEMP/official-releases.json"
-            candidate="$(node --input-type=module -e '
-              import { readFileSync } from "node:fs";
-              import { selectNextUntestedVersion } from "./scripts/prepare-compat-release.mjs";
-              const official = new Set(JSON.parse(readFileSync(process.argv[3], "utf8")));
-              process.stdout.write(selectNextUntestedVersion(
-                JSON.parse(readFileSync(process.argv[1], "utf8")).filter(version => official.has(version)),
-                JSON.parse(readFileSync(process.argv[2], "utf8")),
-              ) ?? "");
-            ' "$RUNNER_TEMP/dsh-versions.json" compatibility.json "$RUNNER_TEMP/official-releases.json")"
-            if [ -z "$candidate" ]; then
-              candidate="$current"
-            fi
-          fi
-          [[ "$candidate" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
-          registry_version="$(pnpm view "@deepseek-ai/dsh@$candidate" version)"
-          test "$registry_version" = "$candidate"
-          tested="$(node --input-type=module -e '
-            import compatibility from "./compatibility.json" with { type: "json" };
-            process.stdout.write(String([
-              ...compatibility.supported,
-              ...compatibility.previews,
-            ].includes(process.argv[1])));
-          ' "$candidate")"
-          comparison="$(node --input-type=module -e '
-            import { compareDshVersions } from "./scripts/prepare-compat-release.mjs";
-            process.stdout.write(String(compareDshVersions(process.argv[1], process.argv[2])));
-          ' "$candidate" "$current")"
-          if [ "$tested" != true ] && [ "$comparison" -lt 0 ]; then
-            echo "Registry candidate $candidate is older than tested $current" >&2
-            exit 1
-          fi
-          echo "dsh_version=$candidate" >> "$GITHUB_OUTPUT"
-          if [ "$tested" = true ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            plugin_version="$(node -p "require('./package.json').version")"
-            npm_version="$(npm view "dsh-chat-manager@$plugin_version" version 2>/dev/null || true)"
-            if gh release view "v$plugin_version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-              && [ "$npm_version" = "$plugin_version" ]; then
-              echo "publish_needed=false" >> "$GITHUB_OUTPUT"
-              echo "DSH $candidate and plugin v$plugin_version are already covered on GitHub and npm."
-            else
-              echo "publish_needed=true" >> "$GITHUB_OUTPUT"
-              echo "Plugin v$plugin_version is missing a GitHub or npm publication; running a full repair publication."
-            fi
-          else
-            release_json="$RUNNER_TEMP/dsh-release.json"
-            if ! gh api "repos/deepseek-ai/deepseek-harness/releases/tags/dsh-v${candidate}" > "$release_json" 2>/dev/null; then
+          node --input-type=module <<'NODE'
+          import { createHash } from 'node:crypto';
+          import { appendFileSync, writeFileSync } from 'node:fs';
+          import { selectLatestDshVersions } from './scripts/prepare-compat-release.mjs';
+          const response = await fetch('https://registry.npmjs.org/@deepseek-ai%2fdsh');
+          if (!response.ok) throw new Error(`Registry HTTP ${response.status}`);
+          const registry = await response.json();
+          const targets = selectLatestDshVersions(Object.keys(registry.versions));
+          for (const version of targets) {
+            const dist = registry.versions[version]?.dist;
+            if (typeof dist?.integrity !== 'string' || typeof dist.tarball !== 'string') throw new Error(`Official registry integrity is missing for DSH ${version}`);
+            const expected = dist.integrity.split(/\s+/).map(token => {
+              const match = /^([a-z0-9]+)-([A-Za-z0-9+/=]+)$/.exec(token);
+              return match === null ? null : { algorithm: match[1], digest: match[2] };
+            }).filter(Boolean);
+            if (expected.length === 0) throw new Error(`Unsupported npm integrity metadata for DSH ${version}`);
+            const tarball = await fetch(dist.tarball);
+            if (!tarball.ok) throw new Error(`npm tarball HTTP ${tarball.status} for DSH ${version}`);
+            const bytes = Buffer.from(await tarball.arrayBuffer());
+            if (!expected.some(({ algorithm, digest }) => createHash(algorithm).update(bytes).digest('base64') === digest)) {
+              throw new Error(`npm integrity check failed for DSH ${version}`);
+            }
+          }
+          writeFileSync(`${process.env.RUNNER_TEMP}/dsh-targets.json`, JSON.stringify(targets));
+          appendFileSync(process.env.GITHUB_OUTPUT, `dsh_versions=${JSON.stringify(targets)}\n`);
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Official registry top three: ${targets.join(', ')}.\n`);
+          NODE
+          targets="$(cat "$RUNNER_TEMP/dsh-targets.json")"
+          for version in $(DSH_VERSIONS="$targets" node -e 'process.stdout.write(JSON.parse(process.env.DSH_VERSIONS).join(" "))'); do
+            release_json="$RUNNER_TEMP/dsh-release-$version.json"
+            if ! gh api "repos/deepseek-ai/deepseek-harness/releases/tags/dsh-v${version}" > "$release_json" 2>/dev/null; then
               echo "changed=false" >> "$GITHUB_OUTPUT"
               echo "publish_needed=false" >> "$GITHUB_OUTPUT"
-              echo "DSH $candidate is present on npm but its official immutable GitHub Release is not available yet; waiting for the next scheduled run."
+              echo "DSH $version is in npm's top three but has no official Release yet; waiting for the next scheduled run." >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
-            jq -e '.draft == false and .immutable == true and (.published_at | type == "string")' "$release_json" >/dev/null
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "publish_needed=true" >> "$GITHUB_OUTPUT"
+            jq -e --arg tag "dsh-v$version" '.tag_name == $tag and .draft == false and .immutable == true and (.published_at | type == "string")' "$release_json" >/dev/null
+          done
+          changed="$(DSH_VERSIONS="$targets" node -e 'const c=require("./compatibility.json"); process.stdout.write(String(JSON.stringify(c.releaseTargets)!==JSON.stringify(JSON.parse(process.env.DSH_VERSIONS))))')"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          plugin_version="$(node -p "require('./package.json').version")"
+          if [ "$changed" = true ]; then
+            publish_needed=true
+          else
+            npm_version="$(npm view "dsh-chat-manager@$plugin_version" version 2>/dev/null || true)"
+            if gh release view "v$plugin_version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && [ "$npm_version" = "$plugin_version" ]; then
+              publish_needed=false
+              echo "DSH targets and dsh-chat-manager@$plugin_version are already published." >> "$GITHUB_STEP_SUMMARY"
+            else
+              publish_needed=true
+              echo "The current top-three package is not fully published; running acceptance and release reconciliation." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
-      - name: Prepare candidate compatibility release
-        if: steps.candidate.outputs.publish_needed == 'true'
-        id: prepare
+          echo "publish_needed=$publish_needed" >> "$GITHUB_OUTPUT"
+      - name: Prepare one candidate package for the entire top-three matrix
+        if: steps.targets.outputs.publish_needed == 'true'
+        id: package
         env:
-          DSH_VERSION: ${{ steps.candidate.outputs.dsh_version }}
-          CHANGED: ${{ steps.candidate.outputs.changed }}
+          DSH_VERSIONS: ${{ steps.targets.outputs.dsh_versions }}
+          CHANGED: ${{ steps.targets.outputs.changed }}
         shell: bash
         run: |
           set -euo pipefail
           if [ "$CHANGED" = true ]; then
-            node scripts/prepare-compat-release.mjs --dsh-version "$DSH_VERSION" > "$RUNNER_TEMP/compat-update.json"
+            node scripts/prepare-compat-release.mjs --dsh-versions "$DSH_VERSIONS" > "$RUNNER_TEMP/compat-update.json"
             plugin_version="$(jq -r '.pluginVersion' "$RUNNER_TEMP/compat-update.json")"
           else
             plugin_version="$(node -p "require('./package.json').version")"
@@ -130,41 +114,67 @@ jobs:
           pnpm --config.minimum-release-age=0 install --lockfile-only
           node scripts/prepare-compat-release.mjs --refresh-release-age
           pnpm install --frozen-lockfile
-      - name: Verify candidate source and package
-        if: steps.candidate.outputs.publish_needed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
           pnpm test
           pnpm run build
-          rm -rf .artifacts
-          mkdir .artifacts
+          mkdir -p .artifacts
           pnpm pack --pack-destination .artifacts
           package="$(find .artifacts -maxdepth 1 -type f -name '*.tgz' -print -quit)"
           test -n "$package"
           mv "$package" .artifacts/dsh-chat-manager.tgz
-      - name: Install browser for official UI acceptance
-        if: steps.candidate.outputs.publish_needed == 'true'
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Accept the candidate in isolated official DSH
-        if: steps.candidate.outputs.publish_needed == 'true'
-        env:
-          DSH_VERSION: ${{ steps.candidate.outputs.dsh_version }}
-        run: >-
-          node scripts/accept-official-dsh.mjs
-          --dsh-version "$DSH_VERSION"
-          --package .artifacts/dsh-chat-manager.tgz
-      - name: Fingerprint the exact accepted patch
-        if: steps.candidate.outputs.publish_needed == 'true'
+      - name: Fingerprint the prepared metadata and generated client
+        if: steps.targets.outputs.publish_needed == 'true'
         id: patch
         shell: bash
         run: echo "sha256=$(git diff --binary | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        if: steps.targets.outputs.publish_needed == 'true'
+        with:
+          name: dsh-chat-manager-candidate-${{ github.run_id }}
+          path: .artifacts/dsh-chat-manager.tgz
+          if-no-files-found: error
+
+  acceptance:
+    needs: prepare
+    if: needs.prepare.outputs.publish_needed == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        dsh_version: ${{ fromJSON(needs.prepare.outputs.dsh_versions) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          name: dsh-chat-manager-candidate-${{ github.run_id }}
+          path: .artifacts
+      - run: pnpm exec playwright install chromium
+      - name: Accept the exact same candidate package on this core
+        env:
+          DSH_VERSION: ${{ matrix.dsh_version }}
+        run: node scripts/accept-official-dsh.mjs --dsh-version "$DSH_VERSION" --package .artifacts/dsh-chat-manager.tgz
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: chat-manager-official-failure-${{ matrix.dsh_version }}
+          path: ${{ runner.temp }}/dsh-session-delete-official-*/*.log
 
   publish:
-    needs: preflight
-    if: needs.preflight.outputs.publish_needed == 'true'
+    needs: [prepare, acceptance]
+    if: needs.prepare.outputs.publish_needed == 'true' && needs.acceptance.result == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     permissions:
       actions: write
       contents: write
@@ -181,16 +191,17 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - name: Reproduce the accepted candidate
+      - name: Reproduce the accepted package and metadata patch
         env:
-          DSH_VERSION: ${{ needs.preflight.outputs.dsh_version }}
-          EXPECTED_PATCH: ${{ needs.preflight.outputs.patch_sha256 }}
-          CHANGED: ${{ needs.preflight.outputs.changed }}
+          DSH_VERSIONS: ${{ needs.prepare.outputs.dsh_versions }}
+          CHANGED: ${{ needs.prepare.outputs.changed }}
+          EXPECTED_PATCH: ${{ needs.prepare.outputs.patch_sha256 }}
+          PLUGIN_VERSION: ${{ needs.prepare.outputs.plugin_version }}
         shell: bash
         run: |
           set -euo pipefail
           if [ "$CHANGED" = true ]; then
-            node scripts/prepare-compat-release.mjs --dsh-version "$DSH_VERSION"
+            node scripts/prepare-compat-release.mjs --dsh-versions "$DSH_VERSIONS"
           fi
           pnpm --config.minimum-release-age=0 install --lockfile-only
           node scripts/prepare-compat-release.mjs --refresh-release-age
@@ -203,12 +214,14 @@ jobs:
           else
             git diff --exit-code
           fi
-          test "$(node -p "require('./package.json').version")" = '${{ needs.preflight.outputs.plugin_version }}'
+          test "$(node -p "require('./package.json').version")" = "$PLUGIN_VERSION"
+          mkdir -p .artifacts
+          pnpm pack --pack-destination .artifacts
       - name: Refuse races and immutable release replacement
         env:
           GH_TOKEN: ${{ github.token }}
-          PLUGIN_VERSION: ${{ needs.preflight.outputs.plugin_version }}
-          CHANGED: ${{ needs.preflight.outputs.changed }}
+          PLUGIN_VERSION: ${{ needs.prepare.outputs.plugin_version }}
+          CHANGED: ${{ needs.prepare.outputs.changed }}
         shell: bash
         run: |
           set -euo pipefail
@@ -219,40 +232,33 @@ jobs:
             exit 1
           fi
       - name: Commit accepted compatibility metadata to main
-        if: needs.preflight.outputs.changed == 'true'
+        if: needs.prepare.outputs.changed == 'true'
         env:
-          DSH_VERSION: ${{ needs.preflight.outputs.dsh_version }}
+          DSH_VERSIONS: ${{ needs.prepare.outputs.dsh_versions }}
         shell: bash
         run: |
           set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -- AGENTS.md README.md README.zh-CN.md THIRD_PARTY_NOTICES.md compatibility.json lib/client.js package.json pnpm-lock.yaml pnpm-workspace.yaml
-          git commit -m "chore: support DSH $DSH_VERSION"
+          git add -- AGENTS.md README.md README.en.md THIRD_PARTY_NOTICES.md compatibility.json lib/client.js package.json pnpm-lock.yaml pnpm-workspace.yaml
+          git commit -m "chore: qualify the official latest three DSH cores"
           git push origin HEAD:main
       - name: Dispatch and await the trusted release workflow
         env:
           GH_TOKEN: ${{ github.token }}
-          DSH_VERSION: ${{ needs.preflight.outputs.dsh_version }}
         shell: bash
         run: |
           set -euo pipefail
           request_id="compat-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           title="Release $request_id"
-          gh workflow run publish.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            --ref main \
-            -f request_id="$request_id" \
-            -f release_kind=compatibility \
-            -f dsh_version="$DSH_VERSION"
+          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main \
+            -f request_id="$request_id" -f release_kind=compatibility
           release_run=""
           for attempt in $(seq 1 90); do
             sleep 2
             runs="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow publish.yml --event workflow_dispatch --limit 20 --json databaseId,displayTitle)"
             release_run="$(jq -r --arg title "$title" 'map(select(.displayTitle == $title))[0].databaseId // empty' <<< "$runs")"
-            if [ -n "$release_run" ]; then
-              break
-            fi
+            if [ -n "$release_run" ]; then break; fi
           done
           test -n "$release_run"
           gh run watch "$release_run" --repo "$GITHUB_REPOSITORY" --exit-status
