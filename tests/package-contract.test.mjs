@@ -9,7 +9,7 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   const compatibility = JSON.parse(await read('compatibility.json'))
 
   assert.equal(manifest.name, 'dsh-chat-manager')
-  assert.equal(manifest.version, '1.5.5')
+  assert.equal(manifest.version, '1.5.6')
   assert.match(manifest.version, /^\d+\.\d+\.\d+(?:-beta\.\d+)?$/)
   assert.equal(manifest.private, undefined)
   assert.equal(manifest.license, 'MIT')

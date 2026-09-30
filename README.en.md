@@ -31,7 +31,7 @@
 2. Paste this line into **Package name or address**, then select Install:
 
 ```text
-dsh-chat-manager@1.5.5
+dsh-chat-manager@1.5.6
 ```
 
 3. Follow the page result; refresh or restart only when requested.
@@ -43,11 +43,11 @@ See [Compatibility](#compatibility) for supported DSH cores.
 For official DSH Desktop, register its bundled command through **Manage dsh Command…** and launch it once to initialize the profile; fully quit the app before using `desktop`. DSH-Portable 0.x and the Web profile use `web`:
 
 ```sh
-dsh plugin --profile desktop add dsh-chat-manager@1.5.5
-dsh plugin --profile web add dsh-chat-manager@1.5.5
+dsh plugin --profile desktop add dsh-chat-manager@1.5.6
+dsh plugin --profile web add dsh-chat-manager@1.5.6
 ```
 
-For Agent installation, use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.5/AGENTS.md).
+For Agent installation, use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.6/AGENTS.md).
 
 ## Use
 
