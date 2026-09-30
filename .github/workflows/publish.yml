@@ -14,10 +14,6 @@ on:
         default: feature
         type: choice
         options: [feature, bugfix, compatibility]
-      dsh_version:
-        description: Exact accepted DSH version for a compatibility release
-        required: false
-        type: string
       contributor_prs:
         description: Comma-separated merged contributor PR numbers to credit
         required: false
@@ -84,7 +80,7 @@ jobs:
         run: |
           pnpm pack --pack-destination .candidate
           package="$(find .candidate -maxdepth 1 -name '*.tgz' -print -quit)"
-          for version in $(node -e "const c=require('./compatibility.json'); console.log([...new Set((c.releaseTargets ?? [c.latestTested,c.previews.at(-1)]).filter(Boolean))].join(' '))"); do
+          for version in $(node -e "const c=require('./compatibility.json'); console.log(c.releaseTargets.join(' '))"); do
             node scripts/accept-official-dsh.mjs --dsh-version "$version" --package "$package"
           done
       - name: Preserve visual acceptance evidence
@@ -164,7 +160,6 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
           RELEASE_KIND: ${{ inputs.release_kind }}
-          REQUESTED_DSH_VERSION: ${{ inputs.dsh_version }}
           CONTRIBUTOR_PRS: ${{ inputs.contributor_prs }}
           RELEASE_NOTES_EN: ${{ inputs.release_notes_en }}
           RELEASE_NOTES_ZH: ${{ inputs.release_notes_zh }}
@@ -173,13 +168,12 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${RELEASE_KIND:-feature}" == 'compatibility' ]]; then
-            [[ "$REQUESTED_DSH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
             RELEASE_NOTES_EN="$(printf '%s\n%s' \
-              "- Added compatibility with DeepSeek Harness \`$REQUESTED_DSH_VERSION\`." \
-              '- Stable installation guidance remains unchanged.')"
+              '- Compatibility range now follows the official latest three DSH cores.' \
+              '- No functionality changes.')"
             RELEASE_NOTES_ZH="$(printf '%s\n%s' \
-              "- 新增对 DeepSeek Harness \`$REQUESTED_DSH_VERSION\` 的兼容支持。" \
-              '- 稳定版安装说明保持不变。')"
+              '- 兼容范围改为官方最新 3 个 DSH 内核。' \
+              '- 功能无变化。')"
           else
             test -n "${RELEASE_NOTES_EN:-}"
             test -n "${RELEASE_NOTES_ZH:-}"

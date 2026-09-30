@@ -12,10 +12,12 @@ const output = process.env.DSH_CHAT_MANAGER_OUTPUT === undefined
   ? resolve(here, '../lib/client.js')
   : resolve(process.env.DSH_CHAT_MANAGER_OUTPUT)
 const compatibility = JSON.parse(readFileSync(resolve(here, '../compatibility.json'), 'utf8'))
+const testFixtures = compatibility.testFixtures ?? {}
 const LATEST_UPSTREAM_VERSION = compatibility.latestTested
-const SUPPORTED_UPSTREAM_VERSIONS = new Set([
-  ...compatibility.supported,
-  ...(compatibility.previews ?? []),
+const SUPPORTED_UPSTREAM_VERSIONS = new Set(compatibility.releaseTargets)
+const TEST_FIXTURE_VERSIONS = new Set([
+  ...Object.keys(testFixtures.workspaceByVersion ?? {}),
+  ...(testFixtures.historicalPreviews ?? []),
 ])
 
 export async function unarchiveSession(sessionId) {
@@ -29,17 +31,17 @@ export const resolveUpstreamManifest = () => process.env.DSH_WORKSPACE_MANIFEST_
   ? require.resolve('@deepseek-ai/dsh-client-ui-workspace/package.json')
   : resolve(process.env.DSH_WORKSPACE_MANIFEST_PATH)
 const resolvePreviewClient = () => process.env.DSH_WORKSPACE_CLIENT_PATH === undefined
-  ? require.resolve(`${compatibility.previewWorkspaceFixture}/client`)
+  ? require.resolve(`${testFixtures.previewWorkspaceAlias}/client`)
   : resolve(process.env.DSH_WORKSPACE_CLIENT_PATH)
 const resolvePreviewManifest = () => process.env.DSH_WORKSPACE_MANIFEST_PATH === undefined
-  ? require.resolve(`${compatibility.previewWorkspaceFixture}/package.json`)
+  ? require.resolve(`${testFixtures.previewWorkspaceAlias}/package.json`)
   : resolve(process.env.DSH_WORKSPACE_MANIFEST_PATH)
-const resolveLegacyClient = () => compatibility.legacyWorkspaceFixture === undefined
+const resolveLegacyClient = () => testFixtures.legacyWorkspaceAlias === undefined
   ? resolveUpstreamClient()
-  : require.resolve(`${compatibility.legacyWorkspaceFixture}/client`)
-const resolveLegacyManifest = () => compatibility.legacyWorkspaceFixture === undefined
+  : require.resolve(`${testFixtures.legacyWorkspaceAlias}/client`)
+const resolveLegacyManifest = () => testFixtures.legacyWorkspaceAlias === undefined
   ? resolveUpstreamManifest()
-  : require.resolve(`${compatibility.legacyWorkspaceFixture}/package.json`)
+  : require.resolve(`${testFixtures.legacyWorkspaceAlias}/package.json`)
 const resolveModernClient = () => require.resolve('dsh-ui-workspace-alpha2-modern/client')
 const resolveModernManifest = () => require.resolve('dsh-ui-workspace-alpha2-modern/package.json')
 
@@ -89,6 +91,16 @@ const extractClientFactoryBody = (source, label) => {
   return source.slice(start + marker.length, end)
 }
 
+export function supportsOfficialSessionSlots(source) {
+  if (typeof source !== 'string') return false
+  const rowSignature = (() => {
+    try { return findFunctionSignature(source, 'SessionNodeItem') } catch { return '' }
+  })()
+  return rowSignature.includes('onRenameRequest, renderSlot, onReveal,')
+    && source.includes('children: renderSlot("sidebar.workspaces.session.menu.item", {')
+    && source.includes('renderSlot("sidebar.workspaces.session.row.action", {')
+}
+
 export function composeCompatibleClients(stableClient, previewClient, modernClient = undefined) {
   const stableBody = extractClientFactoryBody(stableClient, 'stable factory')
   const previewBody = extractClientFactoryBody(previewClient, 'preview factory')
@@ -107,7 +119,7 @@ export function composeCompatibleClients(stableClient, previewClient, modernClie
  * silently malformed client.
  */
 export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM_VERSION) {
-  if (!SUPPORTED_UPSTREAM_VERSIONS.has(upstreamVersion)) {
+  if (!SUPPORTED_UPSTREAM_VERSIONS.has(upstreamVersion) && !TEST_FIXTURE_VERSIONS.has(upstreamVersion)) {
     throw new Error(`unsupported @deepseek-ai/dsh-client-ui-workspace version: ${upstreamVersion}`)
   }
   const sessionTreeSignature = findFunctionSignature(upstream, 'SessionTree')
@@ -465,12 +477,19 @@ export function patchWorkspaceClient(upstream, upstreamVersion = LATEST_UPSTREAM
 
 export async function buildClient() {
   const compatibility = JSON.parse(await readFile(new URL('../compatibility.json', import.meta.url), 'utf8'))
-  if ((process.env.DSH_CLIENT_TARGET || compatibility.clientTarget) === '0.1.7-alpha.1') {
+  const upstreamManifest = JSON.parse(await readFile(resolveUpstreamManifest(), 'utf8'))
+  if (upstreamManifest.version !== compatibility.latestTested) {
+    throw new Error(`build workspace ${upstreamManifest.version} does not match qualified target ${compatibility.latestTested}`)
+  }
+  const upstream = await readFile(resolveUpstreamClient(), 'utf8')
+  if (supportsOfficialSessionSlots(upstream)) {
     const { buildOfficialSlotClient } = await import('./official-session-actions.mjs')
     await mkdir(dirname(output), { recursive: true })
     await writeFile(output, buildOfficialSlotClient(), 'utf8')
     return output
   }
+  // Older fixture-era workspaces do not expose public session slots. Keep the
+  // pinned alpha.2 adapter for those historical shapes only.
   const modernManifest = JSON.parse(await readFile(resolveModernManifest(), 'utf8'))
   if (modernManifest.version !== MODERN_WORKSPACE_VERSION) {
     throw new Error(`unsupported modern @deepseek-ai/dsh-client-ui-workspace version: ${modernManifest.version ?? 'unknown'}`)
