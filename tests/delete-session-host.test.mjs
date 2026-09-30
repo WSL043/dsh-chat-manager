@@ -9,6 +9,7 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import {
   createDeleteRequestHandler,
   deleteSessionSafely,
+  hostRequestFence,
   installAgentHandleTracker,
 } from '../src/host/delete-session.mjs'
 
@@ -619,6 +620,33 @@ test('accepts only a same-origin explicitly confirmed POST', async () => {
   }), rejected)
   assert.equal(rejected.status, 403)
   assert.equal(calls.length, 1)
+})
+
+test('the official desktop app, which forwards without Origin, is admitted through the Host fence', async () => {
+  const calls = []
+  const seen = []
+  const connection = { requestRejection: req => { seen.push(req.headers.origin); return req.headers.cookie === 'dsh-auth-x=ok' ? undefined : 401 } }
+  const handler = createDeleteRequestHandler({
+    isTrustedRequest: hostRequestFence(connection),
+    deleteSession: async sessionId => { calls.push(sessionId); return { ok: true, value: { deleted: true } } },
+  })
+  const desktop = response()
+  await handler(request(JSON.stringify({ sessionId: HEADER.id }), { origin: undefined, cookie: 'dsh-auth-x=ok' }), desktop)
+  assert.equal(desktop.status, 200)
+  const unauthenticated = response()
+  await handler(request(JSON.stringify({ sessionId: HEADER.id }), { origin: undefined }), unauthenticated)
+  assert.equal(unauthenticated.status, 403)
+  const unconfirmed = response()
+  await handler(request(JSON.stringify({ sessionId: HEADER.id }), { origin: undefined, cookie: 'dsh-auth-x=ok', 'x-dsh-session-delete-confirmation': undefined }), unconfirmed)
+  assert.equal(unconfirmed.status, 403)
+  assert.deepEqual(calls, [HEADER.id])
+  assert.deepEqual(seen, [undefined, undefined, undefined])
+})
+
+test('cores without a Host fence keep the same-origin check', () => {
+  const fence = hostRequestFence(undefined)
+  assert.equal(fence({ headers: { host: '127.0.0.1:1', origin: 'http://127.0.0.1:1' } }), true)
+  assert.equal(fence({ headers: { host: '127.0.0.1:1' } }), false)
 })
 
 test('rejects a missing deletion confirmation header', async () => {

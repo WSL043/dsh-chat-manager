@@ -420,10 +420,23 @@ export const deleteColdSession = deleteSessionSafely
  * same-origin JSON POST and include a confirmation-only header that ordinary
  * links and HTML forms cannot add.
  */
-export function createDeleteRequestHandler({ deleteSession }) {
+export function sameOriginRequest(req) {
+  const host = req.headers.host
+  return typeof host === 'string' && req.headers.origin === `http://${host}`
+}
+
+/**
+ * Prefer the Host's own request fence (loopback authority, not cross-site, and the Host session cookie).
+ * The official desktop app forwards dsh-app:// requests to the Host without an Origin header, so a
+ * plain same-origin check would reject every desktop request; older cores without that fence keep it.
+ */
+export function hostRequestFence(connection) {
+  if (typeof connection?.requestRejection !== 'function') return sameOriginRequest
+  return req => connection.requestRejection(req) === undefined
+}
+
+export function createDeleteRequestHandler({ deleteSession, isTrustedRequest = sameOriginRequest }) {
   return async (req, res) => {
-    const host = req.headers.host
-    const origin = req.headers.origin
     const contentType = req.headers['content-type']
     const confirmation = req.headers['x-dsh-session-delete-confirmation']
 
@@ -431,11 +444,7 @@ export function createDeleteRequestHandler({ deleteSession }) {
       sendJson(res, 405, failure('method-not-allowed', '只允许使用 POST 删除会话。'))
       return
     }
-    if (
-      typeof host !== 'string'
-      || origin !== `http://${host}`
-      || confirmation !== 'delete-session'
-    ) {
+    if (!isTrustedRequest(req) || confirmation !== 'delete-session') {
       sendJson(res, 403, failure('forbidden', '删除请求未通过同源与确认校验。'))
       return
     }
