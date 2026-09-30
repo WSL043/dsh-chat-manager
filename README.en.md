@@ -60,11 +60,15 @@ Select the archive icon in the sidebar header to browse archived sessions, searc
   <br><sub>Native DSH archive page</sub>
 </p>
 
-Stock DSH keeps its official archive page and adds the Delete session menu action. DSH-Portable's settings extension also adds archive search, restore, and permanent deletion; disabling the plugin restores the official views.
+Stock DSH keeps its official archive page and adds the Delete permanently menu action. DSH-Portable's settings extension also adds archive search, restore, and permanent deletion; disabling the plugin restores the official views.
 
 ### Delete permanently
 
-Choose the red **Delete session** action beside a session, check its name, and confirm **Delete permanently** in the dialog—or cancel.
+Click **⋯** beside a session in the sidebar and choose the red **Delete permanently**; check the session name in the dialog, then click **Confirm permanent deletion**—or cancel.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/session-menu.en.png" width="450" alt="Delete permanently in the DSH sidebar session menu">
+</p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/confirm-delete.en.png" width="382" alt='DSH second confirmation dialog for permanent session deletion'>

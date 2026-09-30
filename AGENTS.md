@@ -90,7 +90,7 @@ With permission to restart DSH, verify the live UI in dark mode:
 2. The archive manager lists archived sessions, filters by name or workspace, and can search archived
    user/assistant conversation content without exposing another session.
 3. Restoring a disposable archived session returns it to its original workspace position without reloading the page.
-4. The selected session's native actions menu contains **Archive session** and the red **Delete session** action.
+4. The selected session's native actions menu contains **Archive session** and the red **Delete permanently** action.
 5. Opening Delete shows the target session name and a second confirmation.
 6. Selecting **Cancel** closes the dialog, sends no delete request, and leaves the session visible.
 7. A destructive check is allowed only with a disposable test session explicitly selected by the user.
