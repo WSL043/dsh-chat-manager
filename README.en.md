@@ -56,7 +56,7 @@ For Agent installation, use the fixed-version [AGENTS.md](https://raw.githubuser
 Select the archive icon in the sidebar header to browse archived sessions, search by name, workspace, or conversation, and select **Restore** to return a session to its original workspace. Search is limited to current user and assistant messages in archived sessions.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/archive-manager.en.png" width="414" alt='DeepSeek Harness native archive page with search and restore'>
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/archive-manager.en.png" width="600" alt='DeepSeek Harness native archive page with search and restore'>
   <br><sub>Native DSH archive page</sub>
 </p>
 
@@ -67,7 +67,7 @@ Stock DSH keeps its official archive page and adds the Delete session menu actio
 Choose the red **Delete session** action beside a session, check its name, and confirm **Delete permanently** in the dialog—or cancel.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/confirm-delete.en.png" width="414" alt='DSH second confirmation dialog for permanent session deletion'>
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/confirm-delete.en.png" width="382" alt='DSH second confirmation dialog for permanent session deletion'>
   <br><sub>Permanent deletion cannot be undone; the dialog identifies the target session.</sub>
 </p>
 

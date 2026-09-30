@@ -56,7 +56,7 @@ dsh plugin --profile web add dsh-chat-manager@1.5.4
 点击侧边栏标题处的归档图标，可浏览归档并按会话名、工作区或聊天内容搜索；点击 **恢复** 将会话放回原工作区。搜索仅涉及已归档会话中的当前用户和助手消息。
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/archive-manager.png" width="414" alt='DeepSeek Harness 原生归档界面，支持搜索与恢复'>
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/archive-manager.png" width="600" alt='DeepSeek Harness 原生归档界面，支持搜索与恢复'>
   <br><sub>DSH 原生归档界面</sub>
 </p>
 
@@ -67,7 +67,7 @@ dsh plugin --profile web add dsh-chat-manager@1.5.4
 从目标会话旁的原生菜单选择红色 **删除会话**，核对名称后在弹窗中再次确认 **永久删除**，或取消。
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/confirm-delete.png" width="414" alt='DSH 永久删除会话的二次确认弹窗'>
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/confirm-delete.png" width="382" alt='DSH 永久删除会话的二次确认弹窗'>
   <br><sub>永久删除无法撤销；确认弹窗会明确显示目标会话</sub>
 </p>
 
