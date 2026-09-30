@@ -13,10 +13,12 @@
 [![Stars](https://img.shields.io/github/stars/WSL043/dsh-chat-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-chat-manager/stargazers)
 [![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
 
+[English](README.en.md) · [安装](#安装) · [使用](#使用) · [安全边界](#安全边界)
+
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/hero.png" alt='DeepSeek Harness chat history and archived session manager with search, restore, and safe permanent deletion'>
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/hero.png" alt="DeepSeek Harness 聊天历史与归档会话管理器，支持搜索、恢复和安全永久删除">
 </p>
 
 ## 安装
@@ -85,7 +87,7 @@ dsh plugin --profile web add dsh-chat-manager@1.5.4
 ## 兼容性
 
 <!-- dsh-compatibility -->
-支持软件包元数据中记录的最新版 DeepSeek Harness（`0.1.5-rc.2`）。
+当前版本支持 DeepSeek Harness `0.1.7-alpha.1`、`0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.0-rc.2`。
 <!-- /dsh-compatibility -->
 
 ## 更新与卸载
@@ -107,5 +109,3 @@ MIT。第三方客户端修改及其许可说明见 [THIRD_PARTY_NOTICES.md](THI
 ## 质量
 
 每个声明支持的内核均完成真实界面核验。
-
-[English](README.en.md)
