@@ -161,6 +161,7 @@ jobs:
           path: .artifacts
       - run: pnpm exec playwright install chromium
       - name: Accept the exact same candidate package on this core
+        shell: bash
         env:
           DSH_VERSION: ${{ matrix.dsh_version }}
         run: node scripts/accept-official-dsh.mjs --dsh-version "$DSH_VERSION" --package .artifacts/dsh-chat-manager.tgz
