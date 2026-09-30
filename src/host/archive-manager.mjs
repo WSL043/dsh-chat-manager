@@ -180,13 +180,14 @@ const readJsonBody = async req => {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'))
 }
 
-const acceptJsonPost = (req, res) => {
+const sameOriginRequest = req => typeof req.headers.host === 'string' && req.headers.origin === `http://${req.headers.host}`
+
+const acceptJsonPost = (req, res, isTrustedRequest) => {
   if (req.method !== 'POST') {
     sendJson(res, 405, failure('method-not-allowed', '只允许使用 POST 管理归档会话。'))
     return false
   }
-  const host = req.headers.host
-  if (typeof host !== 'string' || req.headers.origin !== `http://${host}`) {
+  if (!isTrustedRequest(req)) {
     sendJson(res, 403, failure('forbidden', '归档管理请求未通过同源校验。'))
     return false
   }
@@ -213,10 +214,10 @@ const parseBody = async (req, res) => {
 }
 
 /** Same-origin HTTP boundary consumed by the native archive manager UI. */
-export function createArchiveRequestHandlers({ restore, search, warn = console.warn }) {
+export function createArchiveRequestHandlers({ restore, search, warn = console.warn, isTrustedRequest = sameOriginRequest }) {
   return {
     restore: async (req, res) => {
-      if (!acceptJsonPost(req, res)) return
+      if (!acceptJsonPost(req, res, isTrustedRequest)) return
       if (req.headers['x-dsh-session-manager-action'] !== 'restore-session') {
         sendJson(res, 403, failure('forbidden', '恢复请求缺少明确的操作标记。'))
         return
@@ -235,7 +236,7 @@ export function createArchiveRequestHandlers({ restore, search, warn = console.w
       }
     },
     search: async (req, res) => {
-      if (!acceptJsonPost(req, res)) return
+      if (!acceptJsonPost(req, res, isTrustedRequest)) return
       const body = await parseBody(req, res)
       if (body === undefined) return
       const query = typeof body?.query === 'string' ? body.query.trim() : ''

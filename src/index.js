@@ -1,6 +1,7 @@
 import {
   createDeleteRequestHandler,
   deleteSessionSafely,
+  hostRequestFence,
   installAgentHandleTracker,
 } from './host/delete-session.mjs'
 import {
@@ -28,13 +29,17 @@ export function apply(ctx) {
     agentHandles,
     sessionPersistence: ctx.sessionPersistence,
   }, { sessionRoot, sessionId })
+  // The official fence also admits the desktop app's forwarded requests; see hostRequestFence.
+  const isTrustedRequest = hostRequestFence(ctx.get?.('connection') ?? ctx.connection)
   const handler = createDeleteRequestHandler({
+    isTrustedRequest,
     deleteSession: sessionId => deleteSessionAndReconcileArchive({
       workspaceRegistry: ctx.workspaceRegistry,
       deleteSession,
     }, sessionId),
   })
   const archiveHandlers = createArchiveRequestHandlers({
+    isTrustedRequest,
     restore: sessionId => restoreArchivedSession(ctx.workspaceRegistry, sessionId),
     search: (query, signal) => searchArchivedSessions({
       workspaceRegistry: ctx.workspaceRegistry,
