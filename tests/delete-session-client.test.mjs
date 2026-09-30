@@ -8,10 +8,18 @@ import {
   patchWorkspaceClient,
   resolveUpstreamClient,
   resolveUpstreamManifest,
+  supportsOfficialSessionSlots,
 } from '../scripts/build-client.mjs'
 
 const require = createRequire(import.meta.url)
 const compatibility = JSON.parse(await readFile(new URL('../compatibility.json', import.meta.url), 'utf8'))
+const legacyPatchVersion = '0.1.5-rc.2'
+const legacyPatchAlias = compatibility.testFixtures.workspaceByVersion[legacyPatchVersion]
+
+const patchLegacyWorkspace = async () => {
+  const source = await readFile(require.resolve(`${legacyPatchAlias}/client`), 'utf8')
+  return { source, patched: patchWorkspaceClient(source, legacyPatchVersion) }
+}
 
 test('one client artifact selects stable or preview implementation from the runtime module table', () => {
   const moduleSource = (label, dependency) => `window.__ModuleLoader__.load({\n\tid: "dsh-chat-manager",\n\tfactory: (require) => {\n\t\tconst value = require("${dependency}");\n\t\treturn { label: "${label}", value };\n\t}\n});\n`
@@ -49,11 +57,20 @@ test('does not reinterpret a stable factory module error as a missing runtime cl
   }), /Cannot find module/)
 })
 
-test('patches the official workspace client with a native confirmed delete flow', async () => {
+test('production uses the official session slots on the qualified workspace', async () => {
   const source = await readFile(resolveUpstreamClient(), 'utf8')
-  const patched = patchWorkspaceClient(source)
+  const shipped = await readFile(new URL('../lib/client.js', import.meta.url), 'utf8')
 
-  assert.match(patched, new RegExp(`^// Modified from @deepseek-ai/dsh-client-ui-workspace ${compatibility.latestTested.replaceAll('.', '\\.')}`))
+  assert.equal(supportsOfficialSessionSlots(source), true)
+  assert.match(shipped, /^\/\/ DSH Chat Manager: official 0\.1\.7 session slots/u)
+  assert.match(shipped, /sidebar\.workspaces\.session\.menu\.item/u)
+  assert.doesNotMatch(shipped, /Modified from @deepseek-ai\/dsh-client-ui-workspace/u)
+})
+
+test('legacy workspace transformer retains its confirmed delete flow for test fixtures', async () => {
+  const { patched } = await patchLegacyWorkspace()
+
+  assert.match(patched, new RegExp(`^// Modified from @deepseek-ai/dsh-client-ui-workspace ${legacyPatchVersion.replaceAll('.', '\\.')}`))
   assert.match(patched, /id: "dsh-chat-manager"/)
   assert.doesNotMatch(patched, /id: "@deepseek-ai\/dsh-client-ui-workspace"/)
   assert.match(patched, /id: "delete-session"/)
@@ -73,8 +90,8 @@ test('patches the official workspace client with a native confirmed delete flow'
 })
 
 test('keeps the legacy runtime implementation for pre-0.1.2 hosts', async () => {
-  const legacyFixture = compatibility.legacyWorkspaceFixture
-  const legacyVersion = Object.entries(compatibility.workspaceFixtures)
+  const legacyFixture = compatibility.testFixtures.legacyWorkspaceAlias
+  const legacyVersion = Object.entries(compatibility.testFixtures.workspaceByVersion)
     .find(([, fixture]) => fixture === legacyFixture)?.[0]
   const source = await readFile(require.resolve(`${legacyFixture}/client`), 'utf8')
   const patched = patchWorkspaceClient(source, legacyVersion)
@@ -83,8 +100,7 @@ test('keeps the legacy runtime implementation for pre-0.1.2 hosts', async () => 
 })
 
 test('settles a successful deletion in place without reloading the WebView', async () => {
-  const source = await readFile(resolveUpstreamClient(), 'utf8')
-  const patched = patchWorkspaceClient(source)
+  const { patched } = await patchLegacyWorkspace()
 
   assert.doesNotMatch(patched, /window\.location\.reload/)
   assert.match(patched, /ctx\.sessions\.clear\(\)/)
@@ -96,8 +112,7 @@ test('settles a successful deletion in place without reloading the WebView', asy
 })
 
 test('adds a native archived-session manager with metadata and history search', async () => {
-  const source = await readFile(resolveUpstreamClient(), 'utf8')
-  const patched = patchWorkspaceClient(source)
+  const { patched } = await patchLegacyWorkspace()
 
   assert.match(patched, /id: "archived-sessions"/)
   assert.match(patched, /archive\.manager\.title/)
@@ -111,8 +126,7 @@ test('adds a native archived-session manager with metadata and history search', 
 })
 
 test('keeps archive, view options, and add workspace actions visible together', async () => {
-  const source = await readFile(resolveUpstreamClient(), 'utf8')
-  const patched = patchWorkspaceClient(source)
+  const { patched } = await patchLegacyWorkspace()
   // Old Portable bridges treat every open-settings event as an open command,
   // including probes. Rendering this plugin must never dispatch that event.
   assert.doesNotMatch(patched, /dsh-portable\/open-settings|openArchivedSettings/)
@@ -130,8 +144,7 @@ test('keeps archive, view options, and add workspace actions visible together', 
 })
 
 test('archive cards preserve title width and keep actions compact below metadata', async () => {
-  const source = await readFile(resolveUpstreamClient(), 'utf8')
-  const patched = patchWorkspaceClient(source)
+  const { patched } = await patchLegacyWorkspace()
 
   assert.match(patched, /borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", alignItems: "stretch", gap: 8/)
   assert.match(patched, /fontWeight: 500, whiteSpace: "normal", overflowWrap: "anywhere", lineHeight: "18px"/)
@@ -144,7 +157,7 @@ test('refuses to silently patch an unknown upstream client shape', () => {
 })
 
 test('refuses a renamed upstream component even when its prop fragment is unchanged', async () => {
-  const source = await readFile(resolveUpstreamClient(), 'utf8')
+  const { source } = await patchLegacyWorkspace()
   const renamed = source.replace('function SessionTree(', 'function FutureSessionTree(')
 
   assert.throws(() => patchWorkspaceClient(renamed), /SessionTree signature/)
@@ -156,7 +169,7 @@ test('build dependency is pinned to the supported upstream workspace version', a
   assert.equal(manifest.version, compatibility.latestTested)
 })
 
-for (const [version, alias] of Object.entries(compatibility.workspaceFixtures)) {
+for (const [version, alias] of Object.entries(compatibility.testFixtures.workspaceByVersion)) {
   test(`native patch markers remain compatible with ${version}`, async () => {
     const source = await readFile(require.resolve(`${alias}/client`), 'utf8')
     const patched = patchWorkspaceClient(source, version)
@@ -170,10 +183,11 @@ for (const [version, alias] of Object.entries(compatibility.workspaceFixtures)) 
 }
 
 
-test('new row callbacks survive delete-action injection',async()=>{
- const source=(await readFile(resolveUpstreamClient(),'utf8')).replace('onFork, onArchive, drag, flat','onFork, onArchive, onReveal, drag, flat')
- assert.match(source,/onArchive, onReveal, drag/)
- const patched=patchWorkspaceClient(source)
- assert.match(patched,/onArchive, onDelete, onReveal, drag/)
- new Function(patched)
+test('new row callbacks survive delete-action injection', async () => {
+  const { source } = await patchLegacyWorkspace()
+  const withReveal = source.replace('onFork, onArchive, drag, flat', 'onFork, onArchive, onReveal, drag, flat')
+  assert.match(withReveal, /onArchive, onReveal, drag/)
+  const patched = patchWorkspaceClient(withReveal, legacyPatchVersion)
+  assert.match(patched, /onArchive, onDelete, onReveal, drag/)
+  new Function(patched)
 })
