@@ -1,16 +1,8 @@
-> [!NOTE]
->
-> 这是一个持续维护、可独立卸载的 DSH 插件。它补充归档浏览、聊天内容搜索、恢复与安全永久删除；不喜欢这套会话管理方式时，可以直接卸载，现有会话不会因此被删除。
-
 <div align="center">
 
 # DSH Chat Manager · 聊天与会话管理器
 
 **在 DeepSeek Harness 原生侧边栏中搜索、恢复和安全清理会话。**
-
-插件包名：`dsh-chat-manager`（原名 `dsh-native-session-manager`）。[Awesome DSH 收录](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/data/plugins/WSL043__dsh-chat-manager.yml) · [图片查看器插件](https://github.com/WSL043/dsh-image-viewer)
-
-归档管理 · 聊天记录搜索 · 一键恢复 · 安全永久删除
 
 [![Release](https://img.shields.io/github/v/release/WSL043/dsh-chat-manager?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-chat-manager/releases/latest)
 [![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-chat-manager/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-chat-manager/actions/workflows/ci.yml)
@@ -21,127 +13,99 @@
 [![Stars](https://img.shields.io/github/stars/WSL043/dsh-chat-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-chat-manager/stargazers)
 [![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
 
-[English](README.en.md) · [安装](#安装) · [使用](#使用) · [安全边界](#安全边界)
-
 </div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/hero.png" alt="DeepSeek Harness 聊天历史与归档会话管理器，支持搜索、恢复和安全永久删除">
-</p>
-
-| 归档可找回 | 聊天可搜索 | 删除更稳妥 |
-| --- | --- | --- |
-| 从侧边栏打开归档管理器，查看并恢复隐藏的会话 | 按会话名、工作区或用户与助手的聊天内容搜索归档 | 原生菜单保留二次确认；运行中的任务先安全停止，再删除本机会话记录 |
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/archive-manager.png" width="414" alt="DeepSeek Harness 原生归档会话管理器，支持聊天历史搜索、恢复和永久删除">
-  <br><sub>DeepSeek Harness 0.1.1-rc.2 中的原生界面</sub>
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/hero.png" alt='DeepSeek Harness chat history and archived session manager with search, restore, and safe permanent deletion'>
 </p>
 
 ## 安装
 
+**DSH-Portable 已预装本插件**，可在插件页启用或卸载；其他 DSH 用户按下方安装。([了解 DSH-Portable](https://github.com/WSL043/DSH-Portable))
+
 ### 在官方插件页面安装（推荐）
 
 1. 打开 DSH 的 **插件 → 添加插件**。
-2. 在“包名或地址”中粘贴下面这一行，再点击安装：
+2. 在“包名或地址”中粘贴并安装：
 
 ```text
 dsh-chat-manager@1.5.4
 ```
 
-3. 查看安装结果；仅在页面要求时刷新或重启。安装失败时留在插件页查看错误，不必重复安装。
+3. 按页面结果操作；仅在页面要求时刷新或重启。
 
-**1.5.4 使用同一个包支持 DSH 0.1.7-alpha.1、0.1.7-rc.2、0.2.0-rc.1 与 0.2.0-rc.2。** 发布前必须通过四个目标的真实操作验收；本版不声明支持其他内核。在“插件 → 添加插件”中仅填写包名与版本，按宿主给出的刷新或重启操作生效。
+**版本 1.5.4 支持 DSH 内核 `0.1.7-alpha.1`、`0.1.7-rc.2`、`0.2.0-rc.1`、`0.2.0-rc.2`。**
 
 ### 终端安装（可选）
 
-在 DSH 或 Portable 的终端中执行：
+官方 DSH Desktop 需先通过应用的 **Manage dsh Command…** 注册自带命令并启动一次以初始化 profile；完全退出应用后使用 `desktop`。DSH-Portable 0.x 和网页版使用 `web`：
 
 ```sh
+dsh plugin --profile desktop add dsh-chat-manager@1.5.4
 dsh plugin --profile web add dsh-chat-manager@1.5.4
 ```
-
-如果 DSH 正在运行，命令完成后保存工作并重新启动，以加载终端改动。旧内核请选择对应发布说明中已验证的插件版本。
 
 交给 Agent 安装时使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.4/AGENTS.md)。
 
 ## 使用
 
-### 管理归档
+### 归档、搜索与恢复
 
-1. 点击侧边栏标题区域的归档图标，打开 **归档会话**。
-2. 直接浏览全部归档，或按会话名、工作区和用户/助手聊天内容搜索。
-3. 点击 **恢复** 让会话回到原来的工作区位置；需要彻底清理时，可从同一列表进入永久删除确认。
+点击侧边栏标题处的归档图标，可浏览归档并按会话名、工作区或聊天内容搜索；点击 **恢复** 将会话放回原工作区。搜索仅涉及已归档会话中的当前用户和助手消息。
 
-归档和恢复只改变 DSH 的隐藏状态，不删除聊天记录。搜索范围仅限已归档会话中的当前用户与助手消息，
-不会把其他会话或插件数据混入结果。
+<p align="center">
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/archive-manager.png" width="414" alt='DeepSeek Harness 原生归档界面，支持搜索与恢复'>
+  <br><sub>DSH 原生归档界面</sub>
+</p>
+
+原生 DSH 保留官方归档页并提供删除菜单。DSH-Portable 的设置扩展还会在归档页提供搜索、恢复和永久删除；停用插件可恢复官方界面。
 
 ### 永久删除
 
-1. 打开侧边栏中目标会话右侧的原生操作菜单。
-2. 选择红色的 **删除会话**。
-3. 在确认弹窗中核对会话名称并再次确认 **永久删除**；也可以随时点击 **取消**。
+从目标会话旁的原生菜单选择红色 **删除会话**，核对名称后在弹窗中再次确认 **永久删除**，或取消。
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/confirm-delete.png" width="414" alt="DeepSeek Harness 安全永久删除会话的中文二次确认弹窗">
-  <br><sub>永久删除无法撤销，确认弹窗会明确显示目标会话</sub>
+  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/confirm-delete.png" width="414" alt='DSH 永久删除会话的二次确认弹窗'>
+  <br><sub>永久删除无法撤销；确认弹窗会明确显示目标会话</sub>
 </p>
 
-插件生效后，删除逻辑复用 DSH 的生命周期和会话存储能力。正在运行的任务会先停止并等待
-收敛，然后删除目标会话；成功后只更新会话列表，不重载整个 DSH 页面。
+正在运行的任务会先停止并等待收敛，再删除目标会话；成功后只更新会话列表，不重载整个 DSH 页面。
 
 ## 安全边界
 
 > [!WARNING]
-> 永久删除无法撤销。点下确认前，请核对会话名称；需要保留的内容请先另行备份。
+> 永久删除无法撤销。确认前请核对会话名称，并备份需要保留的内容。
 
-本插件的责任范围是：在 DSH 默认逐会话 JSONL 存储和宿主生命周期边界内，验证并移除用户明确
-确认的目标会话独占目录。DSH 当前没有公开会话删除 API；二次确认是强制步骤，取消不会发送删除请求。
+插件只在 DSH 默认逐会话 JSONL 存储与宿主生命周期边界内验证并移除用户确认的目标会话目录。DSH 尚无公开删除 API；二次确认是强制步骤，取消不会发送删除请求。
 
-以下内容不在本插件的删除范围内，也不保证被清理：
+删除范围不包括其他会话、插件数据、外部附件、缓存、日志、备份或云端副本。非 JSONL 存储或宿主无法安全停止任务时会拒绝强删；系统拒绝清理时也会如实报告未能确认成功。
 
-- 其他会话、其他插件数据、外部附件、缓存、索引、日志、备份和云端/同步副本；
-- 非 JSONL 存储或宿主没有安全停止能力的会话；这类情况会拒绝强删并报告未完成；
-- 操作系统、文件系统、宿主更新或第三方同步服务造成的额外副本。
-
-如果系统拒绝清理，插件会报告无法确认删除成功，不会把部分完成误报为成功。删除前请确认
-自己有权处理目标数据，并遵守适用的数据留存、审计和隐私要求。本项目是非官方社区插件，
-与 DeepSeek 无隶属或背书关系；按 [MIT 许可证](LICENSE)提供，不附带担保。
+本项目是非官方社区插件，与 DeepSeek 无隶属或背书关系；按 [MIT 许可证](LICENSE)提供，不附带担保。
 
 ## 兼容性
 
 <!-- dsh-compatibility -->
+支持软件包元数据中记录的最新版 DeepSeek Harness（`0.1.5-rc.2`）。
 <!-- /dsh-compatibility -->
-
-归档浏览、恢复和内容搜索使用 DSH 的工作区注册表与会话查询能力；永久删除适用于 DSH 默认的逐会话
-JSONL 存储。本版本保留官方工作区服务，仅扩展菜单与归档设置；卸载后撤去这些扩展。
 
 ## 更新与卸载
 
-优先在官方 **插件** 页面查看已安装插件，使用该插件提供的更新或卸载操作；更新按钮未出现时，可在“添加插件”中填写已发布的目标 `包名@版本`。完成后按页面提示操作，不强制重启。以下是可选的终端方式。
-
-更新时继续用 DSH 标准命令安装目标 npm 版本；本版三个合格内核均使用以下命令：
-
-```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.4
-```
-
-卸载只移除这个插件的 bundle 层，不删除任何会话：
+在官方 **插件** 页面更新或卸载；无更新操作时，在“添加插件”中填写目标 `包名@版本`。终端更新继续安装目标版本，卸载命令如下：
 
 ```sh
 dsh plugin --profile web remove dsh-chat-manager
 ```
 
-DSH-Portable 同样支持官方插件页和标准 `dsh plugin` 命令。终端改动完成后再重启正在运行的 DSH。
+DSH-Portable 0.x 和网页版使用 `web` profile；官方 DSH Desktop 按上方说明完全退出应用并使用 `desktop` profile。卸载只移除本插件，不会删除现有会话。
 
-## 支持与许可证
+## 反馈与许可证
 
-可使用[问题反馈表单](https://github.com/WSL043/dsh-chat-manager/issues/new?template=bug-report.yml)
-提交可复现问题，或使用[功能建议表单](https://github.com/WSL043/dsh-chat-manager/issues/new?template=feature-request.yml)
-说明明确需求；安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
+可通过[问题反馈表单](https://github.com/WSL043/dsh-chat-manager/issues/new?template=bug-report.yml)报告可复现问题，或使用[功能建议表单](https://github.com/WSL043/dsh-chat-manager/issues/new?template=feature-request.yml)提交需求；安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
 
-MIT。修改后的上游客户端及其许可说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+MIT。第三方客户端修改及其许可说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-### 官方界面与 Portable
+## 质量
 
-原生 DSH 保留官方归档页，侧边栏菜单提供红色「删除会话」。Portable 支持设置扩展时，归档页还提供搜索、取消归档和永久删除，且只有一个归档标签。关闭插件会恢复官方界面，不接管会话服务。
+每个声明支持的内核均完成真实界面核验。
+
+[English](README.en.md)
