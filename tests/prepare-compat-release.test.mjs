@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   boundedArtifactPaths,
   compareDshVersions,
+  devVersionFor,
   extractDeepSeekReleaseAgeSelectors,
   planCompatibilityUpdate,
   rewriteCompatibilityBlock,
@@ -111,4 +112,11 @@ test('selects the greatest observed registry tag and enforces the release-age co
   ])
   const workspace = `minimumReleaseAge: 1440\n# dsh-compat-release-age-start\nminimumReleaseAgeExclude:\n  - old\n# dsh-compat-release-age-end\n`
   assert.match(rewriteReleaseAgeCohort(workspace, ['@deepseek-ai/dsh-client-ui-workspace@0.2.0-rc.2']), /minimumReleaseAgeExclude:\n  - '@deepseek-ai\/dsh-client-ui-workspace@0\.2\.0-rc\.2'/u)
+})
+
+test('a package that upstream did not republish keeps its newest release at or below the target core', () => {
+  assert.equal(devVersionFor(['0.2.0-rc.2', '0.2.1-alpha.1'], '0.2.1-alpha.1'), '0.2.1-alpha.1')
+  assert.equal(devVersionFor(['0.1.7-rc.2', '0.2.0-rc.1', '0.2.0-rc.2', '0.0.1-rc.1'], '0.2.1-alpha.1'), '0.2.0-rc.2')
+  assert.equal(devVersionFor(undefined, '0.2.1-alpha.1'), '0.2.1-alpha.1')
+  assert.throws(() => devVersionFor(['0.3.0'], '0.2.1-alpha.1'), /no published release/u)
 })
