@@ -31,7 +31,7 @@
 2. Paste this line into **Package name or address**, then select Install:
 
 ```text
-dsh-chat-manager@1.5.6
+dsh-chat-manager@1.5.7
 ```
 
 3. Follow the page result; refresh or restart only when requested.
@@ -43,11 +43,11 @@ See [Compatibility](#compatibility) for supported DSH cores.
 For official DSH Desktop, register its bundled command through **Manage dsh Command…** and launch it once to initialize the profile; fully quit the app before using `desktop`. DSH-Portable 0.x and the Web profile use `web`:
 
 ```sh
-dsh plugin --profile desktop add dsh-chat-manager@1.5.6
-dsh plugin --profile web add dsh-chat-manager@1.5.6
+dsh plugin --profile desktop add dsh-chat-manager@1.5.7
+dsh plugin --profile web add dsh-chat-manager@1.5.7
 ```
 
-For Agent installation, use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.6/AGENTS.md).
+For Agent installation, use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.7/AGENTS.md).
 
 ## Use
 
@@ -91,7 +91,7 @@ This unofficial community plugin is not affiliated with or endorsed by DeepSeek.
 ## Compatibility
 
 <!-- dsh-compatibility -->
-This release supports DeepSeek Harness `0.2.0-rc.2`, `0.2.0-rc.1`, `0.1.7-rc.2`.
+This release supports DeepSeek Harness `0.2.1-alpha.1`, `0.2.0-rc.2`, `0.2.0-rc.1`.
 <!-- /dsh-compatibility -->
 
 ## Update and uninstall
