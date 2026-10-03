@@ -90,6 +90,8 @@ function previousDocumentedPluginVersion(version) {
   return `${parsed.core[0]}.${parsed.core[1]}.${parsed.core[2] - 1n}`
 }
 
+const LEGACY_PATCH_BEFORE = '0.1.6-alpha.2'
+
 function workspaceFixtureName(version, dependencies = {}) {
   const rc = /-rc\.(\d+)$/.exec(version)
   const name = rc === null ? `dsh-ui-workspace-${version.replaceAll('.', '-')}` : `dsh-ui-workspace-rc${rc[1]}`
@@ -138,9 +140,13 @@ export function planCompatibilityUpdate(state, targetVersions, publishedVersions
   delete compatibility.previewWorkspaceFixture
 
   const previousDshVersion = compatibility.latestTested
-  const previousFixture = workspaceFixtureName(previousDshVersion, state.manifest.devDependencies)
+  // Only cores older than the modern workspace (MODERN_WORKSPACE_VERSION in build-modern-client.mjs) are
+  // built with the legacy source patch, so only they join the legacy patch-marker fixtures. Newer cores use
+  // the official session slots and are covered by the per-core acceptance run instead.
+  const legacyPrevious = compareDshVersions(previousDshVersion, LEGACY_PATCH_BEFORE) < 0
+  const previousFixture = legacyPrevious ? workspaceFixtureName(previousDshVersion, state.manifest.devDependencies) : null
   fixtures.workspaceByVersion ??= {}
-  fixtures.workspaceByVersion[previousDshVersion] = previousFixture
+  if (legacyPrevious) fixtures.workspaceByVersion[previousDshVersion] = previousFixture
   fixtures.historicalSupported = [...new Set([...(fixtures.historicalSupported ?? []), previousDshVersion])]
   compatibility.testFixtures = fixtures
   compatibility.releaseTargets = targets
@@ -155,7 +161,7 @@ export function planCompatibilityUpdate(state, targetVersions, publishedVersions
       manifest.devDependencies[name] = devVersionFor(publishedVersions[name], targets[0])
     }
   }
-  manifest.devDependencies[previousFixture] = `npm:@deepseek-ai/dsh-client-ui-workspace@${previousDshVersion}`
+  if (legacyPrevious) manifest.devDependencies[previousFixture] = `npm:@deepseek-ai/dsh-client-ui-workspace@${previousDshVersion}`
   const peerRange = targets.join(' || ')
   for (const name of Object.keys(manifest.peerDependencies)) {
     if (name.startsWith('@deepseek-ai/dsh-')) manifest.peerDependencies[name] = peerRange
