@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 
 import { chromium } from 'playwright'
 import { acceptModernOfficial } from './accept-modern-official.mjs'
+import { compareDshVersions } from './prepare-compat-release.mjs'
 
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/
 // Avoid shell-dependent quoting in the Windows pnpm.cmd fixture seed.
@@ -107,8 +108,11 @@ async function stopProcess(child) {
   ])
 }
 
-const SLOT_HOSTS = new Set(['0.1.6-alpha.2', '0.1.7-alpha.1', '0.1.7-alpha.2', '0.1.7-rc.1', '0.1.7-rc.2', '0.2.0-rc.1', '0.2.0-rc.2'])
-const CURRENT_ONBOARDING_HOSTS = new Set(['0.1.6-alpha.1', ...SLOT_HOSTS])
+// Every core from 0.1.6-alpha.2 on uses the official session slots and the current onboarding (0.1.6-alpha.1 on).
+// Compared by version so a newly released core is accepted on the modern path without editing a list.
+const atLeast = floor => ({ has: version => compareDshVersions(version, floor) >= 0 })
+const SLOT_HOSTS = atLeast('0.1.6-alpha.2')
+const CURRENT_ONBOARDING_HOSTS = atLeast('0.1.6-alpha.1')
 
 async function removeIsolatedOnboarding(page, dshVersion) {
   if (CURRENT_ONBOARDING_HOSTS.has(dshVersion)) {
