@@ -91,6 +91,15 @@ test('prepares one package for exactly the newest-three window and isolates lega
   assert.throws(() => planCompatibilityUpdate(state, targets.slice(0, 2)), /newest three/u)
 })
 
+test('a slot-based previous core does not join the legacy source-patch fixtures', () => {
+  const state = fixture()
+  state.compatibility = { ...state.compatibility, releaseTargets: ['0.2.0-rc.2', '0.2.0-rc.1', '0.1.7-rc.2'], latestTested: '0.2.0-rc.2' }
+  const update = planCompatibilityUpdate(state, ['0.2.1-alpha.1', '0.2.0-rc.2', '0.2.0-rc.1'])
+  assert.equal(update.compatibility.testFixtures.workspaceByVersion?.['0.2.0-rc.2'], undefined)
+  assert.equal(Object.values(update.manifest.devDependencies).some(value => value === 'npm:@deepseek-ai/dsh-client-ui-workspace@0.2.0-rc.2'), false)
+  assert.ok(update.compatibility.testFixtures.historicalSupported.includes('0.2.0-rc.2'))
+})
+
 test('generates compatibility blocks and rewrites all fixed package-version references', () => {
   const chinese = rewriteCompatibilityBlock('before\n<!-- dsh-compatibility -->\nold\n<!-- /dsh-compatibility -->\nafter', targets, 'zh')
   const english = rewriteCompatibilityBlock('<!-- dsh-compatibility -->\nold\n<!-- /dsh-compatibility -->', targets, 'en')
