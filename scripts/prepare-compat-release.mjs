@@ -98,7 +98,22 @@ function workspaceFixtureName(version, dependencies = {}) {
     ? `dsh-ui-workspace-${version.replaceAll('.', '-')}` : name
 }
 
-export function planCompatibilityUpdate(state, targetVersions) {
+// Upstream does not republish every package with each core: a package without the newest target version
+// keeps its newest release at or below that target.
+export function devVersionFor(published, target) {
+  if (!Array.isArray(published) || published.includes(target)) return target
+  const candidates = published.filter(version => {
+    try {
+      return compareDshVersions(version, target) <= 0
+    } catch {
+      return false
+    }
+  }).sort((left, right) => compareDshVersions(right, left))
+  if (candidates.length === 0) throw new Error(`no published release at or below ${target}`)
+  return candidates[0]
+}
+
+export function planCompatibilityUpdate(state, targetVersions, publishedVersions = {}) {
   if (!Array.isArray(targetVersions) || targetVersions.length !== RELEASE_TARGET_COUNT) {
     throw new Error(`exactly the newest three DSH versions are required`)
   }
@@ -137,7 +152,7 @@ export function planCompatibilityUpdate(state, targetVersions) {
   manifest.version = nextStableVersion(previousPluginVersion)
   for (const name of Object.keys(manifest.devDependencies)) {
     if (name.startsWith('@deepseek-ai/dsh-') && name !== '@deepseek-ai/dsh-client-runtime') {
-      manifest.devDependencies[name] = targets[0]
+      manifest.devDependencies[name] = devVersionFor(publishedVersions[name], targets[0])
     }
   }
   manifest.devDependencies[previousFixture] = `npm:@deepseek-ai/dsh-client-ui-workspace@${previousDshVersion}`
@@ -260,7 +275,14 @@ async function main() {
     readFile(compatibilityPath, 'utf8').then(JSON.parse),
     readFile(manifestPath, 'utf8').then(JSON.parse),
   ])
-  const update = planCompatibilityUpdate({ compatibility, manifest }, targetVersions)
+  const publishedVersions = Object.fromEntries(await Promise.all(Object.keys(manifest.devDependencies)
+    .filter(name => name.startsWith('@deepseek-ai/dsh-') && name !== '@deepseek-ai/dsh-client-runtime')
+    .map(async name => {
+      const response = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2f')}`)
+      if (!response.ok) throw new Error(`Registry HTTP ${response.status} for ${name}`)
+      return [name, Object.keys((await response.json()).versions ?? {})]
+    })))
+  const update = planCompatibilityUpdate({ compatibility, manifest }, targetVersions, publishedVersions)
   if (update === null) {
     process.stdout.write(`${JSON.stringify({ changed: false, dshVersions: targetVersions })}\n`)
     return
