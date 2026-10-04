@@ -1,4 +1,4 @@
-> Current release: dsh-chat-manager@1.5.7, qualified targets DSH 0.2.1-alpha.1, 0.2.0-rc.2, 0.2.0-rc.1. Use the same package for all three; no other cores are claimed.
+> Current release: dsh-chat-manager@1.5.8, qualified targets DSH 0.2.1-alpha.1, 0.2.0-rc.2, 0.2.0-rc.1. Use the same package for all three; no other cores are claimed.
 
 # Agent installation guide
 
@@ -8,7 +8,7 @@ or remove `dsh-chat-manager` in a selected DeepSeek Harness profile.
 ## Safety and responsibility boundary
 
 - Confirm the target DSH installation and profile. Use `web` only when it is the user's target.
-- Use the fixed v1.5.7 package below for its qualified DSH targets; never substitute a moving branch or an unreviewed source.
+- Use the fixed v1.5.8 package below for its qualified DSH targets; never substitute a moving branch or an unreviewed source.
 - Do not print session contents, full profile files, transcript paths, credentials, or other private data.
 - Do not start, stop, or restart DSH without explicit permission.
 - Preserve all sessions, unrelated plugins, and user-owned profile changes.
@@ -29,16 +29,16 @@ Verify registry publication before running the installation command.
 
 ## Fixed package and standard bundle
 
-The v1.5.7 package is a standard DSH bundle with a `dsh.bundle` profile patch. Its exact package spec is:
+The v1.5.8 package is a standard DSH bundle with a `dsh.bundle` profile patch. Its exact package spec is:
 
 ```text
-dsh-chat-manager@1.5.7
+dsh-chat-manager@1.5.8
 ```
 
 The package preserves the official workspace service and adds view-slot extensions.
 Disabling it removes those extensions without releasing the official active session. The published
 Version 1.5 uses official extension slots and never replaces the workspace. Do not install the tarball under `@deepseek-ai/dsh-client-ui-workspace`; that old aliasing
-approach is not the v1.5.7 contract. The product is shown to users as **DSH Chat Manager**.
+approach is not the v1.5.8 contract. The product is shown to users as **DSH Chat Manager**.
 
 ## Detect the target DSH
 
@@ -62,7 +62,7 @@ record the selected profile's relevant metadata before invoking it, without prin
 With an existing `dsh` command, run exactly:
 
 ```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.7
+dsh plugin --profile web add dsh-chat-manager@1.5.8
 ```
 
 Use the same `add` command to update or repair. The DSH CLI owns target selection, dependency resolution,
@@ -80,7 +80,7 @@ dsh plugin --profile web list dsh-chat-manager --depth 0
 ```
 
 1. The `dsh-chat-manager` bundle appears exactly once in the requested profile.
-2. Its direct package spec is the fixed `dsh-chat-manager@1.5.7` npm version above.
+2. Its direct package spec is the fixed `dsh-chat-manager@1.5.8` npm version above.
 3. The profile contains the bundle patch and no duplicate official workspace row from this plugin.
 4. No unrelated dependency, profile patch, or session data was changed by the operation.
 
