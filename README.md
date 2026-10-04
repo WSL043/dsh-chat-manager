@@ -31,23 +31,23 @@
 2. 在“包名或地址”中粘贴并安装：
 
 ```text
-dsh-chat-manager@1.5.7
+dsh-chat-manager@1.5.8
 ```
 
 3. 按页面结果操作；仅在页面要求时刷新或重启。
 
-**版本 1.5.7 支持 DSH 内核 `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`。**
+**版本 1.5.8 支持 DSH 内核 `0.2.1-alpha.1`、`0.2.0-rc.2`、`0.2.0-rc.1`。**
 
 ### 终端安装（可选）
 
 官方 DSH Desktop 需先通过应用的 **Manage dsh Command…** 注册自带命令并启动一次以初始化 profile；完全退出应用后使用 `desktop`。DSH-Portable 0.x 和网页版使用 `web`：
 
 ```sh
-dsh plugin --profile desktop add dsh-chat-manager@1.5.7
-dsh plugin --profile web add dsh-chat-manager@1.5.7
+dsh plugin --profile desktop add dsh-chat-manager@1.5.8
+dsh plugin --profile web add dsh-chat-manager@1.5.8
 ```
 
-交给 Agent 安装时使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.7/AGENTS.md)。
+交给 Agent 安装时使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.8/AGENTS.md)。
 
 ## 使用
 
