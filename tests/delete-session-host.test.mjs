@@ -725,3 +725,23 @@ test('does not misreport an unexpected deletion failure as invalid JSON', async 
   assert.equal(res.status, 500)
   assert.equal(JSON.parse(res.body).error.code, 'internal')
 })
+
+test('the Host fence reads a late-registered connection without touching an uninjected property', async t => {
+  const { currentConnection } = await import('../src/index.js')
+  // A Host can register `connection` before it is ready: get() is still empty while the uninjected property throws.
+  const pending = { get: () => undefined, get connection() { throw new Error('cannot get property "connection" without inject') } }
+  assert.equal(currentConnection(pending), undefined)
+  assert.equal(typeof hostRequestFence(currentConnection(pending)), 'function')
+
+  const root = new Context()
+  t.after(() => root.fiber.dispose())
+  const plugin = root.extend()
+  class Connection extends Service {
+    constructor(ctx) { super(ctx, 'connection') }
+    requestRejection(req) { return req.headers.cookie === 'ok' ? undefined : 401 }
+  }
+  await root.plugin(Connection)
+  const fence = req => hostRequestFence(currentConnection(plugin))(req)
+  assert.equal(fence({ headers: { cookie: 'ok' }, socket: {} }), true)
+  assert.equal(fence({ headers: {}, socket: {} }), false)
+})
