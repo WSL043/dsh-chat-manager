@@ -14,6 +14,10 @@ import {
 export const name = 'dsh-session-delete'
 export const inject = ['webServer', 'sessionPersistence', 'sessions', 'agents', 'workspaceRegistry']
 
+export function currentConnection(ctx) {
+  return typeof ctx.get === 'function' ? ctx.get('connection') : undefined
+}
+
 export function apply(ctx) {
   const sessionRoot = ctx.sessionPersistence?.config?.root ?? ctx.sessionPersistence?.root
   if (typeof sessionRoot !== 'string' || sessionRoot.length === 0) {
@@ -30,7 +34,9 @@ export function apply(ctx) {
     sessionPersistence: ctx.sessionPersistence,
   }, { sessionRoot, sessionId })
   // The official fence also admits the desktop app's forwarded requests; see hostRequestFence.
-  const isTrustedRequest = hostRequestFence(ctx.get?.('connection') ?? ctx.connection)
+  // `connection` is not injected: some hosts register it after this plugin applies, and reading an
+  // uninjected property throws in Cordis 4. Resolve it per request so a late connection is honored.
+  const isTrustedRequest = req => hostRequestFence(currentConnection(ctx))(req)
   const handler = createDeleteRequestHandler({
     isTrustedRequest,
     deleteSession: sessionId => deleteSessionAndReconcileArchive({
