@@ -1,7 +1,7 @@
 # Third-party notices
 
 The distributed `lib/client.js` is a modified build of
-`@deepseek-ai/dsh-client-ui-workspace` versions `0.1.1-rc.2`, `0.2.1-alpha.1`
+`@deepseek-ai/dsh-client-ui-workspace` versions `0.1.1-rc.2`, `0.2.1-alpha.2`
 and `0.1.6-alpha.2`. The compatibility factories preserve each host's workspace
 lifecycle. Patch sources are available in `scripts/build-client.mjs` and
 `scripts/build-modern-client.mjs`.
