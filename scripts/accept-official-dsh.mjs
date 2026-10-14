@@ -119,7 +119,12 @@ async function removeIsolatedOnboarding(page, dshVersion) {
     // The current onboarding shares the Settings root. Removing its DOM also
     // removes Settings; complete the visible, non-credential flow instead.
     await page.getByRole('button', { name: /^(Continue|继续)$/ }).click()
-    await page.getByRole('button', { name: /^(Configure later|稍后配置)$/ }).click()
+    // Later steps differ by core (API key step, sign-in step, or none): close whatever dialog is still open.
+    for (let step = 0; step < 4; step += 1) {
+      const dismiss = page.locator('[role="dialog"]:visible').last().getByRole('button', { name: /^(Configure later|稍后配置|Set up later|Close|关闭|Skip|跳过)$/ }).first()
+      if (!(await dismiss.waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false))) break
+      await dismiss.click()
+    }
     return
   }
   const onboarding = page.getByRole('dialog', { name: /^(Internal Testing Notice|内测声明)$/ })
