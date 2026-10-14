@@ -59,6 +59,7 @@ test('selects the semver-newest three across alpha, rc, and final versions', () 
   assert.ok(compareDshVersions('0.2.0', '0.2.0-rc.10') > 0)
   assert.ok(compareDshVersions('0.2.0-rc.10', '0.2.0-rc.9') > 0)
   assert.throws(() => selectLatestDshVersions(['0.2.0-rc.1', '0.2.0']), /fewer than 3/u)
+  assert.deepEqual(selectLatestDshVersions(['0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2', '0.2.1-alpha.3']), ['0.2.1-alpha.3', '0.2.1-alpha.2', '0.2.0-rc.2'])
 })
 
 test('prepares one package for exactly the newest-three window and isolates legacy fixtures', () => {

@@ -68,7 +68,13 @@ export function selectLatestDshVersions(versions, count = RELEASE_TARGET_COUNT) 
     }
   }))].sort((left, right) => compareDshVersions(right, left))
   if (valid.length < count) throw new Error(`the DSH registry returned fewer than ${count} valid versions`)
-  return valid.slice(0, count)
+  // Alphas never push the newest release candidate or final out of the window.
+  const window = valid.slice(0, count)
+  if (count >= 2 && window.every(version => /-alpha[.]/.test(version))) {
+    const stable = valid.find(version => !/-alpha[.]/.test(version))
+    if (stable) window[count - 1] = stable
+  }
+  return window
 }
 
 function nextStableVersion(version) {
