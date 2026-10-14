@@ -68,7 +68,14 @@ export async function acceptModernOfficial(page, title, transcriptPath, evidence
     await capture('delete-confirmation')
     await dialog.getByRole('button', { name: /^(Cancel|取消)$/ }).filter({ hasText: /^(Cancel|取消)$/ }).click()
     assert.equal(requests.length, 0)
-    await page.getByRole('button', { name: /^(Settings|设置)$/ }).click()
+    // Newer cores keep Settings inside the sidebar account menu ("More" while signed out).
+    const settingsButton = page.getByRole('button', { name: /^(Settings|设置)$/ })
+    if (!await settingsButton.isVisible().catch(() => false)) {
+      await page.getByRole('button', { name: /^(More|更多|Account menu|账号菜单)$/ }).first().click()
+      await page.getByRole('menuitem', { name: /^(Settings|设置)/ }).first().click()
+    } else {
+      await settingsButton.click()
+    }
     const archiveTab = page.getByRole('dialog', { name: /^(Settings|设置)$/ }).getByRole('button', { name: /^(Archived sessions|已归档会话)$/ })
     assert.equal(await archiveTab.count(), 1)
     await archiveTab.click()
