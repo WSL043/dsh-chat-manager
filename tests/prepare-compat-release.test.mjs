@@ -10,6 +10,7 @@ import {
   cordisHostOf,
   widenCordisPeer,
   rewriteCompatibilityBlock,
+  rewriteAgentCompatibility,
   rewriteDshVersion,
   rewriteInstallationCompatibility,
   rewriteReleaseAgeCohort,
@@ -149,4 +150,12 @@ test('a package that upstream did not republish keeps its newest release at or b
 test('a core bundled by a shipped DSH-Portable stays in the peer range after it leaves the newest three', () => {
   assert.deepEqual(supportedCores(['0.2.1-rc.1', '0.2.1-alpha.5', '0.2.1-alpha.4'], ['0.2.0-rc.2', '0.2.1-rc.1']),
     ['0.2.1-rc.1', '0.2.1-alpha.5', '0.2.1-alpha.4', '0.2.0-rc.2'])
+})
+
+test('republishing for a baseline change keeps the same targets without tripping the rewrite guards', () => {
+  assert.equal(rewriteDshVersion('DSH 0.2.1-rc.1', '0.2.1-rc.1', '0.2.1-rc.1'), 'DSH 0.2.1-rc.1')
+  assert.throws(() => rewriteDshVersion('DSH 0.2.1-rc.2', '0.2.1-rc.1', '0.2.1-rc.2'), /was not found/u)
+  const targets = ['0.2.1-rc.1', '0.2.1-alpha.5', '0.2.1-alpha.4']
+  const once = rewriteAgentCompatibility('> Current release: dsh-chat-manager@1.5.14, qualified targets x.\nThis release targets DSH a.\nFor DSH b.\n', '1.5.15', targets)
+  assert.equal(rewriteAgentCompatibility(once, '1.5.15', targets), once)
 })
