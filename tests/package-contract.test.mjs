@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
+import { compareDshVersions } from '../scripts/prepare-compat-release.mjs'
+
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
 test('public package is a standard DSH bundle with a unique identity', async () => {
@@ -16,8 +18,10 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], compatibility.latestTested)
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-primitives'], compatibility.latestTested)
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-slots'], compatibility.latestTested)
-  // Upstream does not republish dsh-invariants with every core; it stays on a release inside the target window.
-  assert.ok(compatibility.releaseTargets.includes(manifest.devDependencies['@deepseek-ai/dsh-invariants']))
+  // Upstream does not republish dsh-invariants with every core: it stays on a release inside the target window, or
+  // on its newest release below the newest target once older cores have left the window.
+  const invariants = manifest.devDependencies['@deepseek-ai/dsh-invariants']
+  assert.ok(compatibility.releaseTargets.includes(invariants) || compareDshVersions(invariants, compatibility.latestTested) <= 0)
   assert.equal(manifest.devDependencies['@deepseek-ai/cordis'], '4.0.2')
   assert.equal(manifest.devDependencies['@deepseek-ai/cordis-plugin-include'], '1.0.7')
   assert.equal(manifest.devDependencies['@deepseek-ai/cordis-plugin-loader'], '1.0.3')
