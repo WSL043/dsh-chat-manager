@@ -39,7 +39,7 @@ jobs:
           const response=await fetch('https://registry.npmjs.org/@deepseek-ai%2fdsh');
           if(!response.ok)throw Error(`Registry HTTP ${response.status}`);
           const registry=await response.json(),tags=registry['dist-tags'];
-          const versions=c.releaseTargets;
+          const versions=[...c.releaseTargets,...(c.portableBaselines||[]).filter(v=>!c.releaseTargets.includes(v))];
           for(const version of versions)if(!registry.versions[version])throw Error(`Unpublished DSH ${version}`);
           console.log('dsh_versions='+JSON.stringify(versions));
           NODE

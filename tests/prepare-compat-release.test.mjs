@@ -16,6 +16,7 @@ import {
   rewriteReleaseVersion,
   rewriteWorkspaceCohort,
   selectLatestDshVersions,
+  supportedCores,
   selectNewestPublishedTag,
 } from '../scripts/prepare-compat-release.mjs'
 
@@ -143,4 +144,9 @@ test('a package that upstream did not republish keeps its newest release at or b
   assert.equal(devVersionFor(['0.1.7-rc.2', '0.2.0-rc.1', '0.2.0-rc.2', '0.0.1-rc.1'], '0.2.1-alpha.1'), '0.2.0-rc.2')
   assert.equal(devVersionFor(undefined, '0.2.1-alpha.1'), '0.2.1-alpha.1')
   assert.throws(() => devVersionFor(['0.3.0'], '0.2.1-alpha.1'), /no published release/u)
+})
+
+test('a core bundled by a shipped DSH-Portable stays in the peer range after it leaves the newest three', () => {
+  assert.deepEqual(supportedCores(['0.2.1-rc.1', '0.2.1-alpha.5', '0.2.1-alpha.4'], ['0.2.0-rc.2', '0.2.1-rc.1']),
+    ['0.2.1-rc.1', '0.2.1-alpha.5', '0.2.1-alpha.4', '0.2.0-rc.2'])
 })
