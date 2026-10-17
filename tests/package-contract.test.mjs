@@ -48,7 +48,9 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   const previewSource = manifest.devDependencies[compatibility.testFixtures.previewWorkspaceAlias]
   assert.ok(previewSource.startsWith('npm:@deepseek-ai/dsh-client-ui-workspace@'))
   assert.ok(compatibility.testFixtures.historicalPreviews.includes(previewSource.split('@').at(-1)))
-  const supportedVersions = new Set(compatibility.releaseTargets)
+  // A core bundled by a shipped DSH-Portable stays supported after it leaves the newest-three window.
+  assert.deepEqual(compatibility.portableBaselines, ['0.2.0-rc.2'], 'the DSH-Portable bundled core must stay supported')
+  const supportedVersions = new Set([...compatibility.releaseTargets, ...compatibility.portableBaselines])
   for (const [name, version] of Object.entries(manifest.peerDependencies)) {
     if (name.startsWith('@deepseek-ai/dsh-')) assert.deepEqual(new Set(version.split(' || ')), supportedVersions)
   }
@@ -98,7 +100,7 @@ test('compatibility autopilot accepts one exact package on all three official co
   assert.match(workflow, /releases\/tags\/dsh-v\$\{version\}/)
   assert.match(workflow, /\.draft == false and \.immutable == true/)
   assert.match(workflow, /dsh_versions: \$\{\{ steps\.targets\.outputs\.dsh_versions \}\}/)
-  assert.match(workflow, /dsh_version: \$\{\{ fromJSON\(needs\.prepare\.outputs\.dsh_versions\) \}\}/)
+  assert.match(workflow, /dsh_version: \$\{\{ fromJSON\(needs\.prepare\.outputs\.acceptance_versions\) \}\}/)
   assert.match(workflow, /actions\/upload-artifact@[\s\S]*actions\/download-artifact/)
   assert.match(workflow, /Accept the exact same candidate package on this core/)
   assert.match(workflow, /git add --[^\n]*AGENTS\.md[^\n]*README\.md[^\n]*README\.en\.md[^\n]*compatibility\.json/)

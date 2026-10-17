@@ -80,7 +80,7 @@ jobs:
         run: |
           pnpm pack --pack-destination .candidate
           package="$(find .candidate -maxdepth 1 -name '*.tgz' -print -quit)"
-          for version in $(node -e "const c=require('./compatibility.json'); console.log(c.releaseTargets.join(' '))"); do
+          for version in $(node -e "const c=require('./compatibility.json'); console.log([...c.releaseTargets,...(c.portableBaselines||[]).filter(v=>!c.releaseTargets.includes(v))].join(' '))"); do
             node scripts/accept-official-dsh.mjs --dsh-version "$version" --package "$package"
           done
       - name: Preserve visual acceptance evidence

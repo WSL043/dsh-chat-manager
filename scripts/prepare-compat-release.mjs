@@ -134,6 +134,21 @@ export function widenCordisPeer(peer, hosts) {
   return [...new Set([...listed, ...hosts])].join(' || ')
 }
 
+// Cores that a shipped DSH-Portable bundles stay in the peer range and the acceptance matrix after they leave the
+// newest-three window: Portable users still run them, and the host refuses a plugin whose peers omit their core.
+export function portableBaselinesOf(compatibility) {
+  return Array.isArray(compatibility?.portableBaselines) ? compatibility.portableBaselines : []
+}
+
+export function supportedCores(targets, baselines) {
+  return [...targets, ...baselines.filter(version => !targets.includes(version))]
+}
+
+function peersCoverBaselines(manifest, baselines) {
+  return Object.entries(manifest.peerDependencies ?? {}).every(([name, range]) =>
+    !name.startsWith('@deepseek-ai/dsh-') || baselines.every(version => String(range).split('||').map(item => item.trim()).includes(version)))
+}
+
 export function planCompatibilityUpdate(state, targetVersions, publishedVersions = {}, cordisHosts = []) {
   if (!Array.isArray(targetVersions) || targetVersions.length !== RELEASE_TARGET_COUNT) {
     throw new Error(`exactly the newest three DSH versions are required`)
@@ -143,7 +158,9 @@ export function planCompatibilityUpdate(state, targetVersions, publishedVersions
     throw new Error('DSH release targets must be exactly the newest three versions in descending semver order')
   }
   const currentTargets = state.compatibility.releaseTargets ?? []
-  if (currentTargets.length === targets.length && currentTargets.every((version, index) => version === targets[index])) return null
+  const baselines = portableBaselinesOf(state.compatibility)
+  if (currentTargets.length === targets.length && currentTargets.every((version, index) => version === targets[index])
+    && peersCoverBaselines(state.manifest, baselines)) return null
 
   const compatibility = structuredClone(state.compatibility)
   const fixtures = compatibility.testFixtures ?? {}
@@ -181,7 +198,7 @@ export function planCompatibilityUpdate(state, targetVersions, publishedVersions
     }
   }
   if (legacyPrevious) manifest.devDependencies[previousFixture] = `npm:@deepseek-ai/dsh-client-ui-workspace@${previousDshVersion}`
-  const peerRange = targets.join(' || ')
+  const peerRange = supportedCores(targets, baselines).join(' || ')
   for (const name of Object.keys(manifest.peerDependencies)) {
     if (name.startsWith('@deepseek-ai/dsh-')) manifest.peerDependencies[name] = peerRange
   }
