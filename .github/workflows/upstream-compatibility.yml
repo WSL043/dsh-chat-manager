@@ -20,6 +20,7 @@ jobs:
       changed: ${{ steps.targets.outputs.changed }}
       publish_needed: ${{ steps.targets.outputs.publish_needed }}
       dsh_versions: ${{ steps.targets.outputs.dsh_versions }}
+      acceptance_versions: ${{ steps.targets.outputs.acceptance_versions }}
       plugin_version: ${{ steps.package.outputs.plugin_version }}
       patch_sha256: ${{ steps.patch.outputs.sha256 }}
     steps:
@@ -43,7 +44,7 @@ jobs:
           set -euo pipefail
           node --input-type=module <<'NODE'
           import { createHash } from 'node:crypto';
-          import { appendFileSync, writeFileSync } from 'node:fs';
+          import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
           import { selectLatestDshVersions } from './scripts/prepare-compat-release.mjs';
           const response = await fetch('https://registry.npmjs.org/@deepseek-ai%2fdsh');
           if (!response.ok) throw new Error(`Registry HTTP ${response.status}`);
@@ -66,6 +67,8 @@ jobs:
           }
           writeFileSync(`${process.env.RUNNER_TEMP}/dsh-targets.json`, JSON.stringify(targets));
           appendFileSync(process.env.GITHUB_OUTPUT, `dsh_versions=${JSON.stringify(targets)}\n`);
+          const baselines = JSON.parse(readFileSync('compatibility.json', 'utf8')).portableBaselines ?? [];
+          appendFileSync(process.env.GITHUB_OUTPUT, `acceptance_versions=${JSON.stringify([...targets, ...baselines.filter(version => !targets.includes(version))])}\n`);
           appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Official registry top three: ${targets.join(', ')}.\n`);
           NODE
           targets="$(cat "$RUNNER_TEMP/dsh-targets.json")"
@@ -79,7 +82,7 @@ jobs:
             fi
             jq -e --arg tag "dsh-v$version" '.tag_name == $tag and .draft == false and .immutable == true and (.published_at | type == "string")' "$release_json" >/dev/null
           done
-          changed="$(DSH_VERSIONS="$targets" node -e 'const c=require("./compatibility.json"); process.stdout.write(String(JSON.stringify(c.releaseTargets)!==JSON.stringify(JSON.parse(process.env.DSH_VERSIONS))))')"
+          changed="$(DSH_VERSIONS="$targets" node -e 'const c=require("./compatibility.json"); const p=require("./package.json"); const base=c.portableBaselines||[]; const peersOk=Object.entries(p.peerDependencies).every(([n,r])=>!n.startsWith("@deepseek-ai/dsh-")||base.every(v=>r.split("||").map(x=>x.trim()).includes(v))); process.stdout.write(String(JSON.stringify(c.releaseTargets)!==JSON.stringify(JSON.parse(process.env.DSH_VERSIONS))||!peersOk))')"
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
           plugin_version="$(node -p "require('./package.json').version")"
           if [ "$changed" = true ]; then
@@ -141,7 +144,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dsh_version: ${{ fromJSON(needs.prepare.outputs.dsh_versions) }}
+        dsh_version: ${{ fromJSON(needs.prepare.outputs.acceptance_versions) }}
     steps:
       - uses: actions/checkout@v7
         with:
