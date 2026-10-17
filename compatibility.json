@@ -1,14 +1,14 @@
 {
   "releaseTargets": [
+    "0.2.1-rc.2",
     "0.2.1-rc.1",
-    "0.2.1-alpha.5",
-    "0.2.1-alpha.4"
+    "0.2.1-alpha.5"
   ],
-  "latestTested": "0.2.1-rc.1",
+  "latestTested": "0.2.1-rc.2",
   "portableBaselines": [
     "0.2.0-rc.2"
   ],
-  "clientTarget": "0.2.1-rc.1",
+  "clientTarget": "0.2.1-rc.2",
   "testFixtures": {
     "historicalSupported": [
       "0.1.0-rc.6",
