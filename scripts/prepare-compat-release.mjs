@@ -235,7 +235,7 @@ export function rewriteReleaseVersion(source, previousVersion, nextVersion) {
 
 export function rewriteDshVersion(source, previousVersion, nextVersion) {
   const rewritten = source.replaceAll(previousVersion, nextVersion)
-  if (rewritten === source) throw new Error(`DSH version ${previousVersion} was not found in bounded artifact`)
+  if (!source.includes(previousVersion)) throw new Error(`DSH version ${previousVersion} was not found in bounded artifact`)
   return rewritten
 }
 
@@ -246,7 +246,7 @@ export function rewriteAgentCompatibility(source, pluginVersion, targets) {
   rewritten = rewritten.replace(/^This release targets DSH .*$/mu,
     `This release targets DSH ${targets[0]}, ${targets[1]}, and ${targets[2]}. Check the target core before installation.`)
   rewritten = rewritten.replace(/^For DSH .*$/gmu, '')
-  if (rewritten === source || !rewritten.includes(summary)) throw new Error('Agent guide compatibility section is out of sync')
+  if (!rewritten.includes(summary)) throw new Error('Agent guide compatibility section is out of sync')
   return rewritten
 }
 
