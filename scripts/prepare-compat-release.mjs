@@ -6,7 +6,10 @@ const RELEASE_AGE_START = '# dsh-compat-release-age-start'
 const RELEASE_AGE_END = '# dsh-compat-release-age-end'
 
 const VERSION_RE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/
-const RELEASE_TARGET_COUNT = 3
+// Keep this window identical to selectCoreWindow() in DSH-Portable-Updates scripts/core-window.mjs and coreWindow() in
+// DSH-Portable launcher/update-core.mjs: the newest five versions, at least two of them release candidates or finals.
+const RELEASE_TARGET_COUNT = 5
+const MIN_RELEASE_CANDIDATES = 2
 
 function parseVersion(version) {
   const match = VERSION_RE.exec(version)
@@ -68,11 +71,16 @@ export function selectLatestDshVersions(versions, count = RELEASE_TARGET_COUNT) 
     }
   }))].sort((left, right) => compareDshVersions(right, left))
   if (valid.length < count) throw new Error(`the DSH registry returned fewer than ${count} valid versions`)
-  // Alphas never push the newest release candidate or final out of the window.
+  // Alphas never push the newest release candidates or finals out of the window: when fewer than two non-alpha
+  // versions fall inside it, the oldest alpha slots go to the newest non-alpha versions instead.
+  const isAlpha = version => /-alpha[.]/.test(version)
   const window = valid.slice(0, count)
-  if (count >= 2 && window.every(version => /-alpha[.]/.test(version))) {
-    const stable = valid.find(version => !/-alpha[.]/.test(version))
-    if (stable) window[count - 1] = stable
+  const needed = Math.min(MIN_RELEASE_CANDIDATES, count) - window.filter(version => !isAlpha(version)).length
+  for (const extra of valid.slice(count).filter(version => !isAlpha(version)).slice(0, Math.max(0, needed))) {
+    const alphaAt = window.map(isAlpha).lastIndexOf(true)
+    if (alphaAt === -1) break
+    window.splice(alphaAt, 1)
+    window.push(extra)
   }
   return window
 }
@@ -135,7 +143,7 @@ export function widenCordisPeer(peer, hosts) {
 }
 
 // Cores that a shipped DSH-Portable bundles stay in the peer range and the acceptance matrix after they leave the
-// newest-three window: Portable users still run them, and the host refuses a plugin whose peers omit their core.
+// core window: Portable users still run them, and the host refuses a plugin whose peers omit their core.
 export function portableBaselinesOf(compatibility) {
   return Array.isArray(compatibility?.portableBaselines) ? compatibility.portableBaselines : []
 }
@@ -151,11 +159,11 @@ function peersCoverBaselines(manifest, baselines) {
 
 export function planCompatibilityUpdate(state, targetVersions, publishedVersions = {}, cordisHosts = []) {
   if (!Array.isArray(targetVersions) || targetVersions.length !== RELEASE_TARGET_COUNT) {
-    throw new Error(`exactly the newest three DSH versions are required`)
+    throw new Error(`exactly the newest ${RELEASE_TARGET_COUNT} DSH versions are required`)
   }
   const targets = selectLatestDshVersions(targetVersions)
   if (targets.length !== targetVersions.length || targets.some((version, index) => version !== targetVersions[index])) {
-    throw new Error('DSH release targets must be exactly the newest three versions in descending semver order')
+    throw new Error(`DSH release targets must be exactly the newest ${RELEASE_TARGET_COUNT} versions in descending semver order`)
   }
   const currentTargets = state.compatibility.releaseTargets ?? []
   const baselines = portableBaselinesOf(state.compatibility)
@@ -241,10 +249,10 @@ export function rewriteDshVersion(source, previousVersion, nextVersion) {
 
 export function rewriteAgentCompatibility(source, pluginVersion, targets) {
   const current = targets.join(', ')
-  const summary = `> Current release: dsh-chat-manager@${pluginVersion}, qualified targets DSH ${current}. Use the same package for all three; no other cores are claimed.`
+  const summary = `> Current release: dsh-chat-manager@${pluginVersion}, qualified targets DSH ${current}. Use the same package for all of them; no other cores are claimed.`
   let rewritten = source.replace(/^> Current release:.*$/mu, summary)
   rewritten = rewritten.replace(/^This release targets DSH .*$/mu,
-    `This release targets DSH ${targets[0]}, ${targets[1]}, and ${targets[2]}. Check the target core before installation.`)
+    `This release targets DSH ${targets.slice(0, -1).join(', ')}, and ${targets.at(-1)}. Check the target core before installation.`)
   rewritten = rewritten.replace(/^For DSH .*$/gmu, '')
   if (!rewritten.includes(summary)) throw new Error('Agent guide compatibility section is out of sync')
   return rewritten

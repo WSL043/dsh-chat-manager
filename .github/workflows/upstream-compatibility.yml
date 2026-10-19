@@ -69,7 +69,7 @@ jobs:
           appendFileSync(process.env.GITHUB_OUTPUT, `dsh_versions=${JSON.stringify(targets)}\n`);
           const baselines = JSON.parse(readFileSync('compatibility.json', 'utf8')).portableBaselines ?? [];
           appendFileSync(process.env.GITHUB_OUTPUT, `acceptance_versions=${JSON.stringify([...targets, ...baselines.filter(version => !targets.includes(version))])}\n`);
-          appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Official registry top three: ${targets.join(', ')}.\n`);
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Official registry core window: ${targets.join(', ')}.\n`);
           NODE
           targets="$(cat "$RUNNER_TEMP/dsh-targets.json")"
           for version in $(DSH_VERSIONS="$targets" node -e 'process.stdout.write(JSON.parse(process.env.DSH_VERSIONS).join(" "))'); do
@@ -77,7 +77,7 @@ jobs:
             if ! gh api "repos/deepseek-ai/deepseek-harness/releases/tags/dsh-v${version}" > "$release_json" 2>/dev/null; then
               echo "changed=false" >> "$GITHUB_OUTPUT"
               echo "publish_needed=false" >> "$GITHUB_OUTPUT"
-              echo "DSH $version is in npm's top three but has no official Release yet; waiting for the next scheduled run." >> "$GITHUB_STEP_SUMMARY"
+              echo "DSH $version is in the core window but has no official Release yet; waiting for the next scheduled run." >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             jq -e --arg tag "dsh-v$version" '.tag_name == $tag and .draft == false and .immutable == true and (.published_at | type == "string")' "$release_json" >/dev/null
@@ -94,11 +94,11 @@ jobs:
               echo "DSH targets and dsh-chat-manager@$plugin_version are already published." >> "$GITHUB_STEP_SUMMARY"
             else
               publish_needed=true
-              echo "The current top-three package is not fully published; running acceptance and release reconciliation." >> "$GITHUB_STEP_SUMMARY"
+              echo "The current core-window package is not fully published; running acceptance and release reconciliation." >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
           echo "publish_needed=$publish_needed" >> "$GITHUB_OUTPUT"
-      - name: Prepare one candidate package for the entire top-three matrix
+      - name: Prepare one candidate package for the entire core-window matrix
         if: steps.targets.outputs.publish_needed == 'true'
         id: package
         env:
@@ -245,7 +245,7 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -- AGENTS.md README.md README.en.md THIRD_PARTY_NOTICES.md compatibility.json lib/client.js package.json pnpm-lock.yaml pnpm-workspace.yaml
-          git commit -m "chore: qualify the official latest three DSH cores"
+          git commit -m "chore: qualify the official latest five DSH cores"
           git push origin HEAD:main
       - name: Dispatch and await the trusted release workflow
         env:
