@@ -21,7 +21,7 @@ import {
   selectNewestPublishedTag,
 } from '../scripts/prepare-compat-release.mjs'
 
-const targets = ['0.2.0-rc.2', '0.2.0-rc.1', '0.1.7-rc.2']
+const targets = ['0.2.0-rc.2', '0.2.0-rc.1', '0.1.7-rc.2', '0.1.7-rc.1', '0.1.7-alpha.2']
 
 const fixture = () => ({
   compatibility: {
@@ -52,19 +52,20 @@ const fixture = () => ({
   },
 })
 
-test('selects the semver-newest three across alpha, rc, and final versions', () => {
+test('selects the semver-newest five across alpha, rc, and final versions', () => {
   const versions = [
     '0.2.0-rc.1', '0.1.7-rc.2', '0.2.0-alpha.2', '0.2.0-rc.2',
     '0.2.0-beta.1', '0.2.0', '0.3.0-alpha.1', 'not-semver',
   ]
-  assert.deepEqual(selectLatestDshVersions(versions), ['0.3.0-alpha.1', '0.2.0', '0.2.0-rc.2'])
+  assert.deepEqual(selectLatestDshVersions(versions), ['0.3.0-alpha.1', '0.2.0', '0.2.0-rc.2', '0.2.0-rc.1', '0.2.0-beta.1'])
   assert.ok(compareDshVersions('0.2.0', '0.2.0-rc.10') > 0)
   assert.ok(compareDshVersions('0.2.0-rc.10', '0.2.0-rc.9') > 0)
-  assert.throws(() => selectLatestDshVersions(['0.2.0-rc.1', '0.2.0']), /fewer than 3/u)
-  assert.deepEqual(selectLatestDshVersions(['0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2', '0.2.1-alpha.3']), ['0.2.1-alpha.3', '0.2.1-alpha.2', '0.2.0-rc.2'])
+  assert.throws(() => selectLatestDshVersions(['0.2.0-rc.1', '0.2.0']), /fewer than 5/u)
+  assert.deepEqual(selectLatestDshVersions(['0.2.0-rc.1', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2', '0.2.1-alpha.3', '0.2.1-alpha.4', '0.2.1-alpha.5']),
+    ['0.2.1-alpha.5', '0.2.1-alpha.4', '0.2.1-alpha.3', '0.2.0-rc.2', '0.2.0-rc.1'], 'two release candidates always stay in the window')
 })
 
-test('prepares one package for exactly the newest-three window and isolates legacy fixtures', () => {
+test('prepares one package for exactly the newest-five window and isolates legacy fixtures', () => {
   const state = fixture()
   const update = planCompatibilityUpdate(state, targets)
 
@@ -93,7 +94,7 @@ test('prepares one package for exactly the newest-three window and isolates lega
   assert.equal(rewriteWorkspaceCohort('pkg@0.1.5-rc.2', update), 'pkg@0.2.0-rc.2')
   assert.equal(planCompatibilityUpdate({ ...state, compatibility: { ...state.compatibility, releaseTargets: targets } }, targets), null)
   assert.throws(() => planCompatibilityUpdate(state, [...targets].reverse()), /descending semver order/u)
-  assert.throws(() => planCompatibilityUpdate(state, targets.slice(0, 2)), /newest three/u)
+  assert.throws(() => planCompatibilityUpdate(state, targets.slice(0, 2)), /newest 5/u)
 })
 
 test('the cordis peer admits the exact host each target core ships, including prereleases', () => {
@@ -110,8 +111,8 @@ test('the cordis peer admits the exact host each target core ships, including pr
 
 test('a slot-based previous core does not join the legacy source-patch fixtures', () => {
   const state = fixture()
-  state.compatibility = { ...state.compatibility, releaseTargets: ['0.2.0-rc.2', '0.2.0-rc.1', '0.1.7-rc.2'], latestTested: '0.2.0-rc.2' }
-  const update = planCompatibilityUpdate(state, ['0.2.1-alpha.1', '0.2.0-rc.2', '0.2.0-rc.1'])
+  state.compatibility = { ...state.compatibility, releaseTargets: ['0.2.0-rc.2', '0.2.0-rc.1', '0.1.7-rc.2', '0.1.7-rc.1', '0.1.7-alpha.2'], latestTested: '0.2.0-rc.2' }
+  const update = planCompatibilityUpdate(state, ['0.2.1-alpha.1', '0.2.0-rc.2', '0.2.0-rc.1', '0.1.7-rc.2', '0.1.7-rc.1'])
   assert.equal(update.compatibility.testFixtures.workspaceByVersion?.['0.2.0-rc.2'], undefined)
   assert.equal(Object.values(update.manifest.devDependencies).some(value => value === 'npm:@deepseek-ai/dsh-client-ui-workspace@0.2.0-rc.2'), false)
   assert.ok(update.compatibility.testFixtures.historicalSupported.includes('0.2.0-rc.2'))
@@ -120,10 +121,10 @@ test('a slot-based previous core does not join the legacy source-patch fixtures'
 test('generates compatibility blocks and rewrites all fixed package-version references', () => {
   const chinese = rewriteCompatibilityBlock('before\n<!-- dsh-compatibility -->\nold\n<!-- /dsh-compatibility -->\nafter', targets, 'zh')
   const english = rewriteCompatibilityBlock('<!-- dsh-compatibility -->\nold\n<!-- /dsh-compatibility -->', targets, 'en')
-  assert.match(chinese, /当前版本支持 DeepSeek Harness `0\.2\.0-rc\.2`、`0\.2\.0-rc\.1`、`0\.1\.7-rc\.2`。/u)
-  assert.match(english, /This release supports DeepSeek Harness `0\.2\.0-rc\.2`, `0\.2\.0-rc\.1`, `0\.1\.7-rc\.2`\./u)
+  assert.match(chinese, /当前版本支持 DeepSeek Harness `0\.2\.0-rc\.2`、`0\.2\.0-rc\.1`、`0\.1\.7-rc\.2`、`0\.1\.7-rc\.1`、`0\.1\.7-alpha\.2`。/u)
+  assert.match(english, /This release supports DeepSeek Harness `0\.2\.0-rc\.2`, `0\.2\.0-rc\.1`, `0\.1\.7-rc\.2`, `0\.1\.7-rc\.1`, `0\.1\.7-alpha\.2`\./u)
   assert.equal(rewriteInstallationCompatibility('**版本 1.5.4 支持 DSH 内核 `old`。**', '1.5.5', targets, 'zh'),
-    '**版本 1.5.5 支持 DSH 内核 `0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`。**')
+    '**版本 1.5.5 支持 DSH 内核 `0.2.0-rc.2`、`0.2.0-rc.1`、`0.1.7-rc.2`、`0.1.7-rc.1`、`0.1.7-alpha.2`。**')
   assert.equal(rewriteReleaseVersion('1.5.4 and @1.5.4 and v1.5.4', '1.5.4', '1.5.5'), '1.5.5 and @1.5.5 and v1.5.5')
   assert.equal(rewriteDshVersion('Core 0.1.5-rc.2', '0.1.5-rc.2', targets[0]), 'Core 0.2.0-rc.2')
   assert.throws(() => rewriteCompatibilityBlock('no marker', targets, 'en'), /missing generated/u)
@@ -147,7 +148,7 @@ test('a package that upstream did not republish keeps its newest release at or b
   assert.throws(() => devVersionFor(['0.3.0'], '0.2.1-alpha.1'), /no published release/u)
 })
 
-test('a core bundled by a shipped DSH-Portable stays in the peer range after it leaves the newest three', () => {
+test('a core bundled by a shipped DSH-Portable stays in the peer range after it leaves the core window', () => {
   assert.deepEqual(supportedCores(['0.2.1-rc.1', '0.2.1-alpha.5', '0.2.1-alpha.4'], ['0.2.0-rc.2', '0.2.1-rc.1']),
     ['0.2.1-rc.1', '0.2.1-alpha.5', '0.2.1-alpha.4', '0.2.0-rc.2'])
 })
