@@ -169,10 +169,10 @@ jobs:
           set -euo pipefail
           if [[ "${RELEASE_KIND:-feature}" == 'compatibility' ]]; then
             RELEASE_NOTES_EN="$(printf '%s\n%s' \
-              '- Compatibility range now follows the official latest three DSH cores.' \
+              '- Compatibility range now follows the official latest five DSH cores.' \
               '- No functionality changes.')"
             RELEASE_NOTES_ZH="$(printf '%s\n%s' \
-              '- 兼容范围改为官方最新 3 个 DSH 内核。' \
+              '- 兼容范围改为官方最新 5 个 DSH 内核。' \
               '- 功能无变化。')"
           else
             test -n "${RELEASE_NOTES_EN:-}"
