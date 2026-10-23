@@ -160,7 +160,7 @@ export async function runOfficialAcceptance(options) {
   const base = await mkdtemp(join(evidenceRoot || tmpdir(), 'dsh-session-delete-official-'))
   const dshHome = join(base, 'home')
   const workspace = join(base, 'workspace')
-  const env = { ...process.env, DSH_HOME: dshHome, DSH_TELEMETRY_MODE: 'DISABLED' }
+  const env = { ...process.env, DSH_HOME: dshHome, DSH_AGENTS_HOME: join(base, 'agents'), DSH_TELEMETRY_MODE: 'DISABLED' }
   const dshSpec = `@deepseek-ai/dsh@${options.dshVersion}`
   const runtimeRoot = process.env.DSH_TEST_RUNTIME
   let dshExecutable = pnpmCommand()
@@ -427,7 +427,7 @@ export async function runOfficialAcceptance(options) {
     return {
       ok: true,
       dshVersion: options.dshVersion,
-      checks: ['official install', 'official boot', SLOT_HOSTS.has(options.dshVersion) ? 'one official archive settings entry' : 'workspace header actions visible', ...(SLOT_HOSTS.has(options.dshVersion) ? [] : ['archive list', 'archived history search', 'archive restore']), 'red native action', 'second confirmation', 'cancel without request', ...(SLOT_HOSTS.has(options.dshVersion) ? ['native menu deletion'] : ['delete from archive manager']), 'confirmed JSONL deletion', 'no page reload', ...(SLOT_HOSTS.has(options.dshVersion) ? ['four plugin toggles preserve editable composer'] : []), 'no runtime exceptions'],
+      checks: ['official install', 'official boot', SLOT_HOSTS.has(options.dshVersion) ? 'one official archive settings entry' : 'workspace header actions visible', 'archive list', 'archived history search', 'archive restore', 'red native action', 'second confirmation', 'cancel without request', 'delete from archive manager', 'confirmed JSONL deletion', 'no page reload', ...(SLOT_HOSTS.has(options.dshVersion) ? ['narrow archive actions remain clickable', 'restore and cancel preserve transcript bytes', 'four plugin toggles preserve editable composer'] : []), 'no runtime exceptions'],
     }
   } finally {
     if (server !== undefined) await stopProcess(server)

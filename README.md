@@ -31,29 +31,31 @@
 2. 在“包名或地址”中粘贴并安装：
 
 ```text
-dsh-chat-manager@1.5.17
+dsh-chat-manager@1.5.18
 ```
 
 3. 按页面结果操作；仅在页面要求时刷新或重启。
 
-**版本 1.5.17 支持 DSH 内核 `0.2.1-rc.3`、`0.2.1-rc.2`、`0.2.1-rc.1`、`0.2.1-alpha.5`、`0.2.1-alpha.4`。**
+**版本 1.5.18 支持 DSH 内核 `0.2.1-rc.3`、`0.2.1-rc.2`、`0.2.1-rc.1`、`0.2.1-alpha.5`、`0.2.1-alpha.4`。**
 
 ### 终端安装（可选）
 
 官方 DSH Desktop 需先通过应用的 **Manage dsh Command…** 注册自带命令并启动一次以初始化 profile；完全退出应用后使用 `desktop`。DSH-Portable 0.x 和网页版使用 `web`：
 
 ```sh
-dsh plugin --profile desktop add dsh-chat-manager@1.5.17
-dsh plugin --profile web add dsh-chat-manager@1.5.17
+dsh plugin --profile desktop add dsh-chat-manager@1.5.18
+dsh plugin --profile web add dsh-chat-manager@1.5.18
 ```
 
-交给 Agent 安装时使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.17/AGENTS.md)。
+交给 Agent 安装时使用固定版本的 [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.18/AGENTS.md)。
 
 ## 使用
 
 ### 归档、搜索与恢复
 
 点击侧边栏标题处的归档图标，可浏览归档并按会话名、工作区或聊天内容搜索；点击 **恢复** 将会话放回原工作区。搜索仅涉及已归档会话中的当前用户和助手消息。
+
+归档设置页采用卡片分组和简短说明；窄窗口下操作按钮可换行，避免挤压会话标题。
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/archive-manager.png" width="600" alt='DeepSeek Harness 原生归档界面，支持搜索与恢复'>
