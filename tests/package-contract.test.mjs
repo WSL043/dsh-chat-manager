@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-import { compareDshVersions } from '../scripts/prepare-compat-release.mjs'
+import { compareDshVersions, selectLatestDshVersions } from '../scripts/prepare-compat-release.mjs'
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
@@ -32,7 +32,8 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   assert.ok(compatibility.testFixtures.historicalPreviews.includes('0.1.2-alpha.3'))
   assert.ok(compatibility.testFixtures.historicalPreviews.includes('0.2.0-rc.1'))
   assert.ok(compatibility.testFixtures.historicalPreviews.includes('0.2.0-rc.2'))
-  assert.equal(compatibility.releaseTargets.length, 3)
+  assert.deepEqual(compatibility.releaseTargets,
+    selectLatestDshVersions(compatibility.releaseTargets, compatibility.releaseTargets.length))
   assert.equal(compatibility.latestTested, compatibility.releaseTargets[0])
   assert.equal(compatibility.clientTarget, compatibility.releaseTargets[0])
   assert.equal(compatibility.supported, undefined)
@@ -48,7 +49,7 @@ test('public package is a standard DSH bundle with a unique identity', async () 
   const previewSource = manifest.devDependencies[compatibility.testFixtures.previewWorkspaceAlias]
   assert.ok(previewSource.startsWith('npm:@deepseek-ai/dsh-client-ui-workspace@'))
   assert.ok(compatibility.testFixtures.historicalPreviews.includes(previewSource.split('@').at(-1)))
-  // A core bundled by a shipped DSH-Portable stays supported after it leaves the newest-three window.
+  // A core bundled by a shipped DSH-Portable stays supported after it leaves the core window.
   assert.deepEqual(compatibility.portableBaselines, ['0.2.0-rc.2'], 'the DSH-Portable bundled core must stay supported')
   const supportedVersions = new Set([...compatibility.releaseTargets, ...compatibility.portableBaselines])
   for (const [name, version] of Object.entries(manifest.peerDependencies)) {
