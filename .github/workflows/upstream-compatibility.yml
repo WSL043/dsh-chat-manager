@@ -167,12 +167,16 @@ jobs:
         shell: bash
         env:
           DSH_VERSION: ${{ matrix.dsh_version }}
+          DSH_ACCEPTANCE_EVIDENCE_ROOT: ${{ runner.temp }}/dsh-chat-compat-evidence/${{ matrix.dsh_version }}
         run: node scripts/accept-official-dsh.mjs --dsh-version "$DSH_VERSION" --package .artifacts/dsh-chat-manager.tgz
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: chat-manager-official-failure-${{ matrix.dsh_version }}
-          path: ${{ runner.temp }}/dsh-session-delete-official-*/*.log
+          path: |
+            ${{ runner.temp }}/dsh-chat-compat-evidence/${{ matrix.dsh_version }}/**/*.png
+            ${{ runner.temp }}/dsh-chat-compat-evidence/${{ matrix.dsh_version }}/**/*.txt
+            ${{ runner.temp }}/dsh-chat-compat-evidence/${{ matrix.dsh_version }}/**/*.log
 
   publish:
     needs: [prepare, acceptance]

@@ -71,7 +71,7 @@ export async function acceptModernOfficial(page, title, transcriptPath, evidence
     // Newer cores keep Settings inside the sidebar account menu ("More" while signed out).
     const settingsButton = page.getByRole('button', { name: /^(Settings|设置)$/ })
     if (!await settingsButton.isVisible().catch(() => false)) {
-      await page.getByRole('button', { name: /^(More|更多|Account menu|账号菜单)$/ }).first().click()
+      await page.getByRole('button', { name: /^(Account menu|账号菜单)$/ }).click()
       await page.getByRole('menuitem', { name: /^(Settings|设置)/ }).first().click()
     } else {
       await settingsButton.click()
