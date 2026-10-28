@@ -1,4 +1,4 @@
-> Unpublished candidate: dsh-chat-manager@2.0.0-alpha.1. Source-contract target only: DSH 0.2.2-alpha.2 at f3803c96974ad4a94195fb97e5c637e9c2a3afe3, Cordis 4.0.6-alpha.1. Runtime qualification is pending; no other cores are claimed.
+> Unpublished candidate: dsh-chat-manager@2.0.0-alpha.1. Fixed target: DSH 0.2.2-alpha.2 at f3803c96974ad4a94195fb97e5c637e9c2a3afe3, Cordis 4.0.6-alpha.1. Isolated Windows UI acceptance passed on official Alpha2 using generated fixtures, without validating an existing user installation or real-model calls; this candidate remains unpublished and no other cores are claimed.
 
 # Agent maintenance and installation boundary
 

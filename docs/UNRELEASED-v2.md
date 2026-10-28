@@ -1,14 +1,16 @@
 # Unreleased v2 preparation
 
 This maintenance branch prepares package version 2.0.0-alpha.1; it is not a
-published or qualified release. The generated client must be rebuilt and verified
+published release. The generated client must be rebuilt and verified
 from this source before acceptance. Publication workflows remain unchanged and
 are not permission to publish. Do not install this working tree into a daily profile.
 
 The v2 source targets only the public contracts inspected at DeepSeek Harness
 0.2.2-alpha.2 commit f3803c96974ad4a94195fb97e5c637e9c2a3afe3.
-No v2 real-product compatibility has been established. The RC or Portable
-compatibility promises of 1.5.19 do not carry over to this preparation.
+Isolated Windows UI acceptance passed on official Alpha2 using generated fixtures;
+existing user installations and real-model calls were not validated. The candidate
+remains unpublished. For RC3, continue using published 1.5.19; its RC or Portable
+compatibility promises do not carry over to this preparation.
 
 - Normal search, archive, stop-and-archive and restore stay with official DSH.
 - One additive public settings section searches archived message content with

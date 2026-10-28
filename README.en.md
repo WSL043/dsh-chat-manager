@@ -1,6 +1,6 @@
 # DSH Chat Manager
 
-**This branch prepares the independent v2 candidate `2.0.0-alpha.1`. It is unpublished and has not completed real-product acceptance.**
+**This branch prepares the independent v2 candidate `2.0.0-alpha.1`. It passed isolated Windows UI acceptance on official Alpha2 and remains unpublished.**
 The existing published release is [1.5.19](https://github.com/WSL043/dsh-chat-manager/releases/tag/v1.5.19).
 This working tree is a different candidate and inherits none of that release's RC or old Portable compatibility claims.
 
@@ -27,13 +27,12 @@ This is an independent plugin. This work does not preinstall it into official De
 ## Candidate compatibility boundary
 
 <!-- dsh-compatibility -->
-Only the public source contracts at DeepSeek Harness `0.2.2-alpha.2` commit
-`f3803c96974ad4a94195fb97e5c637e9c2a3afe3` and Cordis `4.0.6-alpha.1`
-have been inspected for v2. Real-product compatibility is unverified. No RC or old Portable baseline is claimed.
+The fixed v2 target is DeepSeek Harness `0.2.2-alpha.2` commit
+`f3803c96974ad4a94195fb97e5c637e9c2a3afe3` with Cordis `4.0.6-alpha.1`. Isolated Windows UI acceptance passed on that official Alpha2. No RC or old Portable baseline is claimed.
+The test used generated sessions; existing user installations and real-model calls were not validated.
 <!-- /dsh-compatibility -->
 
-Exact package and peer versions identify the candidate development scope, not successful product acceptance.
-A maintainer must qualify a separate disposable profile before deciding to publish.
+For RC3, continue using the published `dsh-chat-manager@1.5.19`; this v2 candidate remains unpublished.
 
 ## Install, update and uninstall
 

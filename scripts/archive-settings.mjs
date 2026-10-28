@@ -75,6 +75,6 @@ export function registerArchiveSettings(ctx, React, ui, { requestDelete }) {
   }
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section', id: 'dsh-chat-manager.archive-search', order: 25,
-    label: () => text('归档内容搜索与清理', 'Archive content search and cleanup'),
+    label: () => text('归档清理', 'Archive cleanup'),
   }, ArchiveSettings))
 }

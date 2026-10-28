@@ -3,7 +3,7 @@ import { access, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 export const ARCHIVE_SETTINGS_ID = 'dsh-chat-manager.archive-search'
-export const ARCHIVE_SETTINGS_LABEL = /^(Archive content search and cleanup|归档内容搜索与清理)$/
+export const ARCHIVE_SETTINGS_LABEL = /^(Archive cleanup|归档清理)$/
 
 export async function openSettings(page) {
   const dialog = page.getByRole('dialog', { name: /^(Settings|设置)$/ })

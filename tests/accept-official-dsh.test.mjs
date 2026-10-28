@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import vm from 'node:vm'
 import { parseOfficialAcceptanceArgs, buildAcceptanceFixtureSource, waitForAcceptanceFixture, sanitizeAcceptanceDiagnostic } from '../scripts/accept-official-dsh.mjs'
-import { ARCHIVE_SETTINGS_ID, archiveActionPattern, openPluginManager } from '../scripts/accept-modern-official.mjs'
+import { ARCHIVE_SETTINGS_ID, ARCHIVE_SETTINGS_LABEL, archiveActionPattern, openPluginManager } from '../scripts/accept-modern-official.mjs'
 
 test('official candidate acceptance defaults to fixed Alpha2 and requires a candidate package', () => {
   assert.deepEqual(parseOfficialAcceptanceArgs(['--package', '/synthetic/plugin.tgz']), { dshVersion: '0.2.2-alpha.2', packagePath: '/synthetic/plugin.tgz', port: 14191 })
@@ -36,6 +36,9 @@ test('generated own-agent fixture is source-only and never intercepts another ow
 
 test('public settings actions escape exact target names rather than using ambiguous title matching', () => {
   assert.equal(ARCHIVE_SETTINGS_ID, 'dsh-chat-manager.archive-search')
+  assert.equal(ARCHIVE_SETTINGS_LABEL.test('Archive cleanup'), true)
+  assert.equal(ARCHIVE_SETTINGS_LABEL.test('归档清理'), true)
+  assert.equal(ARCHIVE_SETTINGS_LABEL.test('Archive content search and cleanup'), false)
   const title = 'Fixture [one] (two) + $3?'
   assert.equal(archiveActionPattern('delete', title).test('Delete permanently ' + title), true)
   assert.equal(archiveActionPattern('restore', title).test('取消归档 ' + title), true)

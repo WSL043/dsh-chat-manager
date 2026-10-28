@@ -3,7 +3,7 @@ import test from 'node:test'
 import vm from 'node:vm'
 import { registerArchiveSettings } from '../scripts/archive-settings.mjs'
 
-function fixture(fetch = () => { throw Error('unexpected HTTP request') }) {
+function fixture(fetch = () => { throw Error('unexpected HTTP request') }, locale = 'en') {
   const registrations = [], values = [], effects = [], timers = new Map(), deleted = [], calls = []
   let cursor = 0, effectCursor = 0, timerId = 0
   const snapshot = { items: [{ title: 'Workspace', sessionIds: ['archive', 'active'] }], archivedSessionIds: ['archive'] }
@@ -13,7 +13,7 @@ function fixture(fetch = () => { throw Error('unexpected HTTP request') }) {
     useRef: initial => { const key = cursor++; if (!(key in values)) values[key] = { current: initial }; return values[key] },
     useEffect: (fn, deps) => { const key = effectCursor++; if (JSON.stringify(effects[key]?.deps) !== JSON.stringify(deps)) { effects[key]?.cleanup?.(); effects[key] = { deps, cleanup: fn() } } },
   }
-  const ctx = { locale: { getSnapshot: () => ({ active: 'en' }) },
+  const ctx = { locale: { getSnapshot: () => ({ active: locale }) },
     workspaces: { unarchiveSession: async id => {
       calls.push('unarchive:' + id)
       snapshot.archivedSessionIds = snapshot.archivedSessionIds.filter(value => value !== id)
@@ -43,7 +43,13 @@ test('independent public settings section needs no Portable global and uses publ
   assert.equal(bed.registrations.length, 1)
   assert.equal(bed.registrations[0].meta.name, 'settings.section')
   assert.equal(bed.registrations[0].meta.id, 'dsh-chat-manager.archive-search')
+  assert.equal(bed.registrations[0].meta.label(), 'Archive cleanup')
   const tree = bed.render()
+  assert.deepEqual(nodes(tree).find(node => node.type === 'h2').children, ['Archive content search and cleanup'])
+  const chinese = fixture(undefined, 'zh')
+  assert.equal(chinese.registrations[0].meta.label(), '归档清理')
+  assert.deepEqual(nodes(chinese.render()).find(node => node.type === 'h2').children, ['归档内容搜索与清理'])
+  chinese.dispose()
   const buttons = nodes(tree).filter(node => node.type === 'Button')
   assert.equal(buttons.length, 2)
   buttons[1].props.onClick()
