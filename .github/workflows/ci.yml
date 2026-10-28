@@ -85,9 +85,6 @@ jobs:
     needs: [plan, behavior]
     if: needs.plan.outputs.official == 'true' && needs.behavior.result == 'success'
     runs-on: windows-2025
-    env:
-      TEMP: ${{ runner.temp }}
-      TMP: ${{ runner.temp }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -111,6 +108,8 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - name: Verify archive, restore, cancel and confirmed deletion of the generated test session
         env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
           DSH_TEST_PNPM_ROOT: ${{ steps.acceptance-pnpm.outputs.dest }}/node_modules/pnpm
           DSH_ACCEPTANCE_EVIDENCE_ROOT: ${{ runner.temp }}/dsh-chat-manager-evidence
         shell: pwsh
