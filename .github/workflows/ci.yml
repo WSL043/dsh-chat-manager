@@ -84,7 +84,7 @@ jobs:
     name: Official DSH browser acceptance (${{ matrix.dsh_version }})
     needs: [plan, behavior]
     if: needs.plan.outputs.official == 'true' && needs.behavior.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: windows-2025
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -105,10 +105,11 @@ jobs:
       - name: Verify archive, restore, cancel and confirmed deletion of the generated test session
         env:
           DSH_ACCEPTANCE_EVIDENCE_ROOT: ${{ runner.temp }}/dsh-chat-manager-evidence
-        run: >-
-          node scripts/accept-official-dsh.mjs
-          --dsh-version "${{ matrix.dsh_version }}"
-          --package "$(find .candidate -maxdepth 1 -name '*.tgz' -print -quit)"
+        shell: pwsh
+        run: |
+          $Candidates = @(Get-ChildItem -LiteralPath .candidate -Filter '*.tgz' -File)
+          if ($Candidates.Count -ne 1) { throw 'Expected exactly one qualified candidate package.' }
+          node scripts/accept-official-dsh.mjs --dsh-version "${{ matrix.dsh_version }}" --package $Candidates[0].FullName
       - uses: actions/upload-artifact@v7
         if: always()
         with:

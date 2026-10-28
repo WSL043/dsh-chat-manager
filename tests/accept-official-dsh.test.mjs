@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import vm from 'node:vm'
 import { parseOfficialAcceptanceArgs, buildAcceptanceFixtureSource, waitForAcceptanceFixture, sanitizeAcceptanceDiagnostic } from '../scripts/accept-official-dsh.mjs'
-import { ARCHIVE_SETTINGS_ID, archiveActionPattern } from '../scripts/accept-modern-official.mjs'
+import { ARCHIVE_SETTINGS_ID, archiveActionPattern, openPluginManager } from '../scripts/accept-modern-official.mjs'
 
 test('official candidate acceptance defaults to fixed Alpha2 and requires a candidate package', () => {
   assert.deepEqual(parseOfficialAcceptanceArgs(['--package', '/synthetic/plugin.tgz']), { dshVersion: '0.2.2-alpha.2', packagePath: '/synthetic/plugin.tgz', port: 14191 })
@@ -113,4 +113,41 @@ test('fixture installation declares a real bundle and diagnostics redact nonce, 
   const safe = sanitizeAcceptanceDiagnostic('nonce=synthetic-ready-nonce https://127.0.0.1:1/?token=private-token&other=secret Cookie: "sid=cookie-secret" Authorization: Bearer bearer-secret', ['synthetic-ready-nonce'])
   assert.doesNotMatch(safe, /synthetic-ready-nonce|private-token|other=secret|cookie-secret|bearer-secret/)
   assert.match(safe, /https:\/\/127\.0\.0\.1:1\//)
+})
+
+
+test('HMR navigation opens the official sidebar manager, Installed tab and exact package switch', async () => {
+  const calls = []
+  const toggle = { waitFor: async () => calls.push('switch-visible') }
+  const panel = { waitFor: async () => calls.push('panel-visible'), count: async () => 1,
+    getByRole: (role, options) => { assert.equal(role, 'tab'); assert.equal(options.name.test('Installed'), true); return { count: async () => 1, click: async () => calls.push('installed-click') } },
+    locator: selector => { assert.equal(selector, '[data-plugin-package="dsh-chat-manager"]'); return { getByRole: role => { assert.equal(role, 'switch'); return toggle } } },
+  }
+  const page = { getByRole: (role, options) => {
+    if (role === 'dialog') return { isVisible: async () => false }
+    assert.equal(role, 'button'); assert.equal(options.name.test('Plugins'), true)
+    return { waitFor: async () => {}, count: async () => 1, click: async () => calls.push('sidebar-click') }
+  }, locator: selector => { assert.equal(selector, '[data-plugin-panel]'); return panel }, waitForFunction: async () => calls.push('panel-ready') }
+  assert.equal(await openPluginManager(page), panel)
+  assert.deepEqual(calls, ['sidebar-click', 'panel-visible', 'panel-ready', 'installed-click', 'switch-visible'])
+  const source = await readFile(new URL('../scripts/accept-modern-official.mjs', import.meta.url), 'utf8')
+  assert.match(source, /const plugins = await openPluginManager\(page\)/)
+  assert.match(source, /contribution\.waitFor\(\{ state: wasEnabled \? 'detached' : 'visible' \}\)/)
+  assert.match(source, /await row\(fixtures\.idle\)\.click\(\)/)
+  assert.doesNotMatch(source, /openSettingsSection\(page, \/\^\(Plugins/)
+})
+
+test('Windows cmd runner preserves spaced paths with Node-style outer quotes and verbatim arguments', async () => {
+  const source = await readFile(new URL('../scripts/accept-official-dsh.mjs', import.meta.url), 'utf8')
+  const start = source.indexOf('function spawnPortable('), end = source.indexOf('function run(', start)
+  let captured
+  const spawn = (...args) => { captured = args; return { synthetic: true } }
+  const context = { spawn, process: { platform: 'win32', env: { ComSpec: 'C:\\Windows\\System32\\cmd.exe' } } }
+  const invoke = vm.runInNewContext(source.slice(start, end) + '; spawnPortable', context)
+  invoke('C:\\Program Files\\pnpm\\pnpm.cmd', ['plugin', '--package', 'D:\\Fixture With Spaces\\candidate.tgz'], { windowsHide: true })
+  assert.equal(captured[0], 'C:\\Windows\\System32\\cmd.exe')
+  assert.deepEqual(Array.from(captured[1]).slice(0, 3), ['/d', '/s', '/c'])
+  assert.equal(captured[1][3], '""C:\\Program Files\\pnpm\\pnpm.cmd" plugin --package "D:\\Fixture With Spaces\\candidate.tgz""')
+  assert.equal(captured[2].shell, false); assert.equal(captured[2].windowsVerbatimArguments, true); assert.equal(captured[2].windowsHide, true)
+  assert.throws(() => invoke('pnpm.cmd', ['bad&argument'], {}), /unsafe Windows command argument/)
 })

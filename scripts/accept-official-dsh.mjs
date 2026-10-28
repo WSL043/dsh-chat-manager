@@ -81,7 +81,7 @@ function spawnPortable(command, args, options) {
       if (/[&|<>^%!\"]/.test(value)) throw new Error(`unsafe Windows command argument: ${value}`)
     }
     const commandLine = values.map(value => /\s/.test(value) ? `"${value}"` : value).join(' ')
-    return spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', commandLine], { ...options, shell: false })
+    return spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `"${commandLine}"`], { ...options, shell: false, windowsVerbatimArguments: true })
   }
   return spawn(command, args, { ...options, shell: false })
 }

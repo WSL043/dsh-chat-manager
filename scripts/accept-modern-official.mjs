@@ -5,7 +5,7 @@ import path from 'node:path'
 export const ARCHIVE_SETTINGS_ID = 'dsh-chat-manager.archive-search'
 export const ARCHIVE_SETTINGS_LABEL = /^(Archive content search and cleanup|归档内容搜索与清理)$/
 
-export async function openSettingsSection(page, name) {
+export async function openSettings(page) {
   const dialog = page.getByRole('dialog', { name: /^(Settings|设置)$/ })
   if (!await dialog.isVisible().catch(() => false)) {
     const button = page.getByRole('button', { name: /^(Settings|设置)$/ }).first()
@@ -16,11 +16,31 @@ export async function openSettingsSection(page, name) {
     }
   }
   await dialog.waitFor()
+  return dialog
+}
+export async function openSettingsSection(page, name) {
+  const dialog = await openSettings(page)
   const section = dialog.getByRole('button', { name })
   await section.waitFor()
   assert.equal(await section.count(), 1, 'exactly one public settings section is registered')
   await section.click()
   return dialog
+}
+export async function openPluginManager(page) {
+  const settings = page.getByRole('dialog', { name: /^(Settings|设置)$/ })
+  if (await settings.isVisible().catch(() => false)) await closeSettings(page)
+  const button = page.getByRole('button', { name: /^(Plugins|插件)$/ })
+  await button.waitFor()
+  assert.equal(await button.count(), 1, 'exactly one official sidebar Plugins entry is available')
+  await button.click()
+  const panel = page.locator('[data-plugin-panel]')
+  await panel.waitFor()
+  assert.equal(await panel.count(), 1, 'the official Plugins page is unique')
+  await page.waitForFunction(() => document.querySelector('[data-plugin-panel]')?.getAttribute('aria-busy') === 'false')
+  const installed = panel.getByRole('tab', { name: /^(Installed|已安装)$/ })
+  if (await installed.count()) await installed.click()
+  await panel.locator('[data-plugin-package="dsh-chat-manager"]').getByRole('switch').waitFor()
+  return panel
 }
 export async function openArchiveSettings(page) {
   const dialog = await openSettingsSection(page, ARCHIVE_SETTINGS_LABEL)
@@ -166,15 +186,22 @@ export async function acceptModernOfficial(page, fixtures, evidenceRoot, control
     assert.deepEqual(await readFile(fixtures.neighbor.transcriptPath), neighborBytes, 'neighbor transcript remains byte-for-byte intact')
     await closeSettings(page)
 
+    // Return through an actual existing conversation, not the no-workspace hero.
+    await menu(fixtures.idle)
+    await page.getByRole('menuitem', { name: /^(Unarchive session|取消归档)$/ }).click()
+    await waitForState('idle', { archived: false })
     for (let cycle = 0; cycle < 4; cycle++) {
-      const plugins = await openSettingsSection(page, /^(Plugins|插件)$/)
+      const plugins = await openPluginManager(page)
       const toggle = plugins.locator('[data-plugin-package="dsh-chat-manager"]').getByRole('switch')
       await toggle.waitFor(); const wasEnabled = await toggle.getAttribute('aria-checked') === 'true'
       await toggle.click()
       await page.waitForFunction(expected => document.querySelector('[data-plugin-package="dsh-chat-manager"] [role="switch"]')?.getAttribute('aria-checked') === expected, String(!wasEnabled))
-      assert.equal(await plugins.getByRole('button', { name: ARCHIVE_SETTINGS_LABEL }).count(), wasEnabled ? 0 : 1)
+      const settings = await openSettings(page)
+      const contribution = settings.getByRole('button', { name: ARCHIVE_SETTINGS_LABEL })
+      await contribution.waitFor({ state: wasEnabled ? 'detached' : 'visible' })
+      assert.equal(await contribution.count(), wasEnabled ? 0 : 1)
       await closeSettings(page)
-      await page.getByRole('button', { name: /^(New session|新建会话)$/i }).first().click()
+      await row(fixtures.idle).click()
       const composer = page.locator('[contenteditable="true"],textarea').first()
       await composer.waitFor(); assert.equal(await composer.isEditable(), true)
       await composer.fill('isolated-lifecycle-probe'); await composer.fill('')
