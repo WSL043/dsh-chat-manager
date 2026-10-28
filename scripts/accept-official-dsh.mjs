@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { chromium } from 'playwright'
@@ -29,6 +29,49 @@ export function parseOfficialAcceptanceArgs(argv) {
 
 function pnpmCommand() {
   return process.env.PNPM_EXECUTABLE || (process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
+}
+
+export function sanitizeAcceptanceDiagnostic(value, secrets = []) {
+  let text = String(value ?? '')
+  for (const secret of secrets) if (secret) text = text.replaceAll(secret, '[REDACTED]')
+  return text.replace(/https?:\/\/[^\s"'<>]+/gi, source => {
+    try { const url = new URL(source); return url.origin + url.pathname } catch { return '[URL REDACTED]' }
+  }).replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [REDACTED]')
+    .replace(/([?&](?:token|nonce|authorization|auth|cookie)=)[^&#\s"']+/gi, '$1[REDACTED]')
+    .replace(/(["']?(?:token|nonce|authorization|cookie)["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;}]+)/gi, '$1[REDACTED]')
+}
+
+export async function waitForAcceptanceFixture(config, { child, timeoutMs = 60000 } = {}) {
+  const deadline = Date.now() + timeoutMs
+  let phase = 'not-started'
+  while (Date.now() < deadline) {
+    if (child && (child.exitCode !== null && child.exitCode !== undefined || child.signalCode != null)) throw Error('official DSH exited before fixture readiness (' + (child.exitCode ?? child.signalCode) + '); phase=' + phase)
+    let status
+    try { status = JSON.parse(await readFile(config.statusPath, 'utf8')) }
+    catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
+    if (status) {
+      phase = status.phase
+      if (phase === 'failed') throw Error('fixture initialization failed: ' + sanitizeAcceptanceDiagnostic(status.error, [config.nonce]))
+      if (phase === 'ready') {
+        const snapshot = JSON.parse(await readFile(config.statePath, 'utf8'))
+        const keys = ['cold', 'neighbor', 'idle', 'running']
+        for (const key of keys) {
+          const actual = snapshot.fixtures?.[key], expected = config.sessions[key], state = snapshot.states?.[key]
+          const location = actual?.transcriptPath
+          const relativePath = typeof location === 'string' && isAbsolute(location) ? relative(config.sessionRoot, location) : '..'
+          if (!actual || actual.id !== expected.id || actual.title !== expected.title || actual.prompt !== expected.prompt
+            || relativePath === '' || relativePath === '..' || relativePath.startsWith('..' + sep) || isAbsolute(relativePath)) throw Error('ready fixture identity or isolated transcript location is invalid: ' + key)
+          const cold = key === 'cold' || key === 'neighbor'
+          if (!state || state.agentStatus !== (cold ? null : 'idle') || state.sessionLoaded !== !cold || state.archived !== cold) throw Error('ready fixture has unexpected genuine host state: ' + key)
+          await access(location)
+        }
+        return snapshot
+      }
+      if (phase !== 'applying') throw Error('unknown fixture initialization phase: ' + String(phase))
+    }
+    await new Promise(resolve => setTimeout(resolve, 50))
+  }
+  throw Error('timed out waiting for generated fixture readiness; phase=' + phase)
 }
 
 function spawnPortable(command, args, options) {
@@ -59,7 +102,7 @@ function run(command, args, options = {}) {
     child.on('error', reject)
     child.on('exit', code => {
       if (code === 0 || options.allowFailure) resolvePromise({ code, stdout, stderr, child })
-      else reject(new Error(`${command} exited with ${code}: ${stderr || stdout}`))
+      else reject(new Error(sanitizeAcceptanceDiagnostic(`${command} exited with ${code}: ${stderr || stdout}`, options.secrets).slice(-8192)))
     })
   })
 }
@@ -180,10 +223,17 @@ async function installOwnedAcceptanceFixture(ctx, config) {
 
 export function buildAcceptanceFixtureSource(config) {
   if (!config?.workspace || !config?.statePath || !config?.nonce || !config?.sessions) throw Error('isolated fixture configuration is required')
-  return "import { writeFile } from 'node:fs/promises'\n"
+  const generated = { ...config, statusPath: config.statusPath ?? config.statePath + '.status.json' }
+  return "import { writeFile, rename } from 'node:fs/promises'\n"
     + "export const name = 'dsh-chat-manager-acceptance-fixture'\n"
-    + "export const inject = ['agents', 'sessions', 'llm', 'sessionPersistence', 'workspaceRegistry', 'webServer']\n"
-    + 'export async function apply(ctx) { return (' + installOwnedAcceptanceFixture.toString() + ')(ctx, ' + JSON.stringify(config) + ') }\n'
+    + "export const inject = ['agents', 'agentLoop', 'sessions', 'llm', 'sessionPersistence', 'workspaceRegistry', 'webServer']\n"
+    + 'export async function apply(ctx) {\nconst config = ' + JSON.stringify(generated) + '\n'
+    + 'const redact = ' + sanitizeAcceptanceDiagnostic.toString() + '\n'
+    + "const status = async value => { await writeFile(config.statusPath + '.tmp', JSON.stringify(value) + '\\n'); await rename(config.statusPath + '.tmp', config.statusPath) }\n"
+    + "await status({ phase: 'applying' })\ntry {\n"
+    + 'await (' + installOwnedAcceptanceFixture.toString() + ')(ctx, config)\n'
+    + "await status({ phase: 'ready' })\n} catch (error) {\n"
+    + "await status({ phase: 'failed', error: redact(error.stack || error, [config.nonce]).slice(-4096) }); throw error\n}\n}\n"
 }
 
 async function removeIsolatedOnboarding(page) {
@@ -205,7 +255,7 @@ export async function runOfficialAcceptance(options) {
   const base = await mkdtemp(join(evidenceRoot || tmpdir(), 'dsh-session-delete-official-'))
   const dshHome = join(base, 'home'), workspace = join(base, 'workspace'), fixtureRoot = join(base, 'fixture-plugin')
   const env = { ...process.env, DSH_HOME: dshHome, DSH_AGENTS_HOME: join(base, 'agents'), DSH_TELEMETRY_MODE: 'DISABLED' }
-  const config = { workspace, statePath: join(base, 'fixture-state.json'), nonce: randomUUID(), provider: 'chat-manager-acceptance-' + randomUUID(), sessions: {} }
+  const config = { workspace, statePath: join(base, 'fixture-state.json'), statusPath: join(base, 'fixture-status.json'), sessionRoot: join(dshHome, 'sessions'), nonce: randomUUID(), provider: 'chat-manager-acceptance-' + randomUUID(), sessions: {} }
   for (const key of ['cold', 'neighbor', 'idle', 'running']) config.sessions[key] = {
     id: 'chat-v2-' + key + '-' + randomUUID(), title: 'Chat v2 ' + key + ' ' + randomUUID(), prompt: 'Archived content probe ' + key + ' ' + randomUUID(),
   }
@@ -216,12 +266,19 @@ export async function runOfficialAcceptance(options) {
     if (manifest.name !== '@deepseek-ai/dsh' || manifest.version !== FIXED_DSH_VERSION || manifest.bin?.dsh !== 'lib/bin.js') throw Error('runtime does not match fixed official Alpha2')
     dshExecutable = process.execPath; dshCommand = [join(runtimeRoot, 'lib/bin.js')]
   }
-  let server, stdout = '', stderr = '', passed = false
+  let server, stdout = '', stderr = '', installOutput = '', passed = false
   try {
     await mkdir(workspace, { recursive: true }); await mkdir(fixtureRoot)
-    await writeFile(join(fixtureRoot, 'package.json'), JSON.stringify({ name: 'dsh-chat-manager-acceptance-fixture', version: '0.0.0', private: true, type: 'module', main: './index.mjs' }, null, 2))
+    await writeFile(join(fixtureRoot, 'package.json'), JSON.stringify({ name: 'dsh-chat-manager-acceptance-fixture', version: '0.0.0', private: true, type: 'module', main: './index.mjs', dsh: { bundle: { patch: './cordis.patch.yml' } } }, null, 2))
+    await writeFile(join(fixtureRoot, 'cordis.patch.yml'), '- insert:\n    - id: chat-manager-acceptance-fixture\n      name: dsh-chat-manager-acceptance-fixture\n')
     await writeFile(join(fixtureRoot, 'index.mjs'), buildAcceptanceFixtureSource(config))
-    for (const selected of [packagePath, fixtureRoot]) await run(dshExecutable, [...dshCommand, 'plugin', '--profile', 'web', 'add', selected], { cwd: workspace, env, capture: true })
+    for (const [index, selected] of [packagePath, fixtureRoot].entries()) {
+      try {
+        const installed = await run(dshExecutable, [...dshCommand, 'plugin', '--profile', 'web', 'add', selected], { cwd: workspace, env, capture: true, secrets: [config.nonce] })
+        installOutput += '[install ' + index + ']\n' + installed.stdout + '\n' + installed.stderr + '\n'
+        if (/installed as a plain dependency, not a profile layer/.test(installed.stdout + installed.stderr)) throw Error('acceptance package was not enabled as a profile bundle')
+      } catch (error) { installOutput += String(error.stack || error) + '\n'; throw error }
+    }
     server = spawnPortable(dshExecutable, [...dshCommand, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', String(options.port)], { cwd: workspace, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true })
     server.stdout?.on('data', chunk => { stdout += chunk }); server.stderr?.on('data', chunk => { stderr += chunk })
     const url = await waitForServer(() => {
@@ -230,8 +287,8 @@ export async function runOfficialAcceptance(options) {
       const candidate = new URL(match[1])
       if (candidate.protocol !== 'http:' || candidate.hostname !== '127.0.0.1' || Number(candidate.port) !== options.port || candidate.pathname !== '/' || (candidate.search && !/^\?token=[A-Za-z0-9_-]+$/u.test(candidate.search))) throw Error('invalid isolated server URL')
       return candidate.href
-    }, server).catch(error => { throw Error(error.message + '\n' + (stderr || stdout)) })
-    const fixtureState = JSON.parse(await readFile(config.statePath, 'utf8'))
+    }, server).catch(error => { throw Error(sanitizeAcceptanceDiagnostic(error.message + '\n' + (stderr || stdout), [config.nonce]).slice(-8192)) })
+    const fixtureState = await waitForAcceptanceFixture(config, { child: server })
     const browser = await chromium.launch({ headless: true, channel: process.env.DSH_TEST_BROWSER_CHANNEL || undefined })
     try {
       const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, colorScheme: process.env.DSH_ACCEPTANCE_COLOR_SCHEME || 'dark', ...(process.env.DSH_ACCEPTANCE_LOCALE ? { locale: process.env.DSH_ACCEPTANCE_LOCALE } : {}) })
@@ -259,7 +316,7 @@ export async function runOfficialAcceptance(options) {
     return { ok: true, dshVersion: FIXED_DSH_VERSION, checks: ['isolated fixture-only profile', 'public archive settings', 'native archive and public unarchive clicks', 'archive content search', 'confirmation cancel sends no request', 'loaded idle/running genuinely refused', 'cold archived positive UI deletion', 'neighbor bytes preserved', 'plugin hot toggles preserve official composer', 'no page reload', 'no runtime exceptions'] }
   } finally {
     if (server) await stopProcess(server)
-    await writeFile(join(base, 'web.log'), stdout + '\n' + stderr)
+    await writeFile(join(base, 'web.log'), sanitizeAcceptanceDiagnostic(installOutput + stdout + '\n' + stderr, [config.nonce]).slice(-32768))
     if (passed && !evidenceRoot) await rm(base, { recursive: true, force: true })
     else process.stderr.write('Acceptance evidence retained: ' + base + '\n')
   }
@@ -268,6 +325,6 @@ export async function runOfficialAcceptance(options) {
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   runOfficialAcceptance(parseOfficialAcceptanceArgs(process.argv.slice(2))).then(
     result => process.stdout.write(JSON.stringify(result) + '\n'),
-    error => { process.stderr.write(String(error.stack || error) + '\n'); process.exitCode = 1 },
+    error => { process.stderr.write(sanitizeAcceptanceDiagnostic(error.stack || error).slice(-8192) + '\n'); process.exitCode = 1 },
   )
 }

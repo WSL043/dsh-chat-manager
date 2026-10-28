@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { readFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import vm from 'node:vm'
-import { parseOfficialAcceptanceArgs, buildAcceptanceFixtureSource } from '../scripts/accept-official-dsh.mjs'
+import { parseOfficialAcceptanceArgs, buildAcceptanceFixtureSource, waitForAcceptanceFixture, sanitizeAcceptanceDiagnostic } from '../scripts/accept-official-dsh.mjs'
 import { ARCHIVE_SETTINGS_ID, archiveActionPattern } from '../scripts/accept-modern-official.mjs'
 
 test('official candidate acceptance defaults to fixed Alpha2 and requires a candidate package', () => {
@@ -17,6 +19,10 @@ test('generated own-agent fixture is source-only and never intercepts another ow
   const source = buildAcceptanceFixtureSource({ workspace: '/synthetic/workspace', statePath: '/synthetic/state.json', nonce: 'fixture-nonce', provider: 'fixture-provider', sessions: {} })
   new vm.Script('(async function(){' + source.replace(/^import[^\n]*\n/m, '').replace(/^export /gm, '') + '})')
   assert.match(source, /ctx\.agents\.create/)
+  assert.match(source, /inject = \[[^\]]*'agentLoop'/)
+  assert.match(source, /phase: 'applying'/)
+  assert.match(source, /phase: 'ready'/)
+  assert.match(source, /phase: 'failed'/)
   assert.match(source, /handle\.dispose\(\)/)
   assert.match(source, /stopActivity: true/)
   assert.match(source, /fixture did not reach genuine running activity/)
@@ -41,4 +47,65 @@ test('real runners target public settings and keep positive deletion as an actua
   assert.match(sources[0], /neighbor transcript remains byte-for-byte intact/)
   assert.match(sources[0], /does not promise cancellation of already-started destructive storage work/)
   assert.match(sources[1], /simulated: options\.simulateDeleteSuccess === true/)
+})
+
+async function readinessFixture(t) {
+  const base = await mkdtemp(join(tmpdir(), 'chat-v2-ready-unit-'))
+  t.after(() => rm(base, { recursive: true, force: true }))
+  const config = { nonce: 'synthetic-ready-nonce', statePath: join(base, 'fixture-state.json'), statusPath: join(base, 'fixture-status.json'), sessionRoot: join(base, 'sessions'), sessions: {} }
+  const snapshot = { fixtures: {}, states: {} }
+  for (const key of ['cold', 'neighbor', 'idle', 'running']) {
+    const spec = { id: key + '-synthetic', title: key + ' fixture', prompt: key + ' probe' }
+    config.sessions[key] = spec
+    const transcriptPath = join(config.sessionRoot, key, 'session.v3.jsonl')
+    await mkdir(join(config.sessionRoot, key), { recursive: true }); await writeFile(transcriptPath, 'synthetic unit bytes')
+    snapshot.fixtures[key] = { ...spec, transcriptPath }
+    const cold = key === 'cold' || key === 'neighbor'
+    snapshot.states[key] = { agentStatus: cold ? null : 'idle', sessionLoaded: !cold, archived: cold }
+  }
+  return { config, snapshot }
+}
+
+test('fixture readiness waits for the explicit complete marker and all four generated host states', async t => {
+  const { config, snapshot } = await readinessFixture(t)
+  await writeFile(config.statusPath, JSON.stringify({ phase: 'applying' }))
+  const publishing = (async () => { await new Promise(resolve => setTimeout(resolve, 20)); await writeFile(config.statePath, JSON.stringify(snapshot)); await writeFile(config.statusPath, JSON.stringify({ phase: 'ready' })) })()
+  const [ready] = await Promise.all([waitForAcceptanceFixture(config, { child: { exitCode: null }, timeoutMs: 1000 }), publishing])
+  assert.deepEqual(ready, snapshot)
+})
+
+test('fixture errors and process exits propagate before readiness instead of accepting server URL', async t => {
+  const { config } = await readinessFixture(t)
+  await writeFile(config.statusPath, JSON.stringify({ phase: 'failed', error: 'create failed at https://127.0.0.1:1/?token=private-token nonce=' + config.nonce }))
+  await assert.rejects(waitForAcceptanceFixture(config, { timeoutMs: 100 }), error => {
+    assert.match(error.message, /fixture initialization failed: create failed/)
+    assert.doesNotMatch(error.message, /private-token|synthetic-ready-nonce/); return true
+  })
+  await assert.rejects(waitForAcceptanceFixture(config, { child: { exitCode: 23 }, timeoutMs: 100 }), /exited before fixture readiness.*23/)
+})
+
+test('a missing marker, incomplete state, nonisolated path or incorrect loaded state never passes readiness', async t => {
+  const { config, snapshot } = await readinessFixture(t)
+  await assert.rejects(waitForAcceptanceFixture(config, { timeoutMs: 60 }), /timed out.*phase=not-started/)
+  await writeFile(config.statusPath, JSON.stringify({ phase: 'ready' }))
+  for (const fault of ['missing-neighbor', 'outside-root', 'loaded-cold', 'premature-running']) {
+    const invalid = structuredClone(snapshot)
+    if (fault === 'missing-neighbor') delete invalid.fixtures.neighbor
+    if (fault === 'outside-root') invalid.fixtures.cold.transcriptPath = config.statePath
+    if (fault === 'loaded-cold') invalid.states.cold.sessionLoaded = true
+    if (fault === 'premature-running') invalid.states.running.agentStatus = 'running'
+    await writeFile(config.statePath, JSON.stringify(invalid))
+    await assert.rejects(waitForAcceptanceFixture(config, { timeoutMs: 100 }), /ready fixture/, fault)
+  }
+})
+
+test('fixture installation declares a real bundle and diagnostics redact nonce, credentials and URL queries', async () => {
+  const source = await readFile(new URL('../scripts/accept-official-dsh.mjs', import.meta.url), 'utf8')
+  assert.match(source, /dsh: \{ bundle: \{ patch: '\.\/cordis\.patch\.yml'/)
+  assert.match(source, /id: chat-manager-acceptance-fixture/)
+  assert.match(source, /installed as a plain dependency, not a profile layer/)
+  assert.match(source, /await waitForAcceptanceFixture\(config, \{ child: server \}\)/)
+  const safe = sanitizeAcceptanceDiagnostic('nonce=synthetic-ready-nonce https://127.0.0.1:1/?token=private-token&other=secret Cookie: "sid=cookie-secret" Authorization: Bearer bearer-secret', ['synthetic-ready-nonce'])
+  assert.doesNotMatch(safe, /synthetic-ready-nonce|private-token|other=secret|cookie-secret|bearer-secret/)
+  assert.match(safe, /https:\/\/127\.0\.0\.1:1\//)
 })

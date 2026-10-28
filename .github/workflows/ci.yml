@@ -117,5 +117,7 @@ jobs:
           if-no-files-found: warn
           path: |
             ${{ runner.temp }}/dsh-chat-manager-evidence/dsh-session-delete-official-*/acceptance.json
+            ${{ runner.temp }}/dsh-chat-manager-evidence/dsh-session-delete-official-*/fixture-status.json
+            ${{ runner.temp }}/dsh-chat-manager-evidence/dsh-session-delete-official-*/web.log
             ${{ runner.temp }}/dsh-chat-manager-evidence/dsh-session-delete-official-*/*.png
             ${{ runner.temp }}/dsh-chat-manager-evidence/dsh-session-delete-official-*/modern-failure.txt
