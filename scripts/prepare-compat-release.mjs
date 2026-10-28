@@ -315,6 +315,22 @@ async function refreshReleaseAge(root) {
   return { changed: true, selectors: selectors.length }
 }
 
+// Requests stay on the npm package-metadata endpoint; names are one encoded path component.
+export function deepSeekPackageMetadataUrl(name) {
+  if (typeof name !== 'string' || !/^@deepseek-ai\/dsh(?:-[a-z0-9][a-z0-9._-]*)?$/u.test(name)) throw new TypeError('a DeepSeek DSH package name is required')
+  return 'https://registry.npmjs.org/' + encodeURIComponent(name)
+}
+
+export function cordisHostsFromPackument(targetVersions, packument) {
+  if (!Array.isArray(targetVersions)) throw new TypeError('DSH target versions must be an array')
+  const versions = packument.versions ?? {}
+  return targetVersions.map(version => {
+    parseVersion(version)
+    if (!Object.hasOwn(versions, version)) throw new Error(`Unpublished DSH target: ${version}`)
+    return cordisHostOf(versions[version].dependencies?.['@deepseek-ai/cordis'])
+  })
+}
+
 async function main() {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
   if (process.argv.includes('--refresh-release-age')) return refreshReleaseAge(root)
@@ -322,6 +338,8 @@ async function main() {
   const targets = targetsIndex === -1 ? undefined : process.argv[targetsIndex + 1]
   if (targets === undefined) throw new Error('--dsh-versions JSON array is required')
   const targetVersions = JSON.parse(targets)
+  if (!Array.isArray(targetVersions)) throw new TypeError('DSH target versions must be an array')
+  for (const version of targetVersions) parseVersion(version)
   const compatibilityPath = resolve(root, 'compatibility.json')
   const manifestPath = resolve(root, 'package.json')
   const [compatibility, manifest] = await Promise.all([
@@ -331,15 +349,15 @@ async function main() {
   const publishedVersions = Object.fromEntries(await Promise.all(Object.keys(manifest.devDependencies)
     .filter(name => name.startsWith('@deepseek-ai/dsh-') && name !== '@deepseek-ai/dsh-client-runtime')
     .map(async name => {
-      const response = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2f')}`)
+      const response = await fetch(deepSeekPackageMetadataUrl(name), { redirect: 'error' })
       if (!response.ok) throw new Error(`Registry HTTP ${response.status} for ${name}`)
       return [name, Object.keys((await response.json()).versions ?? {})]
     })))
-  const cordisHosts = await Promise.all(targetVersions.map(async version => {
-    const response = await fetch(`https://registry.npmjs.org/@deepseek-ai%2fdsh/${version}`)
-    if (!response.ok) throw new Error(`Registry HTTP ${response.status} for @deepseek-ai/dsh@${version}`)
-    return cordisHostOf((await response.json()).dependencies?.['@deepseek-ai/cordis'])
-  }))
+  const coreResponse = await fetch('https://registry.npmjs.org/@deepseek-ai%2fdsh', {
+    headers: { Accept: 'application/vnd.npm.install-v1+json' }, redirect: 'error',
+  })
+  if (!coreResponse.ok) throw new Error(`Registry HTTP ${coreResponse.status} for @deepseek-ai/dsh`)
+  const cordisHosts = cordisHostsFromPackument(targetVersions, await coreResponse.json())
   const update = planCompatibilityUpdate({ compatibility, manifest }, targetVersions, publishedVersions, cordisHosts)
   if (update === null) {
     process.stdout.write(`${JSON.stringify({ changed: false, dshVersions: targetVersions })}\n`)

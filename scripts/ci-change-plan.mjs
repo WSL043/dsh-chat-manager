@@ -1,4 +1,6 @@
-import { appendFileSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 
 function argument(name) {
@@ -53,53 +55,60 @@ function compareVersions(left, right) {
   return 0
 }
 
-const base = baseCommit(argument('--base'))
-const publishedVersion = argument('--published')
-const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version
-const files = git('diff', '--name-only', `${base}...HEAD`).split(/\r?\n/u).filter(Boolean)
-const changed = patterns => files.some(file => patterns.some(pattern => pattern.test(file)))
-const planner = changed([/^scripts\/ci-change-plan\.mjs$/u, /^\.github\/workflows\/ci\.yml$/u])
-const runtime = changed([
-  /^src\//u,
-  /^lib\//u,
-  /^cordis\.patch\.yml$/u,
-  /^tsdown(?:\.demo)?\.config\.mjs$/u,
-  /^scripts\/build-client\.mjs$/u,
-  /^scripts\/(?:build-modern-client|archive-settings)\.mjs$/u,
-])
-const demo = planner || changed([/^demo\//u, /^docs\//u, /^\.github\/workflows\/pages\.yml$/u])
-const delivery = planner || changed([
-  /^\.github\//u,
-  /^(?:README(?:\.zh-CN)?|DIRECTORY|AGENTS|SECURITY|THIRD_PARTY_NOTICES|LICENSE)\.md$/u,
-  /^compatibility\.json$/u,
-  /^package(?:-lock)?\.json$/u,
-  /^pnpm-lock\.yaml$/u,
-  /^pnpm-workspace\.yaml$/u,
-  /^scripts\/prepare-compat-release\.mjs$/u,
-  /^tests\/.*(?:contract|release|package|compat).*\.test\.(?:mjs|js)$/u,
-])
-const behavior = planner || runtime || changed([
-  /^compatibility\.json$/u,
-  /^package(?:-lock)?\.json$/u,
-  /^pnpm-lock\.yaml$/u,
-  /^pnpm-workspace\.yaml$/u,
-  /^tests\//u,
-])
-const official = planner || runtime || changed([
-  /^compatibility\.json$/u,
-  /^package\.json$/u,
-  /^pnpm-lock\.yaml$/u,
-  /^pnpm-workspace\.yaml$/u,
-])
-
-if (runtime && publishedVersion && compareVersions(packageVersion, publishedVersion) <= 0) {
-  console.error(`Runtime-bearing files changed after ${publishedVersion}, but package.json is still ${packageVersion}.`)
-  console.error('Advance the package version before merging so main cannot get ahead of the published package.')
-  process.exit(1)
+export function formatGithubOutput(plan) {
+  return ['behavior', 'delivery', 'demo', 'official', 'runtime'].map(key => `${key}=${Boolean(plan[key])}\n`).join('')
 }
 
-const plan = { behavior, delivery, demo, official, runtime }
-console.log(JSON.stringify({ base, files, packageVersion, publishedVersion, plan }, null, 2))
-if (process.env.GITHUB_OUTPUT) {
-  appendFileSync(process.env.GITHUB_OUTPUT, Object.entries(plan).map(([key, value]) => `${key}=${value}\n`).join(''))
+function main() {
+  const base = baseCommit(argument('--base'))
+  const publishedVersion = argument('--published')
+  const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version
+  const files = git('diff', '--name-only', `${base}...HEAD`).split(/\r?\n/u).filter(Boolean)
+  const changed = patterns => files.some(file => patterns.some(pattern => pattern.test(file)))
+  const planner = changed([/^scripts\/ci-change-plan\.mjs$/u, /^\.github\/workflows\/ci\.yml$/u])
+  const runtime = changed([
+    /^src\//u,
+    /^lib\//u,
+    /^cordis\.patch\.yml$/u,
+    /^tsdown(?:\.demo)?\.config\.mjs$/u,
+    /^scripts\/build-client\.mjs$/u,
+    /^scripts\/(?:build-modern-client|archive-settings)\.mjs$/u,
+  ])
+  const demo = planner || changed([/^demo\//u, /^docs\//u, /^\.github\/workflows\/pages\.yml$/u])
+  const delivery = planner || changed([
+    /^\.github\//u,
+    /^(?:README(?:\.zh-CN)?|DIRECTORY|AGENTS|SECURITY|THIRD_PARTY_NOTICES|LICENSE)\.md$/u,
+    /^compatibility\.json$/u,
+    /^package(?:-lock)?\.json$/u,
+    /^pnpm-lock\.yaml$/u,
+    /^pnpm-workspace\.yaml$/u,
+    /^scripts\/prepare-compat-release\.mjs$/u,
+    /^tests\/.*(?:contract|release|package|compat).*\.test\.(?:mjs|js)$/u,
+  ])
+  const behavior = planner || runtime || changed([
+    /^compatibility\.json$/u,
+    /^package(?:-lock)?\.json$/u,
+    /^pnpm-lock\.yaml$/u,
+    /^pnpm-workspace\.yaml$/u,
+    /^tests\//u,
+  ])
+  const official = planner || runtime || changed([
+    /^compatibility\.json$/u,
+    /^package\.json$/u,
+    /^pnpm-lock\.yaml$/u,
+    /^pnpm-workspace\.yaml$/u,
+  ])
+
+  if (runtime && publishedVersion && compareVersions(packageVersion, publishedVersion) <= 0) {
+    console.error(`Runtime-bearing files changed after ${publishedVersion}, but package.json is still ${packageVersion}.`)
+    console.error('Advance the package version before merging so main cannot get ahead of the published package.')
+    process.exit(1)
+  }
+
+  const plan = { behavior, delivery, demo, official, runtime }
+  if (process.argv.includes('--github-output')) process.stdout.write(formatGithubOutput(plan))
+  else console.log(JSON.stringify({ base, files, packageVersion, publishedVersion, plan }, null, 2))
+
 }
+
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) main()

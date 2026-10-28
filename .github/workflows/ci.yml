@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           published="$(npm view dsh-chat-manager dist-tags.latest)"
-          node scripts/ci-change-plan.mjs --base "$BASE_SHA" --published "$published"
+          node scripts/ci-change-plan.mjs --base "$BASE_SHA" --published "$published" --github-output >> "$GITHUB_OUTPUT"
           node --input-type=module <<'NODE' >> "$GITHUB_OUTPUT"
           import { readFileSync } from 'node:fs';
           const c=JSON.parse(readFileSync('compatibility.json','utf8'));

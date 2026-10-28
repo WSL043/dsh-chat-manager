@@ -3,11 +3,13 @@ import test from 'node:test'
 
 import {
   boundedArtifactPaths,
+  deepSeekPackageMetadataUrl,
   compareDshVersions,
   devVersionFor,
   extractDeepSeekReleaseAgeSelectors,
   planCompatibilityUpdate,
   cordisHostOf,
+  cordisHostsFromPackument,
   widenCordisPeer,
   rewriteCompatibilityBlock,
   rewriteAgentCompatibility,
@@ -20,6 +22,7 @@ import {
   supportedCores,
   selectNewestPublishedTag,
 } from '../scripts/prepare-compat-release.mjs'
+import { formatGithubOutput } from '../scripts/ci-change-plan.mjs'
 
 const targets = ['0.2.0-rc.2', '0.2.0-rc.1', '0.1.7-rc.2', '0.1.7-rc.1', '0.1.7-alpha.2']
 
@@ -159,4 +162,15 @@ test('republishing for a baseline change keeps the same targets without tripping
   const targets = ['0.2.1-rc.1', '0.2.1-alpha.5', '0.2.1-alpha.4']
   const once = rewriteAgentCompatibility('> Current release: dsh-chat-manager@1.5.14, qualified targets x.\nThis release targets DSH a.\nFor DSH b.\n', '1.5.15', targets)
   assert.equal(rewriteAgentCompatibility(once, '1.5.15', targets), once)
+})
+
+
+test('maintenance requests encode one npm component and CI output uses fixed boolean lines', () => {
+  assert.equal(deepSeekPackageMetadataUrl('@deepseek-ai/dsh-client-locale'), 'https://registry.npmjs.org/%40deepseek-ai%2Fdsh-client-locale')
+  assert.deepEqual(cordisHostsFromPackument(['0.2.1-rc.3'], { versions: { '0.2.1-rc.3': { dependencies: { '@deepseek-ai/cordis': '4.0.6-alpha.1' } } } }), ['4.0.6-alpha.1'])
+  assert.throws(() => cordisHostsFromPackument(['../../other?endpoint'], { versions: {} }), /version/)
+  assert.throws(() => cordisHostsFromPackument(['0.2.1-rc.3'], { versions: {} }), /Unpublished DSH target/)
+
+  for (const invalid of ['@deepseek-ai/dsh-name/../../other', '@deepseek-ai/dsh-name?redirect=elsewhere', '@other/dsh-name', '@deepseek-ai/dsh-name#fragment']) assert.throws(() => deepSeekPackageMetadataUrl(invalid), /package name/)
+  assert.equal(formatGithubOutput({ behavior: true, delivery: false, demo: true, official: false, runtime: false, ['injected\nkey']: true }), 'behavior=true\ndelivery=false\ndemo=true\nofficial=false\nruntime=false\n')
 })

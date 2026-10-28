@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node
 import { join, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
-import { parseOfficialAcceptanceArgs, buildAcceptanceFixtureSource, waitForAcceptanceFixture, sanitizeAcceptanceDiagnostic, resolveOfficialAcceptanceCommand } from '../scripts/accept-official-dsh.mjs'
+import { parseOfficialAcceptanceArgs, buildAcceptanceFixtureSource, waitForAcceptanceFixture, sanitizeAcceptanceDiagnostic, resolveOfficialAcceptanceCommand, resolveAcceptanceEvidenceRoot } from '../scripts/accept-official-dsh.mjs'
 import { ARCHIVE_SETTINGS_ID, ARCHIVE_SETTINGS_LABEL, archiveActionPattern, openPluginManager } from '../scripts/accept-modern-official.mjs'
 
 test('official candidate acceptance defaults to fixed Alpha2 and requires a candidate package', () => {
@@ -174,6 +174,14 @@ test('acceptance selects pinned JS entries as separate Node arguments and refuse
   await writeFile(join(outsideBin, 'pnpm.mjs'), '// Outside the package; never executed.\n')
   await symlink(outsideBin, join(linkedRoot, 'bin'), process.platform === 'win32' ? 'junction' : 'dir')
   await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: null, pnpmRoot: linkedRoot }), /inside its package directory/)
+  assert.equal(await resolveAcceptanceEvidenceRoot(join(base, 'new', 'evidence')), join(await realpath(base), 'new', 'evidence'))
+  assert.equal(await resolveAcceptanceEvidenceRoot(base), await realpath(base))
+  for (const outside of [temporaryRoot, await realpath(temporaryRoot), resolve(temporaryRoot, '..', 'chat-v2-outside-evidence')]) {
+    await assert.rejects(resolveAcceptanceEvidenceRoot(outside), /OS-temp subdirectory/)
+  }
+  await assert.rejects(resolveAcceptanceEvidenceRoot(externalLink), /without links/)
+  await assert.rejects(resolveAcceptanceEvidenceRoot(join(externalLink, 'new', 'evidence')), /without links/)
+  await assert.rejects(resolveAcceptanceEvidenceRoot(join(pnpmRoot, 'bin', 'pnpm.mjs', 'child')), /directories without links/)
   for (const change of [{ name: '@other/runtime' }, { version: '0.2.1-rc.3' }, { bin: { dsh: 'other.js' } }]) {
     await writeFile(join(runtimeRoot, 'package.json'), JSON.stringify({ ...runtimeManifest, ...change }))
     await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot }), /fixed official Alpha2/)
