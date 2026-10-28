@@ -174,7 +174,8 @@ async function installOwnedAcceptanceFixture(ctx, config) {
     const spec = config.sessions[key]
     const handle = await ctx.agents.create({ sessionId: spec.id, meta: { cwd: config.workspace }, agentOptions: { provider: config.provider, model: key === 'running' ? 'hold' : 'done' } })
     handles.set(key, handle)
-    handle.agent.session.append('session/title', { title: spec.title })
+    // Let the public title service produce its complete, pinned user-title event.
+    ctx.sessionTitle.rename(handle.agent.session, spec.title)
     if (key === 'cold' || key === 'neighbor') {
       handle.agent.followup(message(spec.prompt))
       await handle.agent.whenIdle()
@@ -226,7 +227,7 @@ export function buildAcceptanceFixtureSource(config) {
   const generated = { ...config, statusPath: config.statusPath ?? config.statePath + '.status.json' }
   return "import { writeFile, rename } from 'node:fs/promises'\n"
     + "export const name = 'dsh-chat-manager-acceptance-fixture'\n"
-    + "export const inject = ['agents', 'agentLoop', 'sessions', 'llm', 'sessionPersistence', 'workspaceRegistry', 'webServer']\n"
+    + "export const inject = ['agents', 'agentLoop', 'sessions', 'llm', 'sessionPersistence', 'workspaceRegistry', 'sessionTitle', 'webServer']\n"
     + 'export async function apply(ctx) {\nconst config = ' + JSON.stringify(generated) + '\n'
     + 'const redact = ' + sanitizeAcceptanceDiagnostic.toString() + '\n'
     + "const status = async value => { await writeFile(config.statusPath + '.tmp', JSON.stringify(value) + '\\n'); await rename(config.statusPath + '.tmp', config.statusPath) }\n"
