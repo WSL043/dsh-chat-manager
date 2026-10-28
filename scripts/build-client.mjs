@@ -5,9 +5,8 @@ import { buildOfficialSlotClient } from './official-session-actions.mjs'
 
 // Unreleased v2 uses public extension slots only. No upstream bundle is copied
 // or patched and no historical workspace implementation is selected at runtime.
-export async function buildClient(output = process.env.DSH_CHAT_MANAGER_OUTPUT
-  ?? fileURLToPath(new URL('../lib/client.js', import.meta.url))) {
-  const target = resolve(output)
+export async function buildClient() {
+  const target = fileURLToPath(new URL('../lib/client.js', import.meta.url))
   await mkdir(dirname(target), { recursive: true })
   await writeFile(target, buildOfficialSlotClient(), 'utf8')
   return target

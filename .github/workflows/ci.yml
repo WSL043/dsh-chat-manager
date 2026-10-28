@@ -93,6 +93,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
+        id: acceptance-pnpm
         with: { version: 11.19.0, run_install: false }
       - uses: actions/setup-node@v6
         with: { node-version: 24.22.1, cache: pnpm }
@@ -104,6 +105,7 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - name: Verify archive, restore, cancel and confirmed deletion of the generated test session
         env:
+          DSH_TEST_PNPM_ROOT: ${{ steps.acceptance-pnpm.outputs.dest }}/node_modules/pnpm
           DSH_ACCEPTANCE_EVIDENCE_ROOT: ${{ runner.temp }}/dsh-chat-manager-evidence
         shell: pwsh
         run: |

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import vm from 'node:vm'
-import { parseOfficialAcceptanceArgs, buildAcceptanceFixtureSource, waitForAcceptanceFixture, sanitizeAcceptanceDiagnostic } from '../scripts/accept-official-dsh.mjs'
+import { spawnSync } from 'node:child_process'
+import { parseOfficialAcceptanceArgs, buildAcceptanceFixtureSource, waitForAcceptanceFixture, sanitizeAcceptanceDiagnostic, resolveOfficialAcceptanceCommand } from '../scripts/accept-official-dsh.mjs'
 import { ARCHIVE_SETTINGS_ID, ARCHIVE_SETTINGS_LABEL, archiveActionPattern, openPluginManager } from '../scripts/accept-modern-official.mjs'
 
 test('official candidate acceptance defaults to fixed Alpha2 and requires a candidate package', () => {
@@ -17,7 +17,8 @@ test('official candidate acceptance defaults to fixed Alpha2 and requires a cand
 test('generated own-agent fixture is source-only and never intercepts another owner', () => {
   assert.throws(() => buildAcceptanceFixtureSource({}), /isolated fixture configuration/)
   const source = buildAcceptanceFixtureSource({ workspace: '/synthetic/workspace', statePath: '/synthetic/state.json', nonce: 'fixture-nonce', provider: 'fixture-provider', sessions: {} })
-  new vm.Script('(async function(){' + source.replace(/^import[^\n]*\n/m, '').replace(/^export /gm, '') + '})')
+  const checked = spawnSync(process.execPath, ['--input-type=module', '--check'], { input: source, encoding: 'utf8', windowsHide: true, shell: false })
+  assert.equal(checked.status, 0, checked.stderr)
   assert.match(source, /ctx\.agents\.create/)
   assert.match(source, /ctx\.sessionTitle\.rename\(handle\.agent\.session, spec\.title\)/)
   assert.match(source, /inject = \[[^\]]*'sessionTitle'/)
@@ -140,17 +141,32 @@ test('HMR navigation opens the official sidebar manager, Installed tab and exact
   assert.doesNotMatch(source, /openSettingsSection\(page, \/\^\(Plugins/)
 })
 
-test('Windows cmd runner preserves spaced paths with Node-style outer quotes and verbatim arguments', async () => {
-  const source = await readFile(new URL('../scripts/accept-official-dsh.mjs', import.meta.url), 'utf8')
-  const start = source.indexOf('function spawnPortable('), end = source.indexOf('function run(', start)
-  let captured
-  const spawn = (...args) => { captured = args; return { synthetic: true } }
-  const context = { spawn, process: { platform: 'win32', env: { ComSpec: 'C:\\Windows\\System32\\cmd.exe' } } }
-  const invoke = vm.runInNewContext(source.slice(start, end) + '; spawnPortable', context)
-  invoke('C:\\Program Files\\pnpm\\pnpm.cmd', ['plugin', '--package', 'D:\\Fixture With Spaces\\candidate.tgz'], { windowsHide: true })
-  assert.equal(captured[0], 'C:\\Windows\\System32\\cmd.exe')
-  assert.deepEqual(Array.from(captured[1]).slice(0, 3), ['/d', '/s', '/c'])
-  assert.equal(captured[1][3], '""C:\\Program Files\\pnpm\\pnpm.cmd" plugin --package "D:\\Fixture With Spaces\\candidate.tgz""')
-  assert.equal(captured[2].shell, false); assert.equal(captured[2].windowsVerbatimArguments, true); assert.equal(captured[2].windowsHide, true)
-  assert.throws(() => invoke('pnpm.cmd', ['bad&argument'], {}), /unsafe Windows command argument/)
+test('acceptance selects pinned JS entries as separate Node arguments and refuses other package identities', async t => {
+  const base = await mkdtemp(join(tmpdir(), 'chat-v2-command-'))
+  t.after(() => rm(base, { recursive: true, force: true }))
+  const pnpmRoot = join(base, 'pnpm with spaces & punctuation'), runtimeRoot = join(base, 'official runtime with spaces')
+  const pnpmManifest = { name: 'pnpm', version: '11.19.0', bin: { pnpm: 'bin/pnpm.mjs' } }
+  const runtimeManifest = { name: '@deepseek-ai/dsh', version: '0.2.2-alpha.2', bin: { dsh: 'lib/bin.js' } }
+  for (const [directory, manifest, subdirectory, filename] of [[pnpmRoot, pnpmManifest, 'bin', 'pnpm.mjs'], [runtimeRoot, runtimeManifest, 'lib', 'bin.js']]) {
+    await mkdir(join(directory, subdirectory), { recursive: true })
+    await writeFile(join(directory, 'package.json'), JSON.stringify(manifest))
+    await writeFile(join(directory, subdirectory, filename), '// Synthetic resolver fixture; never executed.\n')
+  }
+  assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot: null, pnpmRoot }), [await realpath(join(pnpmRoot, 'bin', 'pnpm.mjs')), 'dlx', '--allow-build=fs-ext', '@deepseek-ai/dsh@0.2.2-alpha.2'])
+  assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot }), [await realpath(join(runtimeRoot, 'lib', 'bin.js'))])
+  await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: '--eval', pnpmRoot }), /absolute/)
+  for (const change of [{ name: '@other/package' }, { version: '11.20.0' }, { bin: { pnpm: 'other.js' } }]) {
+    await writeFile(join(pnpmRoot, 'package.json'), JSON.stringify({ ...pnpmManifest, ...change }))
+    await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: null, pnpmRoot }), /fixed 11.19.0 JS entry/)
+  }
+  const linkedRoot = join(base, 'linked package'), outsideBin = join(base, 'outside-bin')
+  await mkdir(linkedRoot); await mkdir(outsideBin)
+  await writeFile(join(linkedRoot, 'package.json'), JSON.stringify(pnpmManifest))
+  await writeFile(join(outsideBin, 'pnpm.mjs'), '// Outside the package; never executed.\n')
+  await symlink(outsideBin, join(linkedRoot, 'bin'), process.platform === 'win32' ? 'junction' : 'dir')
+  await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: null, pnpmRoot: linkedRoot }), /inside its package directory/)
+  for (const change of [{ name: '@other/runtime' }, { version: '0.2.1-rc.3' }, { bin: { dsh: 'other.js' } }]) {
+    await writeFile(join(runtimeRoot, 'package.json'), JSON.stringify({ ...runtimeManifest, ...change }))
+    await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot }), /fixed official Alpha2/)
+  }
 })

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -27,8 +27,22 @@ export function parseOfficialAcceptanceArgs(argv) {
   return { dshVersion: FIXED_DSH_VERSION, packagePath: values['--package'], port }
 }
 
-function pnpmCommand() {
-  return process.env.PNPM_EXECUTABLE || (process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
+// These are operator-selected package roots, not executable names or CLI fragments.
+// Metadata/path checks constrain the fixture tool; they are not package signature verification.
+export async function resolveOfficialAcceptanceCommand({ runtimeRoot = process.env.DSH_TEST_RUNTIME, pnpmRoot = process.env.DSH_TEST_PNPM_ROOT } = {}) {
+  const official = Boolean(runtimeRoot)
+  const selected = official ? runtimeRoot : pnpmRoot
+  if (typeof selected !== 'string' || !isAbsolute(selected)) throw Error('provide an absolute DSH_TEST_RUNTIME or DSH_TEST_PNPM_ROOT package directory')
+  const directory = await realpath(selected)
+  const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'))
+  const entryPath = official ? join('lib', 'bin.js') : join('bin', 'pnpm.mjs')
+  if (official ? manifest.name !== '@deepseek-ai/dsh' || manifest.version !== FIXED_DSH_VERSION || manifest.bin?.dsh !== 'lib/bin.js'
+    : manifest.name !== 'pnpm' || manifest.version !== '11.19.0' || manifest.bin?.pnpm !== 'bin/pnpm.mjs') {
+    throw Error(official ? 'runtime does not match fixed official Alpha2' : 'pnpm does not match fixed 11.19.0 JS entry')
+  }
+  const entry = await realpath(join(directory, entryPath))
+  if (relative(directory, entry) !== entryPath || !(await stat(entry)).isFile()) throw Error('CLI entry must be the expected regular file inside its package directory')
+  return official ? [entry] : [entry, 'dlx', '--allow-build=fs-ext', '@deepseek-ai/dsh@' + FIXED_DSH_VERSION]
 }
 
 export function sanitizeAcceptanceDiagnostic(value, secrets = []) {
@@ -74,26 +88,15 @@ export async function waitForAcceptanceFixture(config, { child, timeoutMs = 6000
   throw Error('timed out waiting for generated fixture readiness; phase=' + phase)
 }
 
-function spawnPortable(command, args, options) {
-  if (process.platform === 'win32' && command.toLowerCase().endsWith('.cmd')) {
-    const values = [command, ...args]
-    for (const value of values) {
-      if (/[&|<>^%!\"]/.test(value)) throw new Error(`unsafe Windows command argument: ${value}`)
-    }
-    const commandLine = values.map(value => /\s/.test(value) ? `"${value}"` : value).join(' ')
-    return spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `"${commandLine}"`], { ...options, shell: false, windowsVerbatimArguments: true })
-  }
-  return spawn(command, args, { ...options, shell: false })
-}
-
 function run(command, args, options = {}) {
   return new Promise((resolvePromise, reject) => {
-    const child = spawnPortable(command, args, {
+    const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env,
       stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
       detached: options.detached ?? false,
       windowsHide: true,
+      shell: false,
     })
     let stdout = ''
     let stderr = ''
@@ -252,6 +255,7 @@ export async function runOfficialAcceptance(options) {
   if (options.dshVersion !== FIXED_DSH_VERSION) throw Error('only fixed Alpha2 is admitted by this candidate runner')
   const packagePath = resolve(options.packagePath)
   await access(packagePath)
+  const dshCommand = await resolveOfficialAcceptanceCommand()
   const evidenceRoot = process.env.DSH_ACCEPTANCE_EVIDENCE_ROOT
   if (evidenceRoot) await mkdir(evidenceRoot, { recursive: true })
   const base = await mkdtemp(join(evidenceRoot || tmpdir(), 'dsh-session-delete-official-'))
@@ -261,13 +265,6 @@ export async function runOfficialAcceptance(options) {
   for (const key of ['cold', 'neighbor', 'idle', 'running']) config.sessions[key] = {
     id: 'chat-v2-' + key + '-' + randomUUID(), title: 'Chat v2 ' + key + ' ' + randomUUID(), prompt: 'Archived content probe ' + key + ' ' + randomUUID(),
   }
-  let dshExecutable = pnpmCommand(), dshCommand = ['dlx', '--allow-build=fs-ext', '@deepseek-ai/dsh@' + FIXED_DSH_VERSION]
-  const runtimeRoot = process.env.DSH_TEST_RUNTIME
-  if (runtimeRoot) {
-    const manifest = JSON.parse(await readFile(join(runtimeRoot, 'package.json'), 'utf8'))
-    if (manifest.name !== '@deepseek-ai/dsh' || manifest.version !== FIXED_DSH_VERSION || manifest.bin?.dsh !== 'lib/bin.js') throw Error('runtime does not match fixed official Alpha2')
-    dshExecutable = process.execPath; dshCommand = [join(runtimeRoot, 'lib/bin.js')]
-  }
   let server, stdout = '', stderr = '', installOutput = '', passed = false
   try {
     await mkdir(workspace, { recursive: true }); await mkdir(fixtureRoot)
@@ -276,12 +273,12 @@ export async function runOfficialAcceptance(options) {
     await writeFile(join(fixtureRoot, 'index.mjs'), buildAcceptanceFixtureSource(config))
     for (const [index, selected] of [packagePath, fixtureRoot].entries()) {
       try {
-        const installed = await run(dshExecutable, [...dshCommand, 'plugin', '--profile', 'web', 'add', selected], { cwd: workspace, env, capture: true, secrets: [config.nonce] })
+        const installed = await run(process.execPath, ['--', ...dshCommand, 'plugin', '--profile', 'web', 'add', selected], { cwd: workspace, env, capture: true, secrets: [config.nonce] })
         installOutput += '[install ' + index + ']\n' + installed.stdout + '\n' + installed.stderr + '\n'
         if (/installed as a plain dependency, not a profile layer/.test(installed.stdout + installed.stderr)) throw Error('acceptance package was not enabled as a profile bundle')
       } catch (error) { installOutput += String(error.stack || error) + '\n'; throw error }
     }
-    server = spawnPortable(dshExecutable, [...dshCommand, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', String(options.port)], { cwd: workspace, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true })
+    server = spawn(process.execPath, ['--', ...dshCommand, '--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', String(options.port)], { cwd: workspace, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32', windowsHide: true, shell: false })
     server.stdout?.on('data', chunk => { stdout += chunk }); server.stderr?.on('data', chunk => { stderr += chunk })
     const url = await waitForServer(() => {
       const match = /dsh web:\s+(https?:\/\/[^\s]+)/u.exec(stdout)
