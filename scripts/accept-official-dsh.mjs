@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { access, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import { access, lstat, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -55,6 +55,30 @@ export async function resolveOfficialAcceptanceCommand({ runtimeRoot = process.e
   const entry = await realpath(join(directory, entryPath))
   if (relative(directory, entry) !== entryPath || !(await stat(entry)).isFile()) throw Error('CLI entry must be the expected regular file inside its package directory')
   return official ? [entry] : [entry, 'dlx', '--allow-build=fs-ext', '@deepseek-ai/dsh@' + FIXED_DSH_VERSION]
+}
+
+// Evidence is generated test output: admit only OS-temp descendants and inspect all existing parents before writing.
+export async function resolveAcceptanceEvidenceRoot(value) {
+  if (typeof value !== 'string' || !isAbsolute(value)) throw Error('evidence root must be an absolute OS-temp subdirectory')
+  const temporaryRoot = resolve(tmpdir()), canonicalRoot = await realpath(temporaryRoot)
+  const requested = resolve(value)
+  const logical = requested.startsWith(temporaryRoot + sep)
+  if (requested === temporaryRoot || requested === canonicalRoot || !logical && !requested.startsWith(canonicalRoot + sep)) throw Error('evidence root must be a strict OS-temp subdirectory')
+  const parts = relative(logical ? temporaryRoot : canonicalRoot, requested).split(sep)
+  let current = canonicalRoot, missing = false
+  for (const part of parts) {
+    current = resolve(current, part)
+    if (!current.startsWith(canonicalRoot + sep)) throw Error('evidence path leaves OS temp')
+    if (missing) continue
+    let info
+    try { info = await lstat(current) }
+    catch (error) { if (error.code !== 'ENOENT') throw error; missing = true; continue }
+    if (info.isSymbolicLink() || !info.isDirectory()) throw Error('evidence path requires directories without links')
+    current = await realpath(current)
+    if (!current.startsWith(canonicalRoot + sep)) throw Error('evidence path leaves OS temp after resolving parents')
+  }
+  if (!current.startsWith(canonicalRoot + sep)) throw Error('evidence root must remain inside OS temp')
+  return current
 }
 
 export function sanitizeAcceptanceDiagnostic(value, secrets = []) {
@@ -268,7 +292,7 @@ export async function runOfficialAcceptance(options) {
   const packagePath = resolve(options.packagePath)
   await access(packagePath)
   const dshCommand = await resolveOfficialAcceptanceCommand()
-  const evidenceRoot = process.env.DSH_ACCEPTANCE_EVIDENCE_ROOT
+  const evidenceRoot = process.env.DSH_ACCEPTANCE_EVIDENCE_ROOT ? await resolveAcceptanceEvidenceRoot(process.env.DSH_ACCEPTANCE_EVIDENCE_ROOT) : undefined
   if (evidenceRoot) await mkdir(evidenceRoot, { recursive: true })
   const base = await mkdtemp(join(evidenceRoot || tmpdir(), 'dsh-session-delete-official-'))
   const dshHome = join(base, 'home'), workspace = join(base, 'workspace'), fixtureRoot = join(base, 'fixture-plugin')
