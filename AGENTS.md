@@ -1,133 +1,67 @@
-> Current release: dsh-chat-manager@1.5.19, qualified targets DSH 0.2.2-alpha.2, 0.2.1-rc.4, 0.2.1-rc.3, 0.2.1-rc.2, 0.2.1-rc.1. Use the same package for all of them; no other cores are claimed.
+> Unpublished candidate: dsh-chat-manager@2.0.0-alpha.1. Source-contract target only: DSH 0.2.2-alpha.2 at f3803c96974ad4a94195fb97e5c637e9c2a3afe3, Cordis 4.0.6-alpha.1. Runtime qualification is pending; no other cores are claimed.
 
-# Agent installation guide
+# Agent maintenance and installation boundary
 
-Use this guide when a user explicitly asks an Agent to install, update, verify,
-or remove `dsh-chat-manager` in a selected DeepSeek Harness profile.
+This working tree prepares an independent v2 plugin. It is not the published
+1.5.19 package and must not inherit that release's RC or old Portable compatibility
+claims. This work does not preinstall a plugin into official Desktop 1.x or modify
+an official ASAR. Read [docs/UNRELEASED-v2.md](docs/UNRELEASED-v2.md) before maintenance.
 
-## Safety and responsibility boundary
+## Installation protection
 
-- Confirm the target DSH installation and profile. Use `web` only when it is the user's target.
-- Use the fixed v1.5.19 package below for its qualified DSH targets; never substitute a moving branch or an unreviewed source.
-- Do not print session contents, full profile files, transcript paths, credentials, or other private data.
-- Do not start, stop, or restart DSH without explicit permission.
-- Preserve all sessions, unrelated plugins, and user-owned profile changes.
-- Never delete a session as an installation test unless the user explicitly selects a disposable session
-  and confirms the destructive test.
-- Prefer one durable user installation over disposable copies under `LocalAppData\Temp`. If more than one
-  durable DSH installation remains, ask which installation is the target before changing it.
+- Respect the current user's action limits. Source review or edits do not authorize
+  installing, restarting, deleting sessions or publishing.
+- Confirm the exact DSH installation and profile before any authorized plugin operation.
+  Do not default to web when the user's target is desktop or unclear.
+- Do not install this unpublished candidate into a daily profile. For an explicitly
+  requested existing release, use the fixed published dsh-chat-manager@1.5.19 guide:
+  https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.19/AGENTS.md
+  Verify registry publication and that release's host requirements first.
+- Use the official plugin page or standard dsh.bundle lifecycle. Never replace the
+  official workspace module or patch an official ASAR to install this plugin.
+- Preserve all sessions, unrelated plugins, pairing and user-owned profile changes.
+- Do not print session contents, full profile files, transcript paths, credentials,
+  tokens or private account data.
+- Do not start, stop or restart DSH without explicit permission. A CLI success or
+  package/peer match alone is not product acceptance.
+- A dsh plugin list operation can initialize or migrate profile metadata; do not
+  describe it as a filesystem-only read.
 
-Permanent deletion is irreversible. The Agent must not claim that this plugin provides secure erasure:
-external attachments, caches, logs, backups, cloud copies, and non-JSONL stores are outside its scope.
-The user is responsible for authority to delete the selected data and for applicable retention or privacy
-requirements. A cancelled confirmation is the safe default and must not send a delete request.
+## v2 deletion contract
 
-This release targets DSH 0.2.2-alpha.2, 0.2.1-rc.4, 0.2.1-rc.3, 0.2.1-rc.2, and 0.2.1-rc.1. Check the target core before installation.
+Official DSH owns normal archive, stop-and-archive, unarchive and navigation.
+The plugin contributes archive-only content search and confirmed permanent cleanup
+through public slots. It must not capture foreign AgentHandle capabilities, patch
+shared lifecycle methods, read private navigation state or write private registry state.
 
+Permanent deletion is irreversible. The confirmation must name the exact target;
+cancelling is the safe default and must not send a delete request. A target must be
+archived, unloaded, local and current-format JSONL, with an exclusive official
+persistence write handle held through the operation. Refuse loaded idle/running
+sessions, another writer, historical/unknown formats, unsafe paths or changed identity.
+Stopping or archiving does not promise that an Agent has been unloaded. Do not
+stop/dispose another owner or migrate sessions merely to delete them.
 
-Verify registry publication before running the installation command.
+Never delete a session as an installation test unless the user explicitly selects a
+disposable session and confirms the destructive test. Use generated fixture data in
+an isolated disposable profile; do not use an existing user profile or Portable
+package for acceptance. Pending work, Windows writer locks, reopen races and HMR
+require real isolated acceptance before compatibility can be claimed.
 
-## Fixed package and standard bundle
+The plugin is not secure erasure. External attachments, caches, logs, backups,
+cloud copies, other sessions and non-JSONL stores are outside its scope. Keep the
+quarantine when cleanup is incomplete and report partial state truthfully. Do not
+hide an archive-marker reconciliation failure or claim success from missing UI rows.
 
-The v1.5.19 package is a standard DSH bundle with a `dsh.bundle` profile patch. Its exact package spec is:
+## Update, removal and failure handling
 
-```text
-dsh-chat-manager@1.5.19
-```
+Update or remove only the explicitly selected plugin layer. Removal does not delete
+sessions. Verify the affected layer and preserve unrelated configuration; do not
+restart DSH without permission. On failure, report sanitized evidence, target host,
+requested version, changes, rollback state and what remains unverified. Never disable
+TLS validation, delete a profile, replace unrelated packages or attempt a destructive
+session test as recovery.
 
-Version 1.5.19 groups archived sessions in cards with a short introduction. Action buttons wrap in narrow windows to leave room for session titles.
-
-The package preserves the official workspace service and adds view-slot extensions.
-Disabling it removes those extensions without releasing the official active session. The published
-Version 1.5 uses official extension slots and never replaces the workspace. Do not install the tarball under `@deepseek-ai/dsh-client-ui-workspace`; that old aliasing
-approach is not the v1.5.19 contract. The product is shown to users as **DSH Chat Manager**.
-
-## Detect the target DSH
-
-Use read-only filesystem checks to locate the requested target. On Windows:
-
-```powershell
-Get-Command dsh -ErrorAction SilentlyContinue
-Get-Command npx -ErrorAction SilentlyContinue
-```
-
-DSH-Portable exposes the same standard `dsh plugin` contract. Missing system pnpm is normal; do not
-install it globally just for this plugin.
-
-`dsh plugin ... list` is not strictly read-only. Its first invocation may initialize or migrate a Portable
-profile, rebuild dependency links, or update profile package-manager metadata. It is non-destructive to
-session contents, but an Agent must not describe it as a filesystem read-only check. If attribution matters,
-record the selected profile's relevant metadata before invoking it, without printing secrets.
-
-## Install or update
-
-With an existing `dsh` command, run exactly:
-
-```sh
-dsh plugin --profile web add dsh-chat-manager@1.5.19
-```
-
-Use the same `add` command to update or repair. The DSH CLI owns target selection, dependency resolution,
-profile locking, and bundle composition; this plugin does not ship a second Windows installer.
-
-After a successful configuration change, ask for permission before restarting DSH. A successful CLI exit
-alone is not runtime acceptance.
-
-## Acceptance
-
-First verify the selected profile without exposing its contents:
-
-```sh
-dsh plugin --profile web list dsh-chat-manager --depth 0
-```
-
-1. The `dsh-chat-manager` bundle appears exactly once in the requested profile.
-2. Its direct package spec is the fixed `dsh-chat-manager@1.5.19` npm version above.
-3. The profile contains the bundle patch and no duplicate official workspace row from this plugin.
-4. No unrelated dependency, profile patch, or session data was changed by the operation.
-
-With permission to restart DSH, verify the live UI in dark mode:
-
-1. The sidebar header contains an archive action that opens **Archived sessions**.
-2. The archive manager lists archived sessions, filters by name or workspace, and can search archived
-   user/assistant conversation content without exposing another session.
-3. Restoring a disposable archived session returns it to its original workspace position without reloading the page.
-4. The selected session's native actions menu contains **Archive session** and the red **Delete permanently** action.
-5. Opening Delete shows the target session name and a second confirmation.
-6. Selecting **Cancel** closes the dialog, sends no delete request, and leaves the session visible.
-7. A destructive check is allowed only with a disposable test session explicitly selected by the user.
-8. After confirming that disposable session, verify it disappears in place without reloading the whole DSH page.
-
-For source-checkout UI acceptance, the non-destructive smoke test is:
-
-```sh
-pnpm smoke:ui -- --url http://127.0.0.1:14171 --session "Exact session title"
-```
-
-The title must identify the intended session. The runner must only open the dialog and cancel it; it must
-not send a deletion request or manage the DSH process.
-
-## Uninstall
-
-For a standard profile:
-
-```sh
-dsh plugin --profile web remove dsh-chat-manager
-```
-
-Uninstall removes only this plugin's bundle layer. It must not delete sessions and must not restart DSH
-without permission. After the command, verify that `dsh-chat-manager` is absent and that the
-official workspace row is available again after the next permitted DSH restart.
-
-## Failure handling
-
-Distinguish command discovery, network, HTTP/TLS, package-manager, profile-conflict, version, and
-peer-dependency failures. Do not disable TLS validation, delete a profile, replace unrelated packages,
-or claim success from an exit code alone.
-
-On failure, report the sanitized command error, DSH version, selected profile, requested plugin version,
-what changed, rollback state, and what remains unverified. Do not attempt an irreversible session deletion
-as a recovery step. If the bundle was added but verification failed, stop and obtain permission before any
-further profile change.
-
-On stock DSH 0.1.7-rc.2, keep the official archive page. Enhanced archive search and permanent deletion in Settings require Portable settings integration; native session-menu deletion works without that integration.
+The old compatibility autopilot is not the v2 admission policy. It assumes five
+cores and older release conventions; do not run it to widen this fixed candidate.
+Publication and lock refresh remain separate maintainer actions.

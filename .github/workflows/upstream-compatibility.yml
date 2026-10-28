@@ -42,6 +42,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          automatic_publish="$(node -p 'require("./package.json").publishConfig?.tag !== "next"')"
+          if [ "$automatic_publish" != true ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "publish_needed=false" >> "$GITHUB_OUTPUT"
+            echo "Development next candidate: automatic compatibility publication is held." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           node --input-type=module <<'NODE'
           import { createHash } from 'node:crypto';
           import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';

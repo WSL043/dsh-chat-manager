@@ -8,9 +8,14 @@ import {
   restoreArchivedSession,
   searchArchivedSessions,
 } from '../src/host/archive-manager.mjs'
+import { hostRequestFence, sameOriginRequest } from '../src/host/delete-session.mjs'
+import { currentConnection } from '../src/index.js'
 
 const A = 'session-archive-a'
 const B = 'session-archive-b'
+const fixtureConnection = { requestRejection: req => !sameOriginRequest(req) ? 403
+  : req.headers.cookie === 'fixture-auth' ? undefined : 401 }
+const fixtureFence = hostRequestFence(fixtureConnection)
 
 test('verified absent transcript clears only its stale archive marker', async () => {
   const workspaceRegistry = registry()
@@ -59,11 +64,7 @@ function registry(ids = [A, B]) {
     get archivedSessionIds() {
       return state.archivedSessionIds
     },
-    enqueueOperation: operation => operation(),
-    requireState: () => state,
-    setState: async next => {
-      state = next
-    },
+    unarchiveSession: async id => { state = { ...state, archivedSessionIds: state.archivedSessionIds.filter(value => value !== id) } },
     snapshot: () => state,
   }
 }
@@ -93,7 +94,7 @@ test('restoring an active session is an idempotent no-op', async () => {
 test('restore fails closed when the tested workspace registry seam drifts', async () => {
   await assert.rejects(
     restoreArchivedSession({ archivedSessionIds: [A] }, A),
-    /unsupported workspace registry restore seam/,
+    /public workspace unarchive API is unavailable/,
   )
 })
 
@@ -203,6 +204,7 @@ test('archive HTTP search does not reply after a provider ignores request cancel
   let observedSignal
   let completeSearch
   const handlers = createArchiveRequestHandlers({
+    isTrustedRequest: fixtureFence,
     restore: async () => {},
     search: async (_query, signal) => {
       observedSignal = signal
@@ -278,6 +280,7 @@ function request(body, headers = {}) {
   stream.headers = {
     host: '127.0.0.1:14171',
     origin: 'http://127.0.0.1:14171',
+    cookie: 'fixture-auth',
     'content-type': 'application/json',
     ...headers,
   }
@@ -299,69 +302,60 @@ function response() {
   }
 }
 
-test('archive HTTP routes accept only same-origin JSON and require an explicit restore action', async () => {
+test('archive HTTP search accepts only same-origin JSON and exposes no duplicate restore route', async () => {
   const calls = []
-  const handlers = createArchiveRequestHandlers({
-    restore: async sessionId => {
-      calls.push(['restore', sessionId])
-      return { restored: true, archivedSessionIds: [B] }
-    },
-    search: async query => {
-      calls.push(['search', query])
-      return { items: [{ sessionId: A, snippet: 'match' }], hasMore: false }
-    },
-  })
-
-  const restored = response()
-  await handlers.restore(request(JSON.stringify({ sessionId: A }), {
-    'x-dsh-session-manager-action': 'restore-session',
-  }), restored)
-  assert.equal(restored.status, 200)
-
+  const handlers = createArchiveRequestHandlers({ isTrustedRequest: fixtureFence, search: async query => { calls.push(query); return { items: [], hasMore: false } } })
+  assert.equal(handlers.restore, undefined)
   const searched = response()
   await handlers.search(request(JSON.stringify({ query: 'needle' })), searched)
   assert.equal(searched.status, 200)
-  assert.deepEqual(JSON.parse(searched.body).value.items, [{ sessionId: A, snippet: 'match' }])
-  assert.deepEqual(calls, [['restore', A], ['search', 'needle']])
-
-  const missingAction = response()
-  await handlers.restore(request(JSON.stringify({ sessionId: A })), missingAction)
-  assert.equal(missingAction.status, 403)
-
+  assert.deepEqual(calls, ['needle'])
   const crossOrigin = response()
-  await handlers.search(request(JSON.stringify({ query: 'needle' }), {
-    origin: 'https://attacker.example',
-  }), crossOrigin)
+  await handlers.search(request(JSON.stringify({ query: 'needle' }), { origin: 'https://attacker.example' }), crossOrigin)
   assert.equal(crossOrigin.status, 403)
-  assert.equal(calls.length, 2)
+  assert.equal(calls.length, 1)
 })
 
-test('archive HTTP routes reject malformed inputs without invoking storage or search', async () => {
-  let calls = 0
-  const handlers = createArchiveRequestHandlers({
-    restore: async () => { calls += 1 },
-    search: async () => { calls += 1 },
+test('archive search refuses absent Host admission and preserves late-ready authentication rejections', async () => {
+  let calls = 0, connection
+  const search = async () => { calls++; return { items: [], hasMore: false } }
+  for (const isTrustedRequest of [undefined, hostRequestFence(undefined), hostRequestFence({})]) {
+    const handlers = createArchiveRequestHandlers({ search, isTrustedRequest })
+    const res = response()
+    await handlers.search(request(JSON.stringify({ query: 'needle' })), res)
+    assert.equal(res.status, 403)
+    assert.equal(calls, 0)
+  }
+  const ctx = { get: () => connection }
+  const handlers = createArchiveRequestHandlers({ search,
+    isTrustedRequest: req => hostRequestFence(currentConnection(ctx))(req),
   })
+  const beforeReady = response()
+  await handlers.search(request(JSON.stringify({ query: 'needle' })), beforeReady)
+  assert.equal(beforeReady.status, 403)
+  connection = fixtureConnection
+  for (const [headers, status] of [[{ cookie: undefined }, 401], [{ origin: 'https://attacker.example' }, 403], [{}, 200]]) {
+    const res = response()
+    await handlers.search(request(JSON.stringify({ query: 'needle' }), headers), res)
+    assert.equal(res.status, status)
+  }
+  assert.equal(calls, 1)
+})
 
-  const invalidSession = response()
-  await handlers.restore(request(JSON.stringify({ sessionId: '' }), {
-    'x-dsh-session-manager-action': 'restore-session',
-  }), invalidSession)
-  assert.equal(invalidSession.status, 400)
-
-  const invalidQuery = response()
-  await handlers.search(request(JSON.stringify({ query: '   ' })), invalidQuery)
-  assert.equal(invalidQuery.status, 400)
-
-  const malformed = response()
-  await handlers.search(request('{'), malformed)
-  assert.equal(malformed.status, 400)
+test('archive HTTP search rejects malformed queries without calling the provider', async () => {
+  let calls = 0
+  const handlers = createArchiveRequestHandlers({ isTrustedRequest: fixtureFence, search: async () => { calls++ } })
+  for (const body of ['{', JSON.stringify({ query: '   ' })]) {
+    const res = response(); await handlers.search(request(body), res)
+    assert.equal(res.status, 400)
+  }
   assert.equal(calls, 0)
 })
 
 test('archive search cancels bounded fallback work when the browser abandons the request', async () => {
   let observedSignal
   const handlers = createArchiveRequestHandlers({
+    isTrustedRequest: fixtureFence,
     restore: async () => {},
     search: async (_query, signal) => {
       observedSignal = signal
@@ -380,4 +374,27 @@ test('archive search cancels bounded fallback work when the browser abandons the
 
   assert.equal(observedSignal.aborted, true)
   assert.equal(res.status, undefined)
+})
+
+test('archive ID pushdown finds archives beyond a full page of active matches', async () => {
+  const corpus = [...Array.from({ length: 25 }, (_, index) => 'active-' + index), A]
+  const result = await searchArchivedSessions({ workspaceRegistry: registry([A]), sessionQuery: {
+    searchSessions: async request => {
+      const allowed = request.sessionFilters?.find(filter => filter.kind === 'id')?.values
+      const visible = corpus.filter(id => !allowed || allowed.includes(id))
+      return { items: visible.slice(0, request.limit).map(id => ({ header: { id }, bestMatch: { sessionId: id, type: 'assistant/message', surface: 'current', snippet: 'needle' } })) }
+    },
+  } }, 'needle')
+  assert.deepEqual(result.items, [{ sessionId: A, snippet: 'needle' }])
+})
+
+test('index-disabled fallback uses at most four concurrent scans and bounds results', async () => {
+  let concurrent = 0, maximum = 0, calls = 0
+  const result = await searchArchivedSessions({ workspaceRegistry: registry(Array.from({ length: 40 }, (_, i) => 'archive-' + i)), sessionQuery: {
+    searchSessions: async () => { throw Object.assign(Error('disabled'), { code: 'SESSION_QUERY_SEARCH_DISABLED' }) },
+    filterEvents: async id => { calls++; concurrent++; maximum = Math.max(maximum, concurrent); await Promise.resolve(); concurrent--
+      return [{ sessionId: id, type: 'user/message', surface: 'current', text: 'needle' }] },
+  } }, 'needle')
+  assert.equal(maximum, 4); assert.equal(calls, 24)
+  assert.equal(result.items.length, 20); assert.equal(result.hasMore, true)
 })

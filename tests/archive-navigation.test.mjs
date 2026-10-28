@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { unarchiveSession } from '../scripts/build-client.mjs'
+import { restoreArchivedSession } from '../src/host/archive-manager.mjs'
 
-test('official settings restoration delegates to the public workspace API and propagates errors', async () => {
-  const ids = []
-  await unarchiveSession.call({ workspaces: { async unarchiveSession(id) { ids.push(id) } } }, 'archived-test')
-  assert.deepEqual(ids, ['archived-test'])
-  await assert.rejects(unarchiveSession.call({ workspaces: { async unarchiveSession() { throw new Error('offline') } } }, 'archived-test'), /offline/)
+test('archive reconciliation requires the official public unarchive operation', async () => {
+  let called = false
+  const registry = { archivedSessionIds: ['fixture'], unarchiveSession: async id => { assert.equal(id, 'fixture'); called = true; registry.archivedSessionIds = [] } }
+  assert.deepEqual(await restoreArchivedSession(registry, 'fixture'), { restored: true, archivedSessionIds: [] })
+  assert.equal(called, true)
+  await assert.rejects(restoreArchivedSession({ archivedSessionIds: ['fixture'] }, 'fixture'), /public workspace unarchive API/)
 })
-

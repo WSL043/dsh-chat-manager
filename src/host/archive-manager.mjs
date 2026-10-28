@@ -55,35 +55,16 @@ const scanArchivedEvents = async (sessionQuery, archivedSessionIds, query, signa
 /**
  * Remove one id from DSH's registry-global archive set without touching the
  * session log or its workspace accounting position. Prefer the public DSH
- * unarchive operation; older cores retain the validated registry fallback.
+ * unarchive operation; no registry implementation state is written.
  */
 export async function restoreArchivedSession(workspaceRegistry, sessionId) {
   const id = assertSessionId(sessionId)
-  if (typeof workspaceRegistry?.unarchiveSession === 'function') {
-    const wasArchived = archiveIds(workspaceRegistry).includes(id)
-    await workspaceRegistry.unarchiveSession(id)
-    return { restored: wasArchived, archivedSessionIds: [...archiveIds(workspaceRegistry)] }
+  if (typeof workspaceRegistry?.unarchiveSession !== 'function') {
+    throw new Error('public workspace unarchive API is unavailable')
   }
-  if (
-    typeof workspaceRegistry?.enqueueOperation !== 'function'
-    || typeof workspaceRegistry?.requireState !== 'function'
-    || typeof workspaceRegistry?.setState !== 'function'
-  ) {
-    throw new Error('unsupported workspace registry restore seam')
-  }
-
-  return workspaceRegistry.enqueueOperation(async () => {
-    const state = workspaceRegistry.requireState()
-    if (!Array.isArray(state?.archivedSessionIds)) {
-      throw new Error('unsupported workspace registry restore state')
-    }
-    if (!state.archivedSessionIds.includes(id)) {
-      return { restored: false, archivedSessionIds: [...state.archivedSessionIds] }
-    }
-    const archivedSessionIds = state.archivedSessionIds.filter(candidate => candidate !== id)
-    await workspaceRegistry.setState({ ...state, archivedSessionIds })
-    return { restored: true, archivedSessionIds }
-  })
+  const wasArchived = archiveIds(workspaceRegistry).includes(id)
+  await workspaceRegistry.unarchiveSession(id)
+  return { restored: wasArchived, archivedSessionIds: archiveIds(workspaceRegistry) }
 }
 
 /** Keep DSH's archive registry free of ids whose storage was permanently removed. */
@@ -150,7 +131,7 @@ export async function searchArchivedSessions({ workspaceRegistry, sessionQuery }
       || typeof match?.snippet !== 'string'
     ) continue
     included.add(sessionId)
-    items.push({ sessionId, snippet: match.snippet })
+    items.push({ sessionId, snippet: plainSnippet(match.snippet, normalized) })
     if (items.length >= SEARCH_LIMIT) break
   }
 
@@ -180,15 +161,14 @@ const readJsonBody = async req => {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'))
 }
 
-const sameOriginRequest = req => typeof req.headers.host === 'string' && req.headers.origin === `http://${req.headers.host}`
-
 const acceptJsonPost = (req, res, isTrustedRequest) => {
   if (req.method !== 'POST') {
     sendJson(res, 405, failure('method-not-allowed', '只允许使用 POST 管理归档会话。'))
     return false
   }
-  if (!isTrustedRequest(req)) {
-    sendJson(res, 403, failure('forbidden', '归档管理请求未通过同源校验。'))
+  const admission = isTrustedRequest(req)
+  if (admission !== true) {
+    sendJson(res, admission === 401 ? 401 : 403, failure('forbidden', '归档管理请求未通过宿主认证。'))
     return false
   }
   const contentType = req.headers['content-type']
@@ -214,27 +194,8 @@ const parseBody = async (req, res) => {
 }
 
 /** Same-origin HTTP boundary consumed by the native archive manager UI. */
-export function createArchiveRequestHandlers({ restore, search, warn = console.warn, isTrustedRequest = sameOriginRequest }) {
+export function createArchiveRequestHandlers({ search, warn = console.warn, isTrustedRequest = () => false }) {
   return {
-    restore: async (req, res) => {
-      if (!acceptJsonPost(req, res, isTrustedRequest)) return
-      if (req.headers['x-dsh-session-manager-action'] !== 'restore-session') {
-        sendJson(res, 403, failure('forbidden', '恢复请求缺少明确的操作标记。'))
-        return
-      }
-      const body = await parseBody(req, res)
-      if (body === undefined) return
-      try {
-        const sessionId = assertSessionId(body?.sessionId)
-        sendJson(res, 200, { ok: true, value: await restore(sessionId) })
-      } catch (error) {
-        if (error instanceof TypeError) {
-          sendJson(res, 400, failure('invalid-session-id', '会话 ID 无效。'))
-        } else {
-          sendJson(res, 500, failure('restore-failed', '取消归档失败，归档状态未确认改变。'))
-        }
-      }
-    },
     search: async (req, res) => {
       if (!acceptJsonPost(req, res, isTrustedRequest)) return
       const body = await parseBody(req, res)

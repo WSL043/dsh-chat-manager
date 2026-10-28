@@ -1,6 +1,6 @@
 import { registerArchiveSettings } from './archive-settings.mjs'
 
-// Candidate for the official session-menu slots introduced in DSH 0.1.7.
+// Unreleased v2: additive actions on the fixed Alpha2 public slot contract.
 // Own only this menu entry and dialog; never replace the workspace or its CSS.
 export function registerOfficialSessionActions(ctx, React, ui) {
   const h = React.createElement
@@ -16,8 +16,10 @@ export function registerOfficialSessionActions(ctx, React, ui) {
   const snapshot = () => state
   const text = (zh, en) => ctx.locale.getSnapshot().active === 'zh' ? zh : en
   const danger = { color: 'var(--dsw-alias-state-error-primary)' }
-  function DeleteMenuItem({ sessionId, displayTitle, useMenuOpenState }) {
+  function DeleteMenuItem({ sessionId, displayTitle, useMenuOpenState, useWorkspaces }) {
+    const archived = useWorkspaces(s => s.archivedSessionIds.includes(sessionId))
     const [, closeMenu] = useMenuOpenState()
+    if (!archived) return null
     return h(ui.MenuItemButton, {
       danger: true,
       icon: h(ui.IconTrashOutlineRegular, {}),
@@ -40,18 +42,13 @@ export function registerOfficialSessionActions(ctx, React, ui) {
       const result = await response.json()
       if (!response.ok || result?.ok !== true) throw Error(result?.error?.message || `HTTP ${response.status}`)
       if (disposed) return
-      const sessions = ctx.get('sessions'), workspaces = ctx.get('workspaces')
-      const workspace = ctx.get('uiWorkspace')
-      // Host events may already have removed the deleted row. Read the view's
-      // selection, not row retention; never clear a different newly opened view.
-      if (workspace?.selection?.getSnapshot?.().sessionId === target.id) workspace.clearMain()
-      // Current official stores receive host events; older stores additionally
-      // expose refresh(). Absence is not a failed deletion.
-      const refreshed = await Promise.allSettled([
-        typeof sessions.refresh === 'function' ? sessions.refresh() : Promise.resolve(),
-        typeof workspaces.refresh === 'function' ? workspaces.refresh() : Promise.resolve(),
-      ])
-      publish({ target: null })
+      const sessions = ctx.get('sessions')
+      // Archive changes arrive through the official observable; only sessions expose refresh.
+      const refreshed = await Promise.allSettled([sessions.refresh()])
+      if (result.value?.archiveReconciled === false) {
+        publish({ error: text('记录已删除，但归档列表未完成更新。请刷新列表后重试清理归档标记。', 'The record was deleted, but its archive marker could not be cleared. Refresh and retry marker cleanup.') })
+      }
+      else publish({ target: null })
       for (const item of refreshed) if (item.status === 'rejected') console.warn('Session deleted; list refresh failed:', item.reason)
     } catch (error) { publish({ error: error.message || String(error) }) }
     finally { publish({ busy: false }) }
@@ -63,7 +60,7 @@ export function registerOfficialSessionActions(ctx, React, ui) {
     return h(ui.Modal, {
       open: true, onClose: close, closeLabel: text('取消', 'Cancel'),
       title: text('永久删除会话？', 'Permanently delete session?'),
-      description: text('本机会话记录将永久删除，无法恢复。运行中的任务会先停止。', 'The local session will be permanently deleted. Running work will be stopped first.'),
+      description: text('只删除已归档且未加载的本机会话记录，无法恢复。已加载或运行中的会话会被拒绝。', 'Only an unloaded, archived local session can be deleted. This cannot be undone. Loaded or running sessions are refused.'),
       footer: h('div', { style: { display: 'flex', gap: 8 } },
         h(ui.Button, { variant: 'outline', disabled: current.busy, onClick: close }, text('取消', 'Cancel')),
         h(ui.Button, { variant: 'outline', style: danger, disabled: current.busy, onClick: confirm },
@@ -81,38 +78,22 @@ export function registerOfficialSessionActions(ctx, React, ui) {
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay', id: 'dsh-chat-manager.delete-dialog',
   }, DeleteDialog))
-  function ArchiveShortcut({ className }) {
-    return h('button', {
-      type: 'button', id: 'archived-sessions', className,
-      title: text('已归档会话', 'Archived sessions'),
-      'aria-label': text('已归档会话', 'Archived sessions'),
-      onClick: () => window.__DSH_PORTABLE_SETTINGS__?.open('archived-sessions'),
-    }, h(ui.IconArchiveOutlineRegular, { size: 16 }))
-  }
-  // Portable exposes this narrow header slot. Stock DSH retains its own
-  // workspace and archive filter; there is no DOM insertion or second dialog.
-  ctx.slots.inject('sidebar.workspaces.header.action', () => ctx.slots.register({
-    name: 'sidebar.workspaces.header.action', id: 'dsh-chat-manager.archives',
-  }, ArchiveShortcut))
+  registerArchiveSettings(ctx, React, ui, { requestDelete: row => {
+    if (!disposed && !state.busy) publish({ target: { id: row.id, title: row.title }, error: '' })
+  } })
 }
 
 export function buildOfficialSlotClient() {
-  return `// DSH Chat Manager: official 0.1.7 session slots; no workspace copy.\nwindow.__ModuleLoader__.load({
+  return `// DSH Chat Manager unreleased v2: public Alpha2 slots; no workspace copy.\nwindow.__ModuleLoader__.load({
   id: "dsh-chat-manager",
   factory: require => {
     const React = require("react");
     const ui = require("@deepseek-ai/dsh-client-ui-primitives");
     const register = ${registerOfficialSessionActions.toString()};
-    const archiveSettings = ${registerArchiveSettings.toString()};
+    const registerArchiveSettings = ${registerArchiveSettings.toString()};
     return { inject: ["slots", "sessions", "workspaces", "locale"], apply(ctx) {
       register(ctx, React, ui);
-      ctx.effect(() => {
-        const style = document.createElement("style");
-        style.textContent = ".dsh-chat-manager-delete:not(:disabled){color:var(--dsw-alias-state-error-primary)}";
-        document.head.appendChild(style);
-        return () => style.remove();
-      }, "chat-manager: archive action style");
-      archiveSettings(ctx, React, ui, "dsh-chat-manager-delete", { always: true });
+
     } };
   }
 });\n`
