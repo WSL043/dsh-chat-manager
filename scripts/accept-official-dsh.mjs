@@ -36,9 +36,12 @@ export async function resolveOfficialAcceptanceCommand({ runtimeRoot = process.e
   // Only independently staged acceptance packages under the OS temporary directory are admitted.
   const temporaryRoot = resolve(tmpdir())
   const canonicalTemporaryRoot = await realpath(temporaryRoot)
-  const selectedPath = resolve(selected)
-  if (selectedPath === temporaryRoot || selectedPath === canonicalTemporaryRoot
-    || !selectedPath.startsWith(temporaryRoot + sep) && !selectedPath.startsWith(canonicalTemporaryRoot + sep)) {
+  let selectedPath = resolve(selected)
+  // Rebase the OS's logical temp alias onto its single canonical anchor.
+  if (selectedPath.startsWith(temporaryRoot + sep)) {
+    selectedPath = resolve(canonicalTemporaryRoot, relative(temporaryRoot, selectedPath))
+  }
+  if (!selectedPath.startsWith(canonicalTemporaryRoot + sep)) {
     throw Error('CLI package must be a strict subdirectory of os.tmpdir()')
   }
   const directory = await realpath(selectedPath)
