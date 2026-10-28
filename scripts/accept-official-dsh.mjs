@@ -33,7 +33,16 @@ export async function resolveOfficialAcceptanceCommand({ runtimeRoot = process.e
   const official = Boolean(runtimeRoot)
   const selected = official ? runtimeRoot : pnpmRoot
   if (typeof selected !== 'string' || !isAbsolute(selected)) throw Error('provide an absolute DSH_TEST_RUNTIME or DSH_TEST_PNPM_ROOT package directory')
-  const directory = await realpath(selected)
+  // Only independently staged acceptance packages under the OS temporary directory are admitted.
+  const temporaryRoot = resolve(tmpdir())
+  const canonicalTemporaryRoot = await realpath(temporaryRoot)
+  const selectedPath = resolve(selected)
+  if (selectedPath === temporaryRoot || selectedPath === canonicalTemporaryRoot
+    || !selectedPath.startsWith(temporaryRoot + sep) && !selectedPath.startsWith(canonicalTemporaryRoot + sep)) {
+    throw Error('CLI package must be a strict subdirectory of os.tmpdir()')
+  }
+  const directory = await realpath(selectedPath)
+  if (directory === canonicalTemporaryRoot || !directory.startsWith(canonicalTemporaryRoot + sep)) throw Error('CLI package must remain inside os.tmpdir() after resolving links')
   const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'))
   const entryPath = official ? join('lib', 'bin.js') : join('bin', 'pnpm.mjs')
   if (official ? manifest.name !== '@deepseek-ai/dsh' || manifest.version !== FIXED_DSH_VERSION || manifest.bin?.dsh !== 'lib/bin.js'

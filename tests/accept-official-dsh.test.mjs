@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { parseOfficialAcceptanceArgs, buildAcceptanceFixtureSource, waitForAcceptanceFixture, sanitizeAcceptanceDiagnostic, resolveOfficialAcceptanceCommand } from '../scripts/accept-official-dsh.mjs'
@@ -154,7 +154,16 @@ test('acceptance selects pinned JS entries as separate Node arguments and refuse
   }
   assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot: null, pnpmRoot }), [await realpath(join(pnpmRoot, 'bin', 'pnpm.mjs')), 'dlx', '--allow-build=fs-ext', '@deepseek-ai/dsh@0.2.2-alpha.2'])
   assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot }), [await realpath(join(runtimeRoot, 'lib', 'bin.js'))])
+  assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot: await realpath(runtimeRoot) }), [await realpath(join(runtimeRoot, 'lib', 'bin.js'))])
   await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: '--eval', pnpmRoot }), /absolute/)
+  const temporaryRoot = resolve(tmpdir())
+  for (const outside of [temporaryRoot, await realpath(temporaryRoot), resolve(temporaryRoot, '..', 'chat-v2-outside-package'), temporaryRoot + '-sibling', temporaryRoot + sep + 'child' + sep + '..' + sep + '..' + sep + 'chat-v2-outside-package']) {
+    await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: outside }), /strict subdirectory of os.tmpdir/)
+  }
+  const externalLink = join(base, 'outside-temp-link')
+  await symlink(resolve(temporaryRoot, '..'), externalLink, process.platform === 'win32' ? 'junction' : 'dir')
+  await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: externalLink }), /inside os.tmpdir.*resolving links/)
+
   for (const change of [{ name: '@other/package' }, { version: '11.20.0' }, { bin: { pnpm: 'other.js' } }]) {
     await writeFile(join(pnpmRoot, 'package.json'), JSON.stringify({ ...pnpmManifest, ...change }))
     await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: null, pnpmRoot }), /fixed 11.19.0 JS entry/)
