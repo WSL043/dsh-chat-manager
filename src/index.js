@@ -2,12 +2,10 @@ import {
   createDeleteRequestHandler,
   deleteSessionSafely,
   hostRequestFence,
-  installAgentHandleTracker,
 } from './host/delete-session.mjs'
 import {
   createArchiveRequestHandlers,
   deleteSessionAndReconcileArchive,
-  restoreArchivedSession,
   searchArchivedSessions,
 } from './host/archive-manager.mjs'
 
@@ -24,13 +22,10 @@ export function apply(ctx) {
     throw new Error('dsh-session-delete requires the per-session JSONL persistence backend')
   }
 
-  const agentHandles = installAgentHandleTracker(ctx.agents, ctx.sessions)
-  ctx.effect(() => () => agentHandles.release(), 'dsh-session-delete: agent lifecycle tracking')
-
   const deleteSession = sessionId => deleteSessionSafely({
     sessions: ctx.sessions,
     agents: ctx.agents,
-    agentHandles,
+    workspaceRegistry: ctx.workspaceRegistry,
     sessionPersistence: ctx.sessionPersistence,
   }, { sessionRoot, sessionId })
   // The official fence also admits the desktop app's forwarded requests; see hostRequestFence.
@@ -46,7 +41,6 @@ export function apply(ctx) {
   })
   const archiveHandlers = createArchiveRequestHandlers({
     isTrustedRequest,
-    restore: sessionId => restoreArchivedSession(ctx.workspaceRegistry, sessionId),
     search: (query, signal) => searchArchivedSessions({
       workspaceRegistry: ctx.workspaceRegistry,
       sessionQuery: ctx.get('sessionQuery'),
@@ -64,14 +58,6 @@ export function apply(ctx) {
   ctx.effect(
     () => ctx.webServer.register({
       kind: 'exact',
-      path: '/plugins/dsh-session-delete/restore',
-      handler: archiveHandlers.restore,
-    }),
-    'dsh-session-delete: archived session restore route',
-  )
-  ctx.effect(
-    () => ctx.webServer.register({
-      kind: 'exact',
       path: '/plugins/dsh-session-delete/archive-search',
       handler: archiveHandlers.search,
     }),
@@ -81,9 +67,7 @@ export function apply(ctx) {
 
 export {
   createDeleteRequestHandler,
-  deleteColdSession,
   deleteSessionSafely,
-  installAgentHandleTracker,
 } from './host/delete-session.mjs'
 
 export {

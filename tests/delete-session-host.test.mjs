@@ -5,286 +5,144 @@ import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import test from 'node:test'
 import { Context, Service } from '@deepseek-ai/cordis'
+import { createDeleteRequestHandler, deleteSessionSafely, hostRequestFence, sameOriginRequest } from '../src/host/delete-session.mjs'
 
-import {
-  createDeleteRequestHandler,
-  deleteSessionSafely,
-  hostRequestFence,
-  installAgentHandleTracker,
-} from '../src/host/delete-session.mjs'
-
-const HEADER = Object.freeze({
-  version: 0,
-  id: 'session-delete-test',
-  createdAt: 1_700_000_000_000,
-  cwd: 'C:\\workspace',
-})
-
-test('absent modern session acknowledges only verified absence, preserving corrupt directories', async t => {
-  const paths = await fixture()
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-  const deps = dependencies({ transcript: paths.transcript, listed: [] })
-  deps.sessionPersistence = {
-    name: 'session-persistence-jsonl', list: async () => [],
-    stat: async () => undefined, open: async () => { throw Error('must not open') },
-    resolveCurrentLog: async () => undefined,
-  }
-  const args = { sessionRoot: paths.root, sessionId: HEADER.id }
-  assert.equal((await deleteSessionSafely(deps, args)).ok, false)
-  await rm(paths.sessionDirectory, { recursive: true })
-  assert.deepEqual(await deleteSessionSafely(deps, args), {
-    ok: true, value: { deleted: false, alreadyAbsent: true },
-  })
-  deps.sessionPersistence.stat = async () => { throw Error('unreadable storage') }
-  await assert.rejects(deleteSessionSafely(deps, args), /unreadable storage/)
-})
-
-test('absent session cannot be acknowledged while an agent still owns it', async t => {
-  const paths = await fixture()
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-  await rm(paths.sessionDirectory, { recursive: true })
-  const deps = dependencies({ transcript: paths.transcript, listed: [], agentLive: true })
-  deps.sessionPersistence = { name: 'session-persistence-jsonl', list: async () => [],
-    stat: async () => undefined, open() {}, resolveCurrentLog() {} }
-  assert.equal((await deleteSessionSafely(deps, { sessionRoot: paths.root, sessionId: HEADER.id })).ok, false)
-})
-
+const HEADER = Object.freeze({ version: 3, id: 'session-delete-test', createdAt: 1700000000000, cwd: 'fixture-workspace' })
 async function fixture() {
   const base = await mkdtemp(join(tmpdir(), 'dsh-session-delete-'))
   const root = join(base, 'sessions')
-  const sessionDirectory = join(root, '--C-workspace--', HEADER.id)
+  const sessionDirectory = join(root, 'fixture-project', HEADER.id)
   const transcript = join(sessionDirectory, 'session.jsonl')
   await mkdir(sessionDirectory, { recursive: true })
-  await writeFile(transcript, `${JSON.stringify({ type: 'session', ...HEADER })}\n`, 'utf8')
+  await writeFile(transcript, JSON.stringify({ type: 'session', ...HEADER }) + '\n')
   return { base, root, sessionDirectory, transcript }
 }
-
-function dependencies({
-  transcript,
-  live = false,
-  agentLive = false,
-  supportsRawArtifacts = true,
-  listed = [HEADER],
-  rawMeta = HEADER,
-  sessionGet,
-  agentGet,
-  disposeAgent,
-  inspect,
-  listSessions,
-  reserve,
-  moveDirectory,
-  removeDirectory,
-}) {
+function dependencies({ transcript, sessionGet = () => undefined, agentGet = () => undefined,
+  formatStatus = 'current', rawMeta = HEADER, snapshot, open, moveDirectory, removeDirectory } = {}) {
   return {
-    sessions: { get: sessionGet ?? (() => live ? { id: HEADER.id } : undefined) },
-    agents: { get: agentGet ?? (() => agentLive ? { id: HEADER.id, status: 'idle' } : undefined) },
-    agentHandles: {
-      dispose: disposeAgent ?? (async () => false),
-      reserve: reserve ?? (() => () => {}),
-    },
-    ...(moveDirectory === undefined ? {} : { moveDirectory }),
-    ...(removeDirectory === undefined ? {} : { removeDirectory }),
+    sessions: { get: sessionGet }, agents: { get: agentGet },
+    workspaceRegistry: { archivedSessionIds: [HEADER.id] },
+    ...(moveDirectory ? { moveDirectory } : {}), ...(removeDirectory ? { removeDirectory } : {}),
     sessionPersistence: {
-      supportsRawArtifacts,
-      list: listSessions ?? (async () => listed),
-      locate: () => ({ kind: 'jsonl', path: transcript }),
-      readRaw: async () => ({ meta: rawMeta, filename: 'session.jsonl', content: 'fixture' }),
-      inspect: inspect ?? (async () => ({ meta: rawMeta, events: [] })),
+      name: 'session-persistence-jsonl',
+      stat: snapshot ?? (async () => ({ header: HEADER, formatStatus, revision: 'fixture-v1', location: { kind: 'jsonl', path: transcript } })),
+      open: open ?? (async () => ({ header: rawMeta, close: async () => {} })),
+      resolveCurrentLog: async () => transcript,
     },
   }
 }
+const args = paths => ({ sessionRoot: paths.root, sessionId: HEADER.id })
+const fixtureFence = hostRequestFence({ requestRejection: req => !sameOriginRequest(req) ? 403
+  : req.headers.cookie === 'fixture-auth' ? undefined : 401 })
 
-test('deletes only the exact cold JSONL session directory', async (t) => {
+test('deletes only the exact cold archived directory while retaining write ownership through removal', async t => {
   const paths = await fixture()
   t.after(() => rm(paths.base, { recursive: true, force: true }))
-
-  const result = await deleteSessionSafely(
-    dependencies({ transcript: paths.transcript }),
-    { sessionRoot: paths.root, sessionId: HEADER.id },
-  )
-
-  assert.deepEqual(result, { ok: true, value: { deleted: true } })
-  await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
-})
-
-test('deletes a versioned JSONL artifact while retaining the handle backend writer lease', async (t) => {
-  const paths = await fixture()
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-  const transcript = join(paths.sessionDirectory, 'session.v2.jsonl.zstd')
-  await rename(paths.transcript, transcript)
-  const header = { ...HEADER, version: 2, isSeeded: false }
-  let leased = false
-  let closed = false
-  const deps = dependencies({ transcript })
-  deps.sessionPersistence = {
-    name: 'session-persistence-jsonl',
-    list: async () => [{ header, revision: 'fixture' }],
-    stat: async () => ({ header }),
-    open: async (id, access) => {
-      assert.equal(id, HEADER.id)
-      assert.equal(access, 'write')
-      leased = true
-      return { header, close: async () => {
-        await assert.rejects(readFile(transcript), { code: 'ENOENT' })
-        leased = false
-        closed = true
-      } }
-    },
-    resolveCurrentLog: async () => transcript,
-  }
-  deps.removeDirectory = async directory => {
-    assert.equal(leased, true)
-    await rm(directory, { recursive: true })
-  }
-  assert.deepEqual(await deleteSessionSafely(deps, { sessionRoot: paths.root, sessionId: HEADER.id }),
-    { ok: true, value: { deleted: true } })
-  assert.equal(closed, true)
-  assert.equal(leased, false)
-})
-
-test('a handle backend owned by another writer preserves the artifact and releases the reservation', async (t) => {
-  const paths = await fixture()
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-  let released = false
-  const deps = dependencies({ transcript: paths.transcript, reserve: () => () => { released = true } })
-  deps.sessionPersistence = {
-    name: 'session-persistence-jsonl',
-    list: async () => [{ header: HEADER }],
-    stat: async () => ({ header: HEADER }),
-    open: async () => { throw new Error('another writer owns this session') },
-    resolveCurrentLog: async () => { throw new Error('must not resolve a deletion path without ownership') },
-  }
-  const result = await deleteSessionSafely(deps, { sessionRoot: paths.root, sessionId: HEADER.id })
-  assert.equal(result.ok, false)
-  assert.equal(released, true)
-  assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
-  let lists = 0
-  deps.sessionPersistence.list = async () => ++lists === 1 ? [{ header: HEADER }] : []
-  const raced = await deleteSessionSafely(deps, { sessionRoot: paths.root, sessionId: HEADER.id })
-  assert.equal(raced.error.code, 'storage-state-unknown')
-  assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
-})
-
-test('disposes an opened idle agent before deleting its session', async (t) => {
-  const paths = await fixture()
-  let liveAgent = { id: HEADER.id, status: 'idle' }
-  let liveSession = { id: HEADER.id }
-  let disposed = 0
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-
-  const result = await deleteSessionSafely(
-    dependencies({
-      transcript: paths.transcript,
-      agentLive: true,
-      sessionGet: () => liveSession,
-      agentGet: () => liveAgent,
-      disposeAgent: async () => {
-        disposed += 1
-        liveAgent = undefined
-        liveSession = undefined
-        return true
-      },
-    }),
-    { sessionRoot: paths.root, sessionId: HEADER.id },
-  )
-
-  assert.deepEqual(result, { ok: true, value: { deleted: true } })
-  assert.equal(disposed, 1)
-  assert.equal(liveAgent, undefined)
-  await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
-})
-
-test('disposes a running agent before deleting its session', async (t) => {
-  const paths = await fixture()
-  let live = true
-  let statusAtDispose
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-
-  const deps = dependencies({
-    transcript: paths.transcript,
-    sessionGet: () => live ? { id: HEADER.id } : undefined,
-    agentGet: () => live ? { id: HEADER.id, status: 'running' } : undefined,
-    disposeAgent: async () => {
-      statusAtDispose = deps.agents.get(HEADER.id)?.status
-      live = false
-      return true
-    },
+  const neighbor = join(paths.root, 'fixture-project', 'keep')
+  await mkdir(neighbor)
+  await writeFile(join(neighbor, 'session.jsonl'), 'keep')
+  let owned = false, closed = 0
+  const deps = dependencies({ transcript: paths.transcript,
+    open: async (id, access) => { assert.equal(id, HEADER.id); assert.equal(access, 'write'); owned = true
+      return { header: HEADER, close: async () => { owned = false; closed++ } } },
+    removeDirectory: async directory => { assert.equal(owned, true); await rm(directory, { recursive: true }) },
   })
-  const result = await deleteSessionSafely(
-    deps,
-    { sessionRoot: paths.root, sessionId: HEADER.id },
-  )
-
-  assert.equal(result.ok, true)
-  assert.equal(statusAtDispose, 'running')
+  assert.deepEqual(await deleteSessionSafely(deps, args(paths)), { ok: true, value: { deleted: true } })
+  assert.equal(owned, false); assert.equal(closed, 1)
   await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
+  assert.equal(await readFile(join(neighbor, 'session.jsonl'), 'utf8'), 'keep')
 })
 
-test('fails closed when an already-live agent has no owned lifecycle handle', async (t) => {
-  const paths = await fixture()
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-
-  const result = await deleteSessionSafely(
-    dependencies({ transcript: paths.transcript, live: true, agentLive: true }),
-    { sessionRoot: paths.root, sessionId: HEADER.id },
-  )
-
-  assert.equal(result.ok, false)
-  assert.equal(result.error.code, 'lifecycle-unavailable')
+test('requires archive membership before opening a write handle', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  const deps = dependencies({ transcript: paths.transcript, open: () => { throw Error('must not open') } })
+  deps.workspaceRegistry.archivedSessionIds = []
+  assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'session-not-archived')
   assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
 })
 
-test('reports lifecycle teardown failure without touching storage', async (t) => {
-  const paths = await fixture()
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-
-  const result = await deleteSessionSafely(
-    dependencies({
-      transcript: paths.transcript,
-      live: true,
-      agentLive: true,
-      disposeAgent: async () => { throw new Error('teardown failed') },
-    }),
-    { sessionRoot: paths.root, sessionId: HEADER.id },
-  )
-
-  assert.equal(result.ok, false)
-  assert.equal(result.error.code, 'lifecycle-error')
+test('refuses loaded idle and running sessions without touching foreign owner capabilities', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  for (const status of ['idle', 'running']) {
+    const deps = dependencies({ transcript: paths.transcript, agentGet: () => ({ status }),
+      open: () => { throw Error('must not claim live storage') } })
+    Object.defineProperty(deps.agents, 'dispose', { get() { throw Error('foreign ownership') } })
+    assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'session-active')
+  }
+  const deps = dependencies({ transcript: paths.transcript, sessionGet: () => ({ id: HEADER.id }) })
+  assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'session-active')
   assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
 })
 
-test('refuses unsupported storage and a missing session', async (t) => {
-  const paths = await fixture()
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-
-  const unsupported = await deleteSessionSafely(
-    dependencies({ transcript: paths.transcript, supportsRawArtifacts: false }),
-    { sessionRoot: paths.root, sessionId: HEADER.id },
-  )
-  assert.equal(unsupported.error.code, 'unsupported-backend')
-
-  const missing = await deleteSessionSafely(
-    dependencies({ transcript: paths.transcript, listed: [] }),
-    { sessionRoot: paths.root, sessionId: HEADER.id },
-  )
-  assert.equal(missing.error.code, 'session-not-found')
+test('refuses historical and unknown format before write open can migrate anything', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  for (const formatStatus of ['migration-required', null, 'future']) {
+    let opens = 0
+    const deps = dependencies({ transcript: paths.transcript, formatStatus, open: () => { opens++; throw Error('must not migrate') } })
+    assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'unsupported-format')
+    assert.equal(opens, 0)
+  }
+  const deps = dependencies({ transcript: paths.transcript })
+  deps.sessionPersistence.stat = async () => ({ header: HEADER })
+  assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'unsupported-format')
   assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
 })
 
-test('refuses a transcript whose persisted header does not match the listing', async (t) => {
-  const paths = await fixture()
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-
-  const result = await deleteSessionSafely(
-    dependencies({
-      transcript: paths.transcript,
-      rawMeta: { ...HEADER, cwd: 'C:\\different' },
-    }),
-    { sessionRoot: paths.root, sessionId: HEADER.id },
-  )
-
-  assert.equal(result.error.code, 'unsafe-location')
+test('a busy writer preserves all bytes and permits a later retry after refusal', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  const deps = dependencies({ transcript: paths.transcript, open: async () => { throw Error('another writer owns this session') } })
+  assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'storage-state-unknown')
   assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
+  deps.sessionPersistence.open = async () => ({ header: HEADER, close: async () => {} })
+  assert.equal((await deleteSessionSafely(deps, args(paths))).ok, true)
+})
+
+test('duplicate deletion stays reserved until the write handle has closed', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  let entered, finish
+  const closing = new Promise(resolve => { entered = resolve })
+  const blocked = new Promise(resolve => { finish = resolve })
+  const deps = dependencies({ transcript: paths.transcript,
+    open: async () => ({ header: HEADER, close: async () => { entered(); await blocked } }) })
+  const pending = deleteSessionSafely(deps, args(paths))
+  await closing
+  assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'deletion-in-progress')
+  finish(); assert.equal((await pending).ok, true)
+})
+
+test('rechecks host liveness and archive membership after acquiring ownership', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  let calls = 0
+  const deps = dependencies({ transcript: paths.transcript, sessionGet: () => ++calls === 1 ? undefined : {} })
+  assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'session-reopened')
+  deps.sessions.get = () => undefined
+  deps.sessionPersistence.open = async () => { deps.workspaceRegistry.archivedSessionIds = []; return { header: HEADER, close: async () => {} } }
+  assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'session-not-archived')
+  assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
+})
+
+test('header or revision changes after write acquisition refuse filesystem removal', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  const wrongHandle = dependencies({ transcript: paths.transcript, rawMeta: { ...HEADER, cwd: 'changed' } })
+  assert.equal((await deleteSessionSafely(wrongHandle, args(paths))).error.code, 'unsafe-location')
+  let calls = 0
+  const changed = dependencies({ transcript: paths.transcript, snapshot: async () => ({ header: HEADER, formatStatus: 'current', revision: ++calls === 1 ? 'before' : 'after' }) })
+  assert.equal((await deleteSessionSafely(changed, args(paths))).error.code, 'unsafe-location')
+  assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
+})
+
+test('stale archive markers require verified physical absence; corrupt directories remain', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  const deps = dependencies({ transcript: paths.transcript, snapshot: async () => undefined })
+  assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'storage-state-unknown')
+  await rm(paths.sessionDirectory, { recursive: true })
+  assert.deepEqual(await deleteSessionSafely(deps, args(paths)), { ok: true, value: { deleted: false, alreadyAbsent: true } })
+})
+
+test('unsupported backends never open storage', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  const deps = dependencies({ transcript: paths.transcript }); deps.sessionPersistence.name = 'other'
+  assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'unsupported-backend')
 })
 
 test('refuses a persistence location outside the configured session root', async (t) => {
@@ -332,24 +190,6 @@ test('refuses a same-root directory junction without deleting its target', async
   assert.match(await readFile(targetTranscript, 'utf8'), /session-delete-test/)
 })
 
-test('does not report success when inspect loses the listing but the artifact remains', async (t) => {
-  const paths = await fixture()
-  let lists = 0
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-
-  const result = await deleteSessionSafely(
-    dependencies({
-      transcript: paths.transcript,
-      inspect: async () => { throw new Error('inspection failed') },
-      listSessions: async () => (++lists === 1 ? [HEADER] : []),
-    }),
-    { sessionRoot: paths.root, sessionId: HEADER.id },
-  )
-
-  assert.equal(result.error.code, 'storage-state-unknown')
-  assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
-})
-
 test('refuses an unexpected transcript filename inside the session directory', async (t) => {
   const paths = await fixture()
   const unexpected = join(paths.sessionDirectory, 'notes.jsonl')
@@ -363,155 +203,6 @@ test('refuses an unexpected transcript filename inside the session directory', a
 
   assert.equal(result.error.code, 'unsafe-location')
   assert.equal(await readFile(unexpected, 'utf8'), 'keep\n')
-})
-
-test('rechecks liveness immediately before removal', async (t) => {
-  const paths = await fixture()
-  let calls = 0
-  t.after(() => rm(paths.base, { recursive: true, force: true }))
-
-  const result = await deleteSessionSafely(
-    dependencies({
-      transcript: paths.transcript,
-      sessionGet: () => (++calls === 1 ? undefined : { id: HEADER.id }),
-    }),
-    { sessionRoot: paths.root, sessionId: HEADER.id },
-  )
-
-  assert.equal(result.error.code, 'session-reopened')
-  assert.equal(calls, 2)
-  assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
-})
-
-test('tracks handles returned by agent create and resume and restores methods on release', async () => {
-  const disposed = []
-  const originalCreate = async ({ sessionId }) => ({
-    agent: { id: sessionId },
-    dispose: async () => { disposed.push(`create:${sessionId}`) },
-  })
-  const originalResume = async ({ resumeSessionId }) => ({
-    agent: { id: resumeSessionId },
-    dispose: async () => { disposed.push(`resume:${resumeSessionId}`) },
-  })
-  const registry = {
-    create: originalCreate,
-    resume: originalResume,
-    get(id) { return this.current?.id === id ? this.current : undefined },
-  }
-  const tracker = installAgentHandleTracker(registry)
-
-  const created = await registry.create({ sessionId: 'created' })
-  registry.current = created.agent
-  assert.equal(await tracker.dispose('created'), true)
-
-  const resumed = await registry.resume({ resumeSessionId: 'resumed' })
-  registry.current = resumed.agent
-  assert.equal(await tracker.dispose('resumed'), true)
-
-  assert.deepEqual(disposed, ['create:created', 'resume:resumed'])
-  tracker.release()
-  assert.equal(registry.create, originalCreate)
-  assert.equal(registry.resume, originalResume)
-})
-
-test('tracks handles created through another Cordis context without taking its ownership', async t => {
-  const owners = []
-  const disposed = []
-  class Agents extends Service {
-    constructor(ctx) { super(ctx, 'agents') }
-    async resume({ resumeSessionId }) {
-      owners.push(this.ctx)
-      const agent = { id: resumeSessionId }
-      this.current = agent
-      return { agent, dispose: async () => { disposed.push(resumeSessionId); this.current = undefined } }
-    }
-    async create({ sessionId }) { return this.resume({ resumeSessionId: sessionId }) }
-    get(id) { return this.current?.id === id ? this.current : undefined }
-  }
-  const root = new Context()
-  t.after(() => root.fiber.dispose())
-  await root.plugin(Agents)
-  const plugin = root.extend()
-  const officialController = root.extend()
-  const officialMarker = Symbol('official controller context')
-  officialController[officialMarker] = true
-  assert.notEqual(plugin.agents, officialController.agents)
-  const raw = plugin.agents[Symbol.for('cordis.original')]
-  const originalResume = raw.resume
-  const tracker = installAgentHandleTracker(plugin.agents)
-  await officialController.agents.resume({ resumeSessionId: 'cross-context' })
-  assert.equal(owners[0][officialMarker], true)
-  assert.equal(await tracker.dispose('cross-context'), true)
-  assert.deepEqual(disposed, ['cross-context'])
-  await tracker.release()
-  assert.equal(raw.resume, originalResume)
-})
-
-test('a hot reload leaves no inactive tracker on the shared service', async () => {
-  const agents = {
-    resume: async ({ resumeSessionId }) => ({ agent: { id: resumeSessionId }, dispose: async () => {} }),
-    create: async ({ sessionId }) => ({ agent: { id: sessionId }, dispose: async () => {} }),
-    get: () => undefined,
-  }
-  const originalResume = agents.resume
-  const first = installAgentHandleTracker(agents)
-  const finishDeletion = first.reserve('busy')
-  const firstReleased = first.release()
-  const second = installAgentHandleTracker(agents)
-  finishDeletion()
-  await firstReleased
-  await second.release()
-  assert.equal(agents.resume, originalResume)
-})
-
-test('reserves a session against duplicate deletion and every session or agent re-entry path', async () => {
-  const originalSessionEnter = () => () => {}
-  const originalAgentEnter = () => () => {}
-  const sessions = { enter: originalSessionEnter }
-  const agents = {
-    create: async ({ sessionId }) => ({ agent: { id: sessionId }, dispose: async () => {} }),
-    resume: async ({ resumeSessionId }) => ({ agent: { id: resumeSessionId }, dispose: async () => {} }),
-    enter: originalAgentEnter,
-    get: () => undefined,
-  }
-  const tracker = installAgentHandleTracker(agents, sessions)
-  const release = tracker.reserve(HEADER.id)
-
-  assert.equal(typeof release, 'function')
-  assert.equal(tracker.reserve(HEADER.id), undefined)
-  assert.throws(() => sessions.enter({ id: HEADER.id }), /permanently deleted/)
-  assert.throws(() => agents.enter({ id: HEADER.id }), /permanently deleted/)
-  await assert.rejects(agents.create({ sessionId: HEADER.id }), /permanently deleted/)
-  await assert.rejects(agents.resume({ resumeSessionId: HEADER.id }), /permanently deleted/)
-  assert.doesNotThrow(() => sessions.enter({ id: 'unrelated' }))
-
-  release()
-  assert.doesNotThrow(() => sessions.enter({ id: HEADER.id }))
-  tracker.release()
-  assert.equal(sessions.enter, originalSessionEnter)
-  assert.equal(agents.enter, originalAgentEnter)
-})
-
-test('keeps an in-flight reservation active until asynchronous tracker release can finish', async () => {
-  const originalSessionEnter = () => () => {}
-  const sessions = { enter: originalSessionEnter }
-  const agents = {
-    create: async ({ sessionId }) => ({ agent: { id: sessionId }, dispose: async () => {} }),
-    resume: async ({ resumeSessionId }) => ({ agent: { id: resumeSessionId }, dispose: async () => {} }),
-    get: () => undefined,
-  }
-  const tracker = installAgentHandleTracker(agents, sessions)
-  const finishDeletion = tracker.reserve(HEADER.id)
-
-  const released = tracker.release()
-  assert.notEqual(sessions.enter, originalSessionEnter)
-  assert.throws(() => sessions.enter({ id: HEADER.id }), /permanently deleted/)
-  assert.equal(tracker.reserve('new-delete'), undefined)
-
-  finishDeletion()
-  await released
-  assert.equal(sessions.enter, originalSessionEnter)
-  assert.doesNotThrow(() => sessions.enter({ id: HEADER.id }))
 })
 
 test('refuses deletion when the detached transcript identity has changed', async (t) => {
@@ -578,6 +269,7 @@ function request(body, headers = {}) {
   stream.headers = {
     host: '127.0.0.1:14171',
     origin: 'http://127.0.0.1:14171',
+    cookie: 'fixture-auth',
     'content-type': 'application/json',
     'x-dsh-session-delete-confirmation': 'delete-session',
     ...headers,
@@ -603,6 +295,7 @@ function response() {
 test('accepts only a same-origin explicitly confirmed POST', async () => {
   const calls = []
   const handler = createDeleteRequestHandler({
+    isTrustedRequest: fixtureFence,
     deleteSession: async (sessionId) => {
       calls.push(sessionId)
       return { ok: true, value: { deleted: true } }
@@ -635,7 +328,7 @@ test('the official desktop app, which forwards without Origin, is admitted throu
   assert.equal(desktop.status, 200)
   const unauthenticated = response()
   await handler(request(JSON.stringify({ sessionId: HEADER.id }), { origin: undefined }), unauthenticated)
-  assert.equal(unauthenticated.status, 403)
+  assert.equal(unauthenticated.status, 401)
   const unconfirmed = response()
   await handler(request(JSON.stringify({ sessionId: HEADER.id }), { origin: undefined, cookie: 'dsh-auth-x=ok', 'x-dsh-session-delete-confirmation': undefined }), unconfirmed)
   assert.equal(unconfirmed.status, 403)
@@ -643,15 +336,21 @@ test('the official desktop app, which forwards without Origin, is admitted throu
   assert.deepEqual(seen, [undefined, undefined, undefined])
 })
 
-test('cores without a Host fence keep the same-origin check', () => {
-  const fence = hostRequestFence(undefined)
-  assert.equal(fence({ headers: { host: '127.0.0.1:1', origin: 'http://127.0.0.1:1' } }), true)
-  assert.equal(fence({ headers: { host: '127.0.0.1:1' } }), false)
+test('missing or unsupported Host fences reject forged same-origin deletion before business work', async () => {
+  for (const isTrustedRequest of [undefined, hostRequestFence(undefined), hostRequestFence({})]) {
+    let calls = 0
+    const handler = createDeleteRequestHandler({ isTrustedRequest, deleteSession: async () => { calls++ } })
+    const res = response()
+    await handler(request(JSON.stringify({ sessionId: HEADER.id })), res)
+    assert.equal(res.status, 403)
+    assert.equal(calls, 0)
+  }
 })
 
 test('rejects a missing deletion confirmation header', async () => {
   let called = false
   const handler = createDeleteRequestHandler({
+    isTrustedRequest: fixtureFence,
     deleteSession: async () => {
       called = true
       return { ok: true, value: { deleted: true } }
@@ -668,6 +367,7 @@ test('rejects a missing deletion confirmation header', async () => {
 test('rejects non-POST, non-JSON, malformed, oversized, and invalid-id requests', async () => {
   let calls = 0
   const handler = createDeleteRequestHandler({
+    isTrustedRequest: fixtureFence,
     deleteSession: async () => {
       calls += 1
       return { ok: true, value: { deleted: true } }
@@ -704,6 +404,7 @@ test('rejects non-POST, non-JSON, malformed, oversized, and invalid-id requests'
 
 test('returns a conflict response when the storage operation is refused', async () => {
   const handler = createDeleteRequestHandler({
+    isTrustedRequest: fixtureFence,
     deleteSession: async () => ({
       ok: false,
       error: { code: 'session-active', message: 'still active' },
@@ -717,6 +418,7 @@ test('returns a conflict response when the storage operation is refused', async 
 
 test('does not misreport an unexpected deletion failure as invalid JSON', async () => {
   const handler = createDeleteRequestHandler({
+    isTrustedRequest: fixtureFence,
     deleteSession: async () => { throw new Error('unexpected') },
   })
   const res = response()
@@ -731,17 +433,49 @@ test('the Host fence reads a late-registered connection without touching an unin
   // A Host can register `connection` before it is ready: get() is still empty while the uninjected property throws.
   const pending = { get: () => undefined, get connection() { throw new Error('cannot get property "connection" without inject') } }
   assert.equal(currentConnection(pending), undefined)
-  assert.equal(typeof hostRequestFence(currentConnection(pending)), 'function')
+  assert.equal(hostRequestFence(currentConnection(pending))(request('{}')), false)
 
   const root = new Context()
   t.after(() => root.fiber.dispose())
   const plugin = root.extend()
+  const fence = req => hostRequestFence(currentConnection(plugin))(req)
+  let calls = 0
+  const handler = createDeleteRequestHandler({ isTrustedRequest: fence,
+    deleteSession: async () => { calls++; return { ok: true, value: { deleted: true } } },
+  })
+  const beforeReady = response()
+  await handler(request(JSON.stringify({ sessionId: HEADER.id }), { cookie: 'ok' }), beforeReady)
+  assert.equal(beforeReady.status, 403)
+  assert.equal(calls, 0)
   class Connection extends Service {
     constructor(ctx) { super(ctx, 'connection') }
-    requestRejection(req) { return req.headers.cookie === 'ok' ? undefined : 401 }
+    requestRejection(req) { return !sameOriginRequest(req) ? 403 : req.headers.cookie === 'ok' ? undefined : 401 }
   }
   await root.plugin(Connection)
-  const fence = req => hostRequestFence(currentConnection(plugin))(req)
-  assert.equal(fence({ headers: { cookie: 'ok' }, socket: {} }), true)
-  assert.equal(fence({ headers: {}, socket: {} }), false)
+  for (const [headers, status] of [[{ cookie: undefined }, 401], [{ cookie: 'ok', origin: 'https://attacker.example' }, 403], [{ cookie: 'ok' }, 200]]) {
+    const res = response()
+    await handler(request(JSON.stringify({ sessionId: HEADER.id }), headers), res)
+    assert.equal(res.status, status)
+  }
+  assert.equal(calls, 1)
+})
+
+test('reopening after quarantine rename rolls back without removing the target', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  let reopened = false
+  const deps = dependencies({ transcript: paths.transcript, sessionGet: () => reopened ? {} : undefined,
+    moveDirectory: async (source, destination) => { await rename(source, destination); reopened = true },
+    removeDirectory: () => { throw Error('must not remove a reopened session') },
+  })
+  assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'session-reopened')
+  assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
+})
+
+test('opening a writer lease may add its lock file without changing directory identity', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  const deps = dependencies({ transcript: paths.transcript, open: async () => {
+    await writeFile(join(paths.sessionDirectory, '.writer-lock'), 'fixture lock')
+    return { header: HEADER, close: async () => {} }
+  } })
+  assert.equal((await deleteSessionSafely(deps, args(paths))).ok, true)
 })

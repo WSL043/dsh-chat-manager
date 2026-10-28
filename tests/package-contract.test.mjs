@@ -1,98 +1,66 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile, access } from 'node:fs/promises'
 import test from 'node:test'
+import { buildOfficialSlotClient } from '../scripts/official-session-actions.mjs'
 
-import { compareDshVersions, selectLatestDshVersions } from '../scripts/prepare-compat-release.mjs'
+const read = file => readFile(new URL('../' + file, import.meta.url), 'utf8')
 
-const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
-
-test('public package is a standard DSH bundle with a unique identity', async () => {
+test('unpublished v2 has a fixed source-contract target and no inherited compatibility matrix', async () => {
   const manifest = JSON.parse(await read('package.json'))
   const compatibility = JSON.parse(await read('compatibility.json'))
-
   assert.equal(manifest.name, 'dsh-chat-manager')
-  assert.match(manifest.version, /^\d+\.\d+\.\d+(?:-beta\.\d+)?$/)
-  assert.equal(manifest.private, undefined)
+  assert.equal(manifest.version, '2.0.0-alpha.1')
+  assert.equal(manifest.publishConfig?.tag, manifest.version.includes('-') ? 'next' : 'latest')
   assert.equal(manifest.license, 'MIT')
-  assert.equal(manifest.repository.url, 'git+https://github.com/WSL043/dsh-chat-manager.git')
-  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-workspace'], compatibility.latestTested)
-  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-primitives'], compatibility.latestTested)
-  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-ui-slots'], compatibility.latestTested)
-  // Upstream does not republish dsh-invariants with every core: it stays on a release inside the target window, or
-  // on its newest release below the newest target once older cores have left the window.
-  const invariants = manifest.devDependencies['@deepseek-ai/dsh-invariants']
-  assert.ok(compatibility.releaseTargets.includes(invariants) || compareDshVersions(invariants, compatibility.latestTested) <= 0)
-  assert.equal(manifest.devDependencies['@deepseek-ai/cordis'], '4.0.2')
-  assert.equal(manifest.devDependencies['@deepseek-ai/cordis-plugin-include'], '1.0.7')
-  assert.equal(manifest.devDependencies['@deepseek-ai/cordis-plugin-loader'], '1.0.3')
-  for (const [version, alias] of Object.entries(compatibility.testFixtures.workspaceByVersion)) {
-    assert.equal(manifest.devDependencies[alias], `npm:@deepseek-ai/dsh-client-ui-workspace@${version}`)
-  }
-  assert.equal(compatibility.testFixtures.legacyWorkspaceAlias, compatibility.testFixtures.workspaceByVersion['0.1.1-rc.2'])
-  assert.ok(compatibility.testFixtures.historicalPreviews.includes('0.1.2-alpha.3'))
-  assert.ok(compatibility.testFixtures.historicalPreviews.includes('0.2.0-rc.1'))
-  assert.ok(compatibility.testFixtures.historicalPreviews.includes('0.2.0-rc.2'))
-  assert.deepEqual(compatibility.releaseTargets,
-    selectLatestDshVersions(compatibility.releaseTargets, compatibility.releaseTargets.length))
-  assert.equal(compatibility.latestTested, compatibility.releaseTargets[0])
-  assert.equal(compatibility.clientTarget, compatibility.releaseTargets[0])
-  assert.equal(compatibility.supported, undefined)
-  assert.equal(compatibility.previews, undefined)
-  assert.equal(compatibility.workspaceFixtures, undefined)
-  for (const filename of ['README.md', 'README.en.md', 'AGENTS.md']) {
-    const guide = await read(filename)
-    for (const version of compatibility.releaseTargets) assert.ok(guide.includes(version), `${filename} lacks ${version}`)
-    assert.ok(guide.includes(`dsh-chat-manager@${manifest.version}`), `${filename} lacks the prepared package version`)
-    assert.doesNotMatch(guide, /0\.1\.7-alpha\.1/u, `${filename} must not claim the out-of-window core`)
-  }
-  // The reviewed build source may also run on a newer, qualified host.
-  const previewSource = manifest.devDependencies[compatibility.testFixtures.previewWorkspaceAlias]
-  assert.ok(previewSource.startsWith('npm:@deepseek-ai/dsh-client-ui-workspace@'))
-  assert.ok(compatibility.testFixtures.historicalPreviews.includes(previewSource.split('@').at(-1)))
-  // A core bundled by a shipped DSH-Portable stays supported after it leaves the core window.
-  assert.deepEqual(compatibility.portableBaselines, ['0.2.0-rc.2'], 'the DSH-Portable bundled core must stay supported')
-  const supportedVersions = new Set([...compatibility.releaseTargets, ...compatibility.portableBaselines])
-  for (const [name, version] of Object.entries(manifest.peerDependencies)) {
-    if (name.startsWith('@deepseek-ai/dsh-')) assert.deepEqual(new Set(version.split(' || ')), supportedVersions)
-  }
-  assert.deepEqual(manifest.dsh.client.inject, ['@deepseek-ai/dsh-client-ui-workspace', '@deepseek-ai/dsh-client-ui-primitives', '@deepseek-ai/dsh-client-locale'])
-  assert.ok(!manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-runtime'))
-  assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined)
-  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], '0.1.1-rc.2')
-  assert.match(manifest.description, /session management/i)
-  for (const keyword of ['session-manager', 'archive', 'unarchive', 'restore', 'history-search', 'chat-history', 'conversation-history', 'session-delete']) {
-    assert.ok(manifest.keywords.includes(keyword), `missing discovery keyword ${keyword}`)
-  }
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml')
-  for (const peer of Object.keys(manifest.peerDependencies)) {
-    assert.equal(manifest.peerDependenciesMeta?.[peer]?.optional, true, `${peer} should be a host-provided optional peer`)
+  assert.deepEqual(compatibility.releaseTargets, ['0.2.2-alpha.2'])
+  assert.deepEqual(compatibility.portableBaselines, [])
+  assert.equal(compatibility.latestTested, '0.2.2-alpha.2')
+  assert.equal(compatibility.clientTarget, '0.2.2-alpha.2')
+  assert.equal(compatibility.testFixtures, undefined)
+  assert.equal(compatibility.qualification.status, 'source-contract-only')
+  assert.equal(compatibility.qualification.runtimeVerified, false)
+  assert.equal(compatibility.qualification.sourceCommit, 'f3803c96974ad4a94195fb97e5c637e9c2a3afe3')
+  for (const [name, version] of Object.entries(manifest.peerDependencies)) {
+    if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(version, '0.2.2-alpha.2')
+    assert.equal(manifest.peerDependenciesMeta[name].optional, true)
   }
-  assert.equal(manifest.scripts['smoke:ui'], 'node scripts/smoke-ui.mjs')
-  assert.ok(manifest.files.includes('scripts/smoke-ui.mjs'))
-  assert.ok(manifest.files.includes('compatibility.json'))
-  assert.ok(manifest.files.includes('cordis.patch.yml'))
-  assert.ok(!manifest.files.some(file => file.startsWith('docs/')), 'documentation images must not inflate the runtime package')
-  assert.ok(!manifest.files.includes('dsh-session-delete.ps1'))
-  assert.ok(!manifest.files.includes('dsh-session-delete-setup.ps1'))
-  assert.ok(manifest.files.includes('THIRD_PARTY_NOTICES.md'))
+  assert.equal(manifest.peerDependencies['@deepseek-ai/cordis'], '4.0.6-alpha.1')
 })
 
-test('shipped installation guides select this exact package for its qualified host', async () => {
+test('build has no dependency or legacy alias while behavior tools retain their exact imports', async () => {
   const manifest = JSON.parse(await read('package.json'))
-  const compatibility = JSON.parse(await read('compatibility.json'))
-  const target = compatibility.releaseTargets.at(-1)
-  for (const filename of ['README.md', 'README.en.md', 'AGENTS.md']) {
-    const guide = await read(filename)
-    assert.ok(guide.includes(`dsh-chat-manager@${manifest.version}`), `${filename} lacks the shipped package version`)
-    assert.ok(guide.includes(target), `${filename} lacks the qualified DSH target`)
-  }
-  for (const filename of ['README.md', 'README.en.md']) {
-    const guide = await read(filename)
-    assert.ok(guide.includes(`/v${manifest.version}/AGENTS.md`), `${filename} links an obsolete Agent guide`)
-  }
+  assert.deepEqual(manifest.dependencies ?? {}, {})
+  assert.deepEqual(manifest.devDependencies, { '@deepseek-ai/cordis': '4.0.6-alpha.1', playwright: '1.63.0' })
+  assert.ok(!manifest.files.includes('scripts/build-modern-client.mjs'))
+  assert.ok(manifest.files.includes('README.en.md'))
+  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-session'))
+  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-settings'))
+  assert.ok(!manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-runtime'))
+  assert.ok(!manifest.files.some(file => file.startsWith('docs/assets/')))
+  for (const file of manifest.files.filter(file => !file.includes('*'))) await access(new URL('../' + file, import.meta.url))
 })
 
-test('compatibility autopilot accepts one exact package on all three official cores before publishing', async () => {
+test('candidate guides distinguish unpublished v2, published 1.5.19 and destructive-operation boundaries', async () => {
+  const [zh, en, agents, unreleased] = await Promise.all(['README.md', 'README.en.md', 'AGENTS.md', 'docs/UNRELEASED-v2.md'].map(read))
+  for (const guide of [zh, en, agents]) {
+    assert.match(guide, /2\.0\.0-alpha\.1/)
+    assert.match(guide, /1\.5\.19/)
+    assert.match(guide, /0\.2\.2-alpha\.2/)
+    assert.doesNotMatch(guide, /正在运行的任务会先停止|Running work will be stopped first|every declared core.*verified/i)
+  }
+  assert.match(zh, /尚未发布|未发布/)
+  assert.match(en, /unpublished/i)
+  assert.match(en, /Permanent deletion cannot be undone/)
+  assert.match(zh, /永久删除无法撤销/)
+  assert.match(agents, /Never delete a session as an installation test/)
+  assert.match(agents, /dsh\.bundle/)
+  assert.match(unreleased, /Do not invoke it for this unpublished v2 candidate/)
+  assert.match(zh, /官方 ASAR/)
+  assert.match(en, /official ASAR/)
+})
+
+test('legacy compatibility automation remains unchanged pending the v2 guard review', async () => {
   const workflow = await read('.github/workflows/upstream-compatibility.yml')
 
   assert.match(workflow, /cron:\s*'17 \*\/3 \* \* \*'/)
@@ -174,15 +142,6 @@ test('release notes present complete English before a separate Chinese translati
   assert.doesNotMatch(workflow, /提交贡献 \/ Thanks to/)
 })
 
-test('GitHub defaults to Chinese and links a complete English README', async () => {
-  const readme = await read('README.md')
-  const readmeEn = await read('README.en.md')
-
-  assert.match(readme, /在 DeepSeek Harness 原生侧边栏中搜索、恢复和安全清理会话/)
-  assert.match(readme, /\[English\]\(README\.en\.md\)/)
-  assert.match(readmeEn, /Manage DeepSeek Harness chat history/)
-})
-
 test('GitHub issue intake defaults to concise English forms without title prefixes', async () => {
   const [bug, feature, config] = await Promise.all([
     read('.github/ISSUE_TEMPLATE/bug-report.yml'),
@@ -202,129 +161,34 @@ test('GitHub issue intake defaults to concise English forms without title prefix
   assert.match(config, /security\/policy/)
 })
 
-test('dependency installs enforce a release-age gate outside the reviewed DSH cohort', async () => {
+test('dependency installs retain a bounded release-age policy', async () => {
   const workspace = await read('pnpm-workspace.yaml')
-  const compatibility = JSON.parse(await read('compatibility.json'))
-
   assert.match(workspace, /^minimumReleaseAge: 1440$/m)
   assert.match(workspace, /# dsh-compat-release-age-start[\s\S]*# dsh-compat-release-age-end/)
-  assert.match(workspace, new RegExp(`@deepseek-ai/dsh-client-ui-workspace@${compatibility.latestTested.replaceAll('.', '\\.')}`))
   assert.doesNotMatch(workspace, /minimumReleaseAgeExclude:[\s\S]*['"]?@deepseek-ai\/\*['"]?\s*$/m)
 })
 
-test('public artifacts contain no local workspace paths', async () => {
-  const files = [
-    'package.json',
-    'README.md',
-    'README.en.md',
-    'README.zh-CN.md',
-    'AGENTS.md',
-    'src/index.js',
-    'src/host/delete-session.mjs',
-    'scripts/build-client.mjs',
-    'scripts/smoke-ui.mjs',
-    'cordis.patch.yml',
-  ]
+test('public source artifacts contain no local workspace paths', async () => {
+  const files = ['package.json', 'README.md', 'README.en.md', 'README.zh-CN.md', 'AGENTS.md', 'src/index.js', 'src/host/delete-session.mjs', 'scripts/build-client.mjs', 'scripts/smoke-ui.mjs', 'cordis.patch.yml']
   const contents = (await Promise.all(files.map(read))).join('\n')
-
   assert.doesNotMatch(contents, /[A-Z]:[\\/]Users[\\/]/i)
   assert.doesNotMatch(contents, /Documents[\\/]Codex/i)
 })
 
-test('documentation uses the standard one-command bundle lifecycle and second confirmation', async () => {
-  const [english, chinese, agents] = await Promise.all([
-    read('README.en.md'),
-    read('README.md'),
-    read('AGENTS.md'),
-  ])
-  const defaultVersion = chinese.match(/dsh-chat-manager@(\d+\.\d+\.\d+(?:-beta\.\d+)?)/)?.[1]
-  const packageVersion = JSON.parse(await read('package.json')).version
-  assert.equal(english.match(/dsh-chat-manager@(\d+\.\d+\.\d+(?:-beta\.\d+)?)/)?.[1], defaultVersion)
-  if (packageVersion.includes('-')) {
-    assert.match(defaultVersion, /^\d+\.\d+\.\d+$/)
-    assert.notEqual(defaultVersion, packageVersion)
-  } else {
-    assert.equal(defaultVersion, packageVersion)
-  }
-  const releaseVersion = packageVersion.replaceAll('.', '\\.')
-  for (const document of [chinese, english, agents]) {
-    assert.match(document, /dsh-chat-manager@\d+\.\d+\.\d+/)
-    assert.ok(document.includes(`dsh-chat-manager@${packageVersion}`))
-    if (!packageVersion.includes('-')) assert.doesNotMatch(document, /dsh-chat-manager@\d+\.\d+\.\d+-beta\.\d+/)
-  }
-  assert.match(chinese, /再次\s*确认/)
-  assert.match(chinese, /永久删除无法撤销/)
-  assert.match(chinese, /raw\.githubusercontent\.com\/WSL043\/dsh-chat-manager\/main\/docs\/assets\/confirm-delete\.png/)
-  assert.match(chinese, /raw\.githubusercontent\.com\/WSL043\/dsh-chat-manager\/main\/docs\/assets\/archive-manager\.png/)
-  assert.match(english, /second confirmation/i)
-  assert.match(english, /permanent deletion cannot be undone/i)
-  assert.match(english, /img\.shields\.io\/npm\/dt\/dsh-chat-manager/)
-  assert.match(chinese, /img\.shields\.io\/npm\/dt\/dsh-chat-manager/)
-  assert.doesNotMatch(`${english}\n${chinese}`, /img\.shields\.io\/npm\/d(?:m|w|y)\/dsh-chat-manager/)
-  assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-chat-manager\/main\/docs\/assets\/confirm-delete\.en\.png/)
-  assert.match(english, /raw\.githubusercontent\.com\/WSL043\/dsh-chat-manager\/main\/docs\/assets\/archive-manager\.en\.png/)
-  assert.doesNotMatch(`${chinese}\n${english}`, /\birm\b|install\.ps1/iu)
-  assert.match(agents, /Never delete a session as an installation test/)
-  assert.match(agents, /dsh\.bundle/)
-  assert.match(chinese, /正在运行的任务会先停止/)
-  assert.match(english, /running work is stopped/i)
-  assert.match(chinese, /不重载整个 DSH 页面/)
-  assert.match(english, /without reloading\s+the whole DSH page/i)
-  assert.match(chinese, /DSH-Portable/)
-  assert.match(english, /DSH-Portable/)
-  assert.match(chinese, new RegExp(`raw\\.githubusercontent\\.com/WSL043/dsh-chat-manager/v${releaseVersion}/AGENTS\\.md`))
-  assert.match(english, new RegExp(`raw\\.githubusercontent\\.com/WSL043/dsh-chat-manager/v${releaseVersion}/AGENTS\\.md`))
-  assert.doesNotMatch(`${chinese}\n${english}`, /raw\.githubusercontent\.com\/WSL043\/dsh-chat-manager\/main\/AGENTS\.md/)
-  for (const document of [chinese, english]) {
-    assert.match(document, /dsh plugin --profile web add/u)
-    assert.match(document, /dsh plugin --profile web remove/u)
-  }
-})
-
-test('public-facing copy describes the product without exposing maintenance mechanics', async () => {
-  const [english, chinese, publishWorkflow] = await Promise.all([
-    read('README.en.md'),
-    read('README.md'),
-    read('.github/workflows/publish.yml'),
-  ])
-  const releaseNotesStart = publishWorkflow.indexOf('- name: Write release notes')
-  const releaseNotesEnd = publishWorkflow.indexOf('- name: Publish immutable npm package')
-  const releaseNotes = publishWorkflow.slice(releaseNotesStart, releaseNotesEnd)
-
-  assert.ok(releaseNotesStart >= 0 && releaseNotesEnd > releaseNotesStart, 'publish workflow must define release notes')
-  for (const document of [chinese, english, releaseNotes]) {
-    assert.doesNotMatch(document, /GitHub Actions|每\s*6\s*小时|every six hours|隔离安装|isolated install|smoke acceptance|fail[- ]closed|自动兼容|Compatibility autopilot/i)
-  }
-  const compatibility = JSON.parse(await read('compatibility.json'))
-  const isPreviewPackage = /-beta\.\d+$/.test(JSON.parse(await read('package.json')).version)
-  if (!isPreviewPackage) for (const version of compatibility.releaseTargets) {
-    assert.ok(chinese.includes(version), 'Chinese installation guide names the qualified release target')
-    assert.ok(english.includes(version), 'English installation guide names the qualified release target')
-  }
-  assert.match(chinese, /插件.*添加插件/)
-  assert.match(english, /Plugins.*Add plugin/)
-  assert.match(releaseNotes, /永久删除不可撤销/)
-  assert.match(releaseNotes, /Permanent deletion cannot be undone/)
-  assert.match(releaseNotes, /dsh plugin --profile web add dsh-chat-manager@\$\{RELEASE_VERSION\}/)
-  assert.doesNotMatch(releaseNotes, /\birm\b|install\.ps1|powershell/i)
-})
-
-test('bundle uses official session slots without replacing the workspace', async () => {
+test('candidate source contributes public slots without replacing the workspace', async () => {
   const patch = await read('cordis.patch.yml')
   assert.doesNotMatch(patch, /disabled:\s*true/)
-  const client = await read('lib/client.js')
+  const client = buildOfficialSlotClient()
   assert.match(client, /sidebar\.workspaces\.session\.menu\.item/)
-  assert.doesNotMatch(client, /new UiWorkspaceService\(/)
-  assert.doesNotMatch(client, /slots.provideRoot\(/)
+  assert.match(client, /settings\.section/)
+  assert.doesNotMatch(client, /new UiWorkspaceService\(|slots\.provideRoot\(/)
   assert.match(patch, /id:\s*ui-workspace-session-delete[\s\S]*name:\s*['"]?dsh-chat-manager/)
 })
 
-test('host bundle mounts restore and archived-history search routes', async () => {
+test('host mounts cleanup and archived-history search without a duplicate restore route', async () => {
   const source = await read('src/index.js')
-
   assert.match(source, /inject = \[[^\]]*'workspaceRegistry'/s)
-  assert.match(source, /path: '\/plugins\/dsh-session-delete\/restore'/)
+  assert.doesNotMatch(source, /path: '\/plugins\/dsh-session-delete\/restore'/)
   assert.match(source, /path: '\/plugins\/dsh-session-delete\/archive-search'/)
-  assert.match(source, /restoreArchivedSession/)
-  assert.match(source, /searchArchivedSessions/)
+  assert.doesNotMatch(source, /installAgentHandleTracker/)
 })

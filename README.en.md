@@ -1,119 +1,64 @@
-<div align="center">
-
 # DSH Chat Manager
 
-**Manage DeepSeek Harness chat history from the native sidebar: search archives, restore sessions, and delete safely.**
+**This branch prepares the independent v2 candidate `2.0.0-alpha.1`. It passed isolated Windows UI acceptance on official Alpha2 and remains unpublished.**
+The existing published release is [1.5.19](https://github.com/WSL043/dsh-chat-manager/releases/tag/v1.5.19).
+This working tree is a different candidate and inherits none of that release's RC or old Portable compatibility claims.
 
-[![Release](https://img.shields.io/github/v/release/WSL043/dsh-chat-manager?display_name=tag&style=flat-square)](https://github.com/WSL043/dsh-chat-manager/releases/latest)
-[![Checks](https://img.shields.io/github/actions/workflow/status/WSL043/dsh-chat-manager/ci.yml?branch=main&label=checks&style=flat-square)](https://github.com/WSL043/dsh-chat-manager/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/dsh-chat-manager?style=flat-square)](https://www.npmjs.com/package/dsh-chat-manager)
-[![total npm downloads](https://img.shields.io/npm/dt/dsh-chat-manager?style=flat-square&label=total%20downloads)](https://www.npmjs.com/package/dsh-chat-manager)
-[![DSH](https://img.shields.io/badge/DSH-compatible-2f81f7?style=flat-square)](#compatibility)
-[![License](https://img.shields.io/github/license/WSL043/dsh-chat-manager?style=flat-square)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/WSL043/dsh-chat-manager?style=flat-square&label=stars)](https://github.com/WSL043/dsh-chat-manager/stargazers)
-[![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com)
+[简体中文](README.md) · [Unreleased scope](docs/UNRELEASED-v2.md) · [Safety boundary](#safety-boundary)
 
-[中文](README.md) · [Install](#install) · [Use](#use) · [Safety](#safety-boundary)
+## v2 scope
 
-</div>
+Official DSH owns normal session browsing, search, archive, stop-and-archive and unarchive.
+This plugin adds one public-slot settings page for archive content search and cleanup:
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/hero.en.png" alt='DeepSeek Harness chat history and archived session manager with search, restore, and safe permanent deletion'>
-</p>
+- Search current user and assistant messages within archived IDs before applying the result limit, with plain-text snippets.
+- Keep a four-concurrent-scan fallback when the optional full-text index is disabled. At most 20 results are returned; cancelling or changing a query stops subsequent batches.
+- Restore through the official public unarchive operation, preserving the recorded workspace position.
+- The settings page and archived row menu share a second confirmation naming the exact session. Cancellation sends no delete request.
+- Permanent deletion requires an archived, unloaded local session in current JSONL format and an exclusive official persistence write handle.
+  Loaded idle/running sessions, other writers, migration-required and unknown formats are refused.
 
-## Install
+Stopping work or archiving does not guarantee that the host unloaded the session.
+The plugin does not stop or dispose another component's Agent and does not migrate sessions for deletion.
+After an operation it refreshes public lists; navigation stays with official DSH.
 
-**DSH-Portable ships with this plugin preinstalled.** Enable or uninstall it on the Plugins page; other DSH users can install it below. ([About DSH-Portable](https://github.com/WSL043/DSH-Portable))
+This is an independent plugin. This work does not preinstall it into official Desktop 1.x or modify an official ASAR.
 
-### Official plugin page (recommended)
+## Candidate compatibility boundary
 
-1. Open **Plugins → Add plugin** in DSH.
-2. Paste this line into **Package name or address**, then select Install:
+<!-- dsh-compatibility -->
+The fixed v2 target is DeepSeek Harness `0.2.2-alpha.2` commit
+`f3803c96974ad4a94195fb97e5c637e9c2a3afe3` with Cordis `4.0.6-alpha.1`. Isolated Windows UI acceptance passed on that official Alpha2. No RC or old Portable baseline is claimed.
+The test used generated sessions; existing user installations and real-model calls were not validated.
+<!-- /dsh-compatibility -->
 
-```text
-dsh-chat-manager@1.5.19
-```
+For RC3, continue using the published `dsh-chat-manager@1.5.19`; this v2 candidate remains unpublished.
 
-3. Follow the page result; refresh or restart only when requested.
+## Install, update and uninstall
 
-See [Compatibility](#compatibility) for supported DSH cores.
+Do not install this working tree or unpublished candidate into a daily profile.
+For the existing published version, first identify the target DSH and profile, then follow the fixed
+[1.5.19 installation guide](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.19/AGENTS.md)
+for `dsh-chat-manager@1.5.19`. The official **Plugins → Add plugin** page accepts exact versions.
+Do not infer publication or host suitability from this branch's package.json.
 
-### Terminal (optional)
-
-For official DSH Desktop, register its bundled command through **Manage dsh Command…** and launch it once to initialize the profile; fully quit the app before using `desktop`. DSH-Portable 0.x and the Web profile use `web`:
-
-```sh
-dsh plugin --profile desktop add dsh-chat-manager@1.5.19
-dsh plugin --profile web add dsh-chat-manager@1.5.19
-```
-
-For Agent installation, use the fixed-version [AGENTS.md](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.19/AGENTS.md).
-
-## Use
-
-### Browse, search, and restore archives
-
-Select the archive icon in the sidebar header to browse archived sessions, search by name, workspace, or conversation, and select **Restore** to return a session to its original workspace. Search is limited to current user and assistant messages in archived sessions.
-
-The archive settings page groups sessions in cards with a short introduction. Action buttons wrap in narrow windows to leave room for session titles.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/archive-manager.en.png" width="600" alt='DeepSeek Harness native archive page with search and restore'>
-  <br><sub>Native DSH archive page</sub>
-</p>
-
-Stock DSH keeps its official archive page and adds the Delete permanently menu action. DSH-Portable's settings extension also adds archive search, restore, and permanent deletion; disabling the plugin restores the official views.
-
-### Delete permanently
-
-Click **⋯** beside a session in the sidebar and choose the red **Delete permanently**; check the session name in the dialog, then click **Confirm permanent deletion**—or cancel.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/session-menu.en.png" width="450" alt="Delete permanently in the DSH sidebar session menu">
-</p>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/WSL043/dsh-chat-manager/main/docs/assets/confirm-delete.en.png" width="382" alt='DSH second confirmation dialog for permanent session deletion'>
-  <br><sub>Permanent deletion cannot be undone; the dialog identifies the target session.</sub>
-</p>
-
-Running work is stopped and allowed to settle before deletion. On success, the session list updates without reloading the whole DSH page.
+Install, update and uninstall only the selected plugin layer; preserve sessions, unrelated plugins and user configuration.
+Restart DSH only with the user's permission. Remove the plugin through the official plugin page; uninstalling does not delete sessions.
+Agents must also follow the installation protections in [AGENTS.md](AGENTS.md).
 
 ## Safety boundary
 
-> [!WARNING]
-> Permanent deletion cannot be undone. Check the session name and back up anything you need to keep.
+**Permanent deletion cannot be undone.** Verify the named target and back up anything needed before confirming.
+The plugin validates and removes only the confirmed session's independent JSONL directory.
+Uncertain paths, identity or writer ownership are refused. Incomplete cleanup retains the quarantine and is reported;
+a failed archive-marker update remains visible.
 
-The plugin validates and removes only the explicitly confirmed session directory within DSH's default per-session JSONL store and lifecycle boundary. DSH exposes no public deletion API; a second confirmation is mandatory, and cancelling sends no deletion request.
+This is not secure erasure. External attachments, caches, logs, backups, cloud copies, other sessions and non-JSONL stores are outside its scope.
+A destructive acceptance test requires a disposable fixture session explicitly selected and confirmed by the user.
 
-Deletion does not cover other sessions, plugin data, external attachments, caches, logs, backups, or cloud copies. Non-JSONL storage or hosts without a safe way to stop work are refused; operating-system cleanup failures are reported rather than treated as success.
+## Feedback and license
 
-This unofficial community plugin is not affiliated with or endorsed by DeepSeek. It is provided under the [MIT License](LICENSE), without warranty.
+[Report an issue](https://github.com/WSL043/dsh-chat-manager/issues/new?template=bug-report.yml) ·
+[Security](SECURITY.md) · [MIT](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-## Compatibility
-
-<!-- dsh-compatibility -->
-This release supports DeepSeek Harness `0.2.2-alpha.2`, `0.2.1-rc.4`, `0.2.1-rc.3`, `0.2.1-rc.2`, `0.2.1-rc.1`.
-<!-- /dsh-compatibility -->
-
-## Update and uninstall
-
-Use the official **Plugins** page to update or uninstall. If no update action is offered, enter the target `package@version` under **Add plugin**. For terminal updates, install the target version; uninstall with:
-
-```sh
-dsh plugin --profile web remove dsh-chat-manager
-```
-
-DSH-Portable 0.x and Web use the `web` profile. For official DSH Desktop, fully quit the app and use the `desktop` profile as described above. Uninstall removes only this plugin and leaves existing sessions untouched.
-
-## Support and license
-
-Use the [bug report form](https://github.com/WSL043/dsh-chat-manager/issues/new?template=bug-report.yml) for reproducible problems or the [feature request form](https://github.com/WSL043/dsh-chat-manager/issues/new?template=feature-request.yml) for suggestions. Report security issues privately as described in [SECURITY.md](SECURITY.md).
-
-MIT. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the modified upstream client and license notice.
-
-## Quality
-
-Each declared supported core is checked in the live interface.
-
-[中文](README.md)
+This unofficial community plugin is not affiliated with or endorsed by DeepSeek.

@@ -94,3 +94,11 @@ test('fixture smoke ignores only DSH RPC endpoints absent from the isolated fixt
   ), false)
   assert.equal(isIgnorableFixtureConsoleError('session deletion failed'), false)
 })
+
+test('smoke implementation keeps default cancellation separate from fixture-only intercepted success', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const source = await readFile(new URL('../scripts/smoke-ui.mjs', import.meta.url), 'utf8')
+  assert.match(source, /archiveActionPattern\('delete', options\.session\)/)
+  assert.match(source, /cancel unexpectedly sent a deletion request/)
+  assert.doesNotMatch(source, /__DSH_PORTABLE_SETTINGS__|#archived-sessions|archiveDialog|fixture-only overlay/)
+})

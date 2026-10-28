@@ -1,10 +1,9 @@
 # Third-party notices
 
-The distributed `lib/client.js` is a modified build of
-`@deepseek-ai/dsh-client-ui-workspace` versions `0.1.1-rc.2`, `0.2.2-alpha.2`
-and `0.1.6-alpha.2`. The compatibility factories preserve each host's workspace
-lifecycle. Patch sources are available in `scripts/build-client.mjs` and
-`scripts/build-modern-client.mjs`.
+The v2 client uses the public DeepSeek Harness extension interfaces and does
+not include or replace an official workspace build. Earlier releases used
+workspace compatibility factories; their history and the upstream MIT notice
+are retained. DeepSeek provides the official workspace, session and UI APIs.
 
 DeepSeek Harness is licensed under the MIT License:
 
