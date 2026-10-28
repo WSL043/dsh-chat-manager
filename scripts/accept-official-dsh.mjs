@@ -176,7 +176,8 @@ async function installOwnedAcceptanceFixture(ctx, config) {
     handles.set(key, handle)
     // Let the public title service produce its complete, pinned user-title event.
     ctx.sessionTitle.rename(handle.agent.session, spec.title)
-    if (key === 'cold' || key === 'neighbor') {
+    // A completed turn makes idle a real non-blank history row for the UI click.
+    if (key === 'cold' || key === 'neighbor' || key === 'idle') {
       handle.agent.followup(message(spec.prompt))
       await handle.agent.whenIdle()
     }

@@ -28,6 +28,8 @@ test('generated own-agent fixture is source-only and never intercepts another ow
   assert.match(source, /phase: 'failed'/)
   assert.match(source, /handle\.dispose\(\)/)
   assert.match(source, /stopActivity: true/)
+  assert.match(source, /if \(key === 'cold' \|\| key === 'neighbor' \|\| key === 'idle'\) \{\s*handle\.agent\.followup\(message\(spec\.prompt\)\)\s*await handle\.agent\.whenIdle\(\)/)
+  assert.match(source, /if \(key === 'cold' \|\| key === 'neighbor'\) \{\s*await handle\.dispose\(\)/)
   assert.match(source, /fixture did not reach genuine running activity/)
   assert.doesNotMatch(source, /cordis\.original|agentHandles|requireState|setState|fetch\(/)
 })
