@@ -2,8 +2,8 @@
 
 # Agent maintenance and installation boundary
 
-This working tree prepares an independent v2 plugin. It is not the published
-1.5.19 package and must not inherit that release's RC or old Portable compatibility
+This working tree prepares an independent v2 plugin. It is not the npm `latest` stable
+package and must not inherit the stable line's RC or old Portable compatibility
 claims. This work does not preinstall a plugin into official Desktop 1.x or modify
 an official ASAR. Read [docs/UNRELEASED-v2.md](docs/UNRELEASED-v2.md) before maintenance.
 
@@ -14,9 +14,11 @@ an official ASAR. Read [docs/UNRELEASED-v2.md](docs/UNRELEASED-v2.md) before mai
 - Confirm the exact DSH installation and profile before any authorized plugin operation.
   Do not default to web when the user's target is desktop or unclear.
 - Do not install this unpublished candidate into a daily profile. For an explicitly
-  requested existing release, use the fixed published dsh-chat-manager@1.5.19 guide:
-  https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.19/AGENTS.md
-  Verify registry publication and that release's host requirements first.
+  requested stable release, consult the dynamic [stable support window](https://github.com/WSL043/dsh-chat-manager/blob/stable/README.md)
+  and [stable installation guide](https://github.com/WSL043/dsh-chat-manager/blob/stable/AGENTS.md).
+  Resolve `dsh-chat-manager@latest` to its actual published npm version, verify its
+  peer requirements against the target DSH and profile, then install that exact
+  resolved version. Do not install a moving source branch.
 - Use the official plugin page or standard dsh.bundle lifecycle. Never replace the
   official workspace module or patch an official ASAR to install this plugin.
 - Preserve all sessions, unrelated plugins, pairing and user-owned profile changes.
@@ -62,6 +64,7 @@ requested version, changes, rollback state and what remains unverified. Never di
 TLS validation, delete a profile, replace unrelated packages or attempt a destructive
 session test as recovery.
 
-The old compatibility autopilot is not the v2 admission policy. It assumes five
-cores and older release conventions; do not run it to widen this fixed candidate.
-Publication and lock refresh remain separate maintainer actions.
+Stable maintenance checks upstream every 3 hours and publishes compatible patches
+to npm and GitHub Releases only after acceptance. Failures block publication and
+report an error. This process does not define v2 admission or publish or widen this
+fixed candidate; v2 publication and lock refresh remain separate maintainer actions.

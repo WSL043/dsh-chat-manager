@@ -1,7 +1,7 @@
 # DSH Chat Manager · 聊天与会话管理器
 
 **本分支正在准备独立插件 v2 候选 `2.0.0-alpha.1`，已通过官方 Alpha2 Windows 隔离 UI 验收，尚未发布。**
-现有发布版为 [1.5.19](https://github.com/WSL043/dsh-chat-manager/releases/tag/v1.5.19)。
+稳定发布版见 [最新正式 Release](https://github.com/WSL043/dsh-chat-manager/releases/latest)，安装使用 npm `latest`。
 本工作树不是该发布包，也不继承它的 RC 或旧 Portable 兼容承诺。
 
 [English](README.en.md) · [未发布说明](docs/UNRELEASED-v2.md) · [安全边界](#安全边界)
@@ -32,18 +32,20 @@ v2 的固定目标为 DeepSeek Harness `0.2.2-alpha.2` 提交
 验收使用生成的测试会话，未验证用户现有安装或真实模型调用。
 <!-- /dsh-compatibility -->
 
-RC3 请继续使用已发布的 `dsh-chat-manager@1.5.19`；此 v2 候选仍未发布。
+稳定版支持窗口见 [stable 维护分支](https://github.com/WSL043/dsh-chat-manager/blob/stable/README.md)；此 v2 候选仍未发布，不继承稳定版兼容承诺。
 
 ## 安装、更新与卸载
 
-请勿将本工作树或未发布候选安装到日常 profile。需要现有发布版时，先核对目标 DSH
-和 profile，再按固定 [1.5.19 安装指南](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.19/AGENTS.md)
-安装已发布的 `dsh-chat-manager@1.5.19`。官方 **插件 → 添加插件** 页面可安装指定版本；
+请勿将本工作树或未发布候选安装到日常 profile。需要稳定版时，先核对目标 DSH、profile、`latest` 解析出的实际版本及其 peer 要求，再按
+[stable 安装指南](https://github.com/WSL043/dsh-chat-manager/blob/stable/AGENTS.md)操作。
+在官方 **插件 → 添加插件** 页面输入 `dsh-chat-manager@latest`；
 不要仅凭本分支 package.json 推断包已发布或适合当前宿主。
 
 安装、更新或卸载只操作明确选定的插件层，保留会话、其他插件和用户配置。
 仅在用户允许后重启 DSH。卸载通过官方插件页面移除本插件；卸载本身不删除会话。
-Agent 操作须遵循本分支 [AGENTS.md](AGENTS.md) 的安装保护。
+Agent 操作须遵循本分支 [AGENTS.md](AGENTS.md) 和上述 stable 指南的安装保护，执行安装时固定已解析的确切版本。
+
+稳定维护每 3 小时检测上游；兼容补丁通过验收后自动发布到 npm 和 GitHub Releases，失败则停发并报告错误。此流程不发布或扩大 v2 候选的支持范围。
 
 ## 安全边界
 
