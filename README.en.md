@@ -1,7 +1,7 @@
 # DSH Chat Manager
 
 **This branch prepares the independent v2 candidate `2.0.0-alpha.1`. It passed isolated Windows UI acceptance on official Alpha2 and remains unpublished.**
-The existing published release is [1.5.19](https://github.com/WSL043/dsh-chat-manager/releases/tag/v1.5.19).
+See the [latest stable Release](https://github.com/WSL043/dsh-chat-manager/releases/latest); install the npm `latest` stable tag.
 This working tree is a different candidate and inherits none of that release's RC or old Portable compatibility claims.
 
 [简体中文](README.md) · [Unreleased scope](docs/UNRELEASED-v2.md) · [Safety boundary](#safety-boundary)
@@ -32,19 +32,21 @@ The fixed v2 target is DeepSeek Harness `0.2.2-alpha.2` commit
 The test used generated sessions; existing user installations and real-model calls were not validated.
 <!-- /dsh-compatibility -->
 
-For RC3, continue using the published `dsh-chat-manager@1.5.19`; this v2 candidate remains unpublished.
+See the [stable maintenance branch](https://github.com/WSL043/dsh-chat-manager/blob/stable/README.en.md) for its support window. This v2 candidate remains unpublished and inherits no stable compatibility claims.
 
 ## Install, update and uninstall
 
 Do not install this working tree or unpublished candidate into a daily profile.
-For the existing published version, first identify the target DSH and profile, then follow the fixed
-[1.5.19 installation guide](https://raw.githubusercontent.com/WSL043/dsh-chat-manager/v1.5.19/AGENTS.md)
-for `dsh-chat-manager@1.5.19`. The official **Plugins → Add plugin** page accepts exact versions.
+For the stable release, check the target DSH, profile, actual version resolved by `latest`, and its peer requirements.
+Follow the [stable installation guide](https://github.com/WSL043/dsh-chat-manager/blob/stable/AGENTS.md)
+and enter `dsh-chat-manager@latest` on the official **Plugins → Add plugin** page.
 Do not infer publication or host suitability from this branch's package.json.
 
 Install, update and uninstall only the selected plugin layer; preserve sessions, unrelated plugins and user configuration.
 Restart DSH only with the user's permission. Remove the plugin through the official plugin page; uninstalling does not delete sessions.
-Agents must also follow the installation protections in [AGENTS.md](AGENTS.md).
+Agents must follow [AGENTS.md](AGENTS.md) and the stable guide above, pinning the verified resolved version when installing.
+
+Stable maintenance checks upstream every hour. Compatibility patches publish automatically to npm and GitHub Releases after acceptance; failures block publication and report an error. This process does not publish or widen support for the v2 candidate.
 
 ## Safety boundary
 

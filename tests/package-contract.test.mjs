@@ -41,11 +41,15 @@ test('build has no dependency or legacy alias while behavior tools retain their 
   for (const file of manifest.files.filter(file => !file.includes('*'))) await access(new URL('../' + file, import.meta.url))
 })
 
-test('candidate guides distinguish unpublished v2, published 1.5.19 and destructive-operation boundaries', async () => {
+test('candidate guides distinguish unpublished v2, stable installation and destructive-operation boundaries', async () => {
   const [zh, en, agents, unreleased] = await Promise.all(['README.md', 'README.en.md', 'AGENTS.md', 'docs/UNRELEASED-v2.md'].map(read))
   for (const guide of [zh, en, agents]) {
     assert.match(guide, /2\.0\.0-alpha\.1/)
-    assert.match(guide, /1\.5\.19/)
+    assert.ok(guide.includes('dsh-chat-manager@latest'))
+    const links = [...guide.matchAll(/\]\((https:\/\/[^)]+)\)/gu)].map(([, href]) => new URL(href))
+    const stableFiles = links.filter(link => link.origin === 'https://github.com').map(link => link.pathname)
+    assert.ok(stableFiles.some(path => ['/WSL043/dsh-chat-manager/blob/stable/README.md', '/WSL043/dsh-chat-manager/blob/stable/README.en.md'].includes(path)))
+    assert.ok(stableFiles.includes('/WSL043/dsh-chat-manager/blob/stable/AGENTS.md'))
     assert.match(guide, /0\.2\.2-alpha\.2/)
     assert.doesNotMatch(guide, /正在运行的任务会先停止|Running work will be stopped first|every declared core.*verified/i)
   }
@@ -63,7 +67,7 @@ test('candidate guides distinguish unpublished v2, published 1.5.19 and destruct
 test('stable compatibility automation stays separate from the v2 candidate', async () => {
   const workflow = await read('.github/workflows/upstream-compatibility.yml')
 
-  assert.match(workflow, /cron:\s*'17 \*\/3 \* \* \*'/)
+  assert.match(workflow, /cron:\s*'17 \* \* \* \*'/)
   assert.match(workflow, /selectLatestDshVersions\(Object\.keys\(registry\.versions\)\)/)
   assert.match(workflow, /npm integrity check failed for DSH/)
   assert.match(workflow, /releases\/tags\/dsh-v\$\{version\}/)
