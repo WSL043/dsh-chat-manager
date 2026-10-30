@@ -46,7 +46,7 @@ Install, update and uninstall only the selected plugin layer; preserve sessions,
 Restart DSH only with the user's permission. Remove the plugin through the official plugin page; uninstalling does not delete sessions.
 Agents must follow [AGENTS.md](AGENTS.md) and the stable guide above, pinning the verified resolved version when installing.
 
-Stable maintenance checks upstream every 3 hours. Compatibility patches publish automatically to npm and GitHub Releases after acceptance; failures block publication and report an error. This process does not publish or widen support for the v2 candidate.
+Stable maintenance checks upstream every hour. Compatibility patches publish automatically to npm and GitHub Releases after acceptance; failures block publication and report an error. This process does not publish or widen support for the v2 candidate.
 
 ## Safety boundary
 

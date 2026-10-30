@@ -64,7 +64,7 @@ requested version, changes, rollback state and what remains unverified. Never di
 TLS validation, delete a profile, replace unrelated packages or attempt a destructive
 session test as recovery.
 
-Stable maintenance checks upstream every 3 hours and publishes compatible patches
+Stable maintenance checks upstream every hour and publishes compatible patches
 to npm and GitHub Releases only after acceptance. Failures block publication and
 report an error. This process does not define v2 admission or publish or widen this
 fixed candidate; v2 publication and lock refresh remain separate maintainer actions.

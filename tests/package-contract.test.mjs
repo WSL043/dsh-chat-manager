@@ -65,7 +65,7 @@ test('candidate guides distinguish unpublished v2, stable installation and destr
 test('stable compatibility automation stays separate from the v2 candidate', async () => {
   const workflow = await read('.github/workflows/upstream-compatibility.yml')
 
-  assert.match(workflow, /cron:\s*'17 \*\/3 \* \* \*'/)
+  assert.match(workflow, /cron:\s*'17 \* \* \* \*'/)
   assert.match(workflow, /selectLatestDshVersions\(Object\.keys\(registry\.versions\)\)/)
   assert.match(workflow, /npm integrity check failed for DSH/)
   assert.match(workflow, /releases\/tags\/dsh-v\$\{version\}/)
