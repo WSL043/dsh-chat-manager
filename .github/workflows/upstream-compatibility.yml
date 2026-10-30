@@ -16,6 +16,9 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: write
     outputs:
       changed: ${{ steps.targets.outputs.changed }}
       publish_needed: ${{ steps.targets.outputs.publish_needed }}
@@ -26,7 +29,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.ref }}
+          fetch-depth: 0
       - uses: pnpm/action-setup@v6
         with:
           version: 11.19.0
@@ -35,20 +39,60 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - name: Resolve the registry's newest three versions and authenticate immutable releases
-        id: targets
+      - name: Resolve stable maintenance independently of development next
+        id: source
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          automatic_publish="$(node -p 'require("./package.json").publishConfig?.tag !== "next"')"
-          if [ "$automatic_publish" != true ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "publish_needed=false" >> "$GITHUB_OUTPUT"
-            echo "Development next candidate: automatic compatibility publication is held." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          [[ "$GITHUB_REF" == refs/heads/main || "$GITHUB_REF" == refs/heads/stable ]]
+          channel="$(node -p 'require("./package.json").publishConfig?.tag || "latest"')"
+          echo "forwarded=false" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/heads/stable || "$channel" == next ]]; then
+            name="$(node -p 'require("./package.json").name')"
+            latest="$(npm view "$name" dist-tags.latest)"
+            [[ "$latest" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+            gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$latest" \
+              | jq -e --arg tag "v$latest" '.tag_name == $tag and .draft == false and .prerelease == false' >/dev/null
+            git fetch origin "refs/tags/v$latest:refs/tags/v$latest" refs/heads/stable:refs/remotes/origin/stable
+            source=HEAD
+            if [[ "$GITHUB_REF" == refs/heads/main ]]; then source=refs/remotes/origin/stable; fi
+            anchor="$(node -p 'require("./.github/stable-maintenance.json").sourceCommit')"
+            [[ "$anchor" =~ ^[0-9a-f]{40}$ ]]
+            git merge-base --is-ancestor "$anchor" "v$latest"
+            git merge-base --is-ancestor "v$latest" "$source"
+            git diff --exit-code "$anchor" "$source" -- src assets locale cordis.patch.yml tsdown.config.mjs scripts/build-client.mjs
+            git show "$anchor:package.json" > "$RUNNER_TEMP/stable-anchor.json"
+            git show "v$latest:package.json" > "$RUNNER_TEMP/stable-baseline.json"
+            git show "$source:package.json" > "$RUNNER_TEMP/stable-maintenance.json"
+            PACKAGE_NAME="$name" LATEST_VERSION="$latest" node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { validateStableMaintenance, authenticateStableArchive } from './scripts/stable-maintenance.mjs';
+          const bootstrap = JSON.parse(readFileSync('.github/stable-maintenance.json', 'utf8'));
+          const anchor = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/stable-anchor.json', 'utf8'));
+          if (anchor.version !== bootstrap.version) throw new Error('stable bootstrap source version changed');
+          const baseline = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/stable-baseline.json', 'utf8'));
+          validateStableMaintenance({ latest: bootstrap.version, expectedName: process.env.PACKAGE_NAME, baseline: anchor, maintenance: baseline });
+          await authenticateStableArchive({ name: process.env.PACKAGE_NAME, version: process.env.LATEST_VERSION, bootstrap });
+          const read = file => JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/' + file, 'utf8'));
+          validateStableMaintenance({ latest: process.env.LATEST_VERSION, expectedName: process.env.PACKAGE_NAME,
+            baseline: read('stable-baseline.json'), maintenance: read('stable-maintenance.json') });
+          NODE
+            if [[ "$GITHUB_REF" == refs/heads/main ]]; then
+              gh workflow run upstream-compatibility.yml --repo "$GITHUB_REPOSITORY" --ref stable
+              echo "forwarded=true" >> "$GITHUB_OUTPUT"
+              echo "Development next is isolated; stable compatibility maintenance was dispatched." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
+      - name: Resolve the registry's newest three versions and authenticate immutable releases
+        id: targets
+        if: steps.source.outputs.forwarded != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
           node --input-type=module <<'NODE'
           import { createHash } from 'node:crypto';
           import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
@@ -155,7 +199,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.ref }}
       - uses: pnpm/action-setup@v6
         with:
           version: 11.19.0
@@ -196,7 +240,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.ref }}
           fetch-depth: 0
       - uses: pnpm/action-setup@v6
         with:
@@ -240,13 +284,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main
-          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+          git fetch origin "$GITHUB_REF_NAME"
+          test "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA"
           if [ "$CHANGED" = true ] && gh release view "v$PLUGIN_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "v$PLUGIN_VERSION already exists; refusing replacement." >&2
             exit 1
           fi
-      - name: Commit accepted compatibility metadata to main
+      - name: Commit accepted compatibility metadata to its maintenance branch
         if: needs.prepare.outputs.changed == 'true'
         env:
           DSH_VERSIONS: ${{ needs.prepare.outputs.dsh_versions }}
@@ -257,7 +301,7 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -- AGENTS.md README.md README.en.md THIRD_PARTY_NOTICES.md compatibility.json lib/client.js package.json pnpm-lock.yaml pnpm-workspace.yaml
           git commit -m "chore: qualify the official latest five DSH cores"
-          git push origin HEAD:main
+          git push origin "HEAD:$GITHUB_REF_NAME"
       - name: Dispatch and await the trusted release workflow
         env:
           GH_TOKEN: ${{ github.token }}
@@ -266,7 +310,7 @@ jobs:
           set -euo pipefail
           request_id="compat-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           title="Release $request_id"
-          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref main \
+          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" \
             -f request_id="$request_id" -f release_kind=compatibility
           release_run=""
           for attempt in $(seq 1 90); do

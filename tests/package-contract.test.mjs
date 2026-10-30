@@ -60,7 +60,7 @@ test('candidate guides distinguish unpublished v2, published 1.5.19 and destruct
   assert.match(en, /official ASAR/)
 })
 
-test('legacy compatibility automation remains unchanged pending the v2 guard review', async () => {
+test('stable compatibility automation stays separate from the v2 candidate', async () => {
   const workflow = await read('.github/workflows/upstream-compatibility.yml')
 
   assert.match(workflow, /cron:\s*'17 \*\/3 \* \* \*'/)
@@ -75,8 +75,8 @@ test('legacy compatibility automation remains unchanged pending the v2 guard rev
   assert.match(workflow, /git add --[^\n]*AGENTS\.md[^\n]*README\.md[^\n]*README\.en\.md[^\n]*compatibility\.json/)
   assert.match(workflow, /scripts\/accept-official-dsh\.mjs/)
   assert.match(workflow, /git diff --binary \| sha256sum/)
-  assert.match(workflow, /test "\$\(git rev-parse origin\/main\)" = "\$GITHUB_SHA"/)
-  assert.match(workflow, /git push origin HEAD:main[\s\S]*gh workflow run publish\.yml/)
+  assert.match(workflow, /test "\$\(git rev-parse FETCH_HEAD\)" = "\$GITHUB_SHA"/)
+  assert.match(workflow, /git push origin "HEAD:\$GITHUB_REF_NAME"[\s\S]*gh workflow run publish\.yml/)
   assert.match(workflow, /release_kind=compatibility/)
   assert.match(workflow, /- name: Dispatch and await the trusted release workflow/)
   assert.match(workflow, /request_id="compat-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"/)

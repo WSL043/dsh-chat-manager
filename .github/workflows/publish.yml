@@ -45,6 +45,42 @@ jobs:
       npm_tag: ${{ steps.version.outputs.npm_tag }}
     steps:
       - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - name: Protect stable compatibility source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main || "$GITHUB_REF" == refs/heads/stable ]]
+          if [[ "$GITHUB_REF" == refs/heads/stable ]]; then
+            name="$(node -p 'require("./package.json").name')"
+            latest="$(npm view "$name" dist-tags.latest)"
+            [[ "$latest" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+            gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$latest" \
+              | jq -e --arg tag "v$latest" '.tag_name == $tag and .draft == false and .prerelease == false' >/dev/null
+            git fetch origin "refs/tags/v$latest:refs/tags/v$latest"
+            anchor="$(node -p 'require("./.github/stable-maintenance.json").sourceCommit')"
+            [[ "$anchor" =~ ^[0-9a-f]{40}$ ]]
+            git merge-base --is-ancestor "$anchor" "v$latest"
+            git merge-base --is-ancestor "v$latest" HEAD
+            git diff --exit-code "$anchor" HEAD -- src assets locale cordis.patch.yml tsdown.config.mjs scripts/build-client.mjs
+            git show "$anchor:package.json" > "$RUNNER_TEMP/stable-anchor.json"
+            git show "v$latest:package.json" > "$RUNNER_TEMP/stable-baseline.json"
+            PACKAGE_NAME="$name" LATEST_VERSION="$latest" node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { validateStableMaintenance, authenticateStableArchive } from './scripts/stable-maintenance.mjs';
+          const bootstrap = JSON.parse(readFileSync('.github/stable-maintenance.json', 'utf8'));
+          const anchor = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/stable-anchor.json', 'utf8'));
+          if (anchor.version !== bootstrap.version) throw new Error('stable bootstrap source version changed');
+          const baseline = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/stable-baseline.json', 'utf8'));
+          validateStableMaintenance({ latest: bootstrap.version, expectedName: process.env.PACKAGE_NAME, baseline: anchor, maintenance: baseline });
+          await authenticateStableArchive({ name: process.env.PACKAGE_NAME, version: process.env.LATEST_VERSION, bootstrap });
+          validateStableMaintenance({ latest: process.env.LATEST_VERSION, expectedName: process.env.PACKAGE_NAME,
+            baseline: JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/stable-baseline.json', 'utf8')),
+            maintenance: JSON.parse(readFileSync('package.json', 'utf8')) });
+          NODE
+          fi
       - uses: pnpm/action-setup@v6
         with:
           version: 11.19.0
@@ -53,11 +89,11 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - name: Require main and resolve version
+      - name: Require a release branch and resolve version
         id: version
         shell: bash
         run: |
-          test "$GITHUB_REF" = refs/heads/main
+          [[ "$GITHUB_REF" == refs/heads/main || "$GITHUB_REF" == refs/heads/stable ]]
           version="$(node -p "require('./package.json').version")"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]]
           echo "version=$version" >> "$GITHUB_OUTPUT"
