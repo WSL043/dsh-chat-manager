@@ -96,9 +96,11 @@ export function supportsOfficialSessionSlots(source) {
   const rowSignature = (() => {
     try { return findFunctionSignature(source, 'SessionNodeItem') } catch { return '' }
   })()
-  return rowSignature.includes('onRenameRequest, renderSlot, onReveal,')
+  const inlineMenu = rowSignature.includes('onRenameRequest, renderSlot, onReveal,')
     && source.includes('children: renderSlot("sidebar.workspaces.session.menu.item", {')
-    && source.includes('renderSlot("sidebar.workspaces.session.row.action", {')
+  const sharedMenu = rowSignature.includes('renderSlot, openSessionMenu,')
+    && source.includes('renderSlot("sidebar.workspaces.session.menu.item", target.value, { hookContext })')
+  return (inlineMenu || sharedMenu) && source.includes('renderSlot("sidebar.workspaces.session.row.action", {')
 }
 
 export function composeCompatibleClients(stableClient, previewClient, modernClient = undefined) {

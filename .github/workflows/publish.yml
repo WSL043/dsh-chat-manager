@@ -64,7 +64,9 @@ jobs:
             [[ "$anchor" =~ ^[0-9a-f]{40}$ ]]
             git merge-base --is-ancestor "$anchor" "v$latest"
             git merge-base --is-ancestor "v$latest" HEAD
-            git diff --exit-code "$anchor" HEAD -- src assets locale cordis.patch.yml tsdown.config.mjs scripts/build-client.mjs
+            git diff --exit-code "$anchor" HEAD -- src assets locale cordis.patch.yml tsdown.config.mjs lib/client.js scripts/build-modern-client.mjs scripts/official-session-actions.mjs scripts/archive-settings.mjs
+            build_sha="$(node -p 'require("./.github/stable-maintenance.json").buildClientSha256')"
+            test "$(git show HEAD:scripts/build-client.mjs | sha256sum | cut -d' ' -f1)" = "$build_sha"
             git show "$anchor:package.json" > "$RUNNER_TEMP/stable-anchor.json"
             git show "v$latest:package.json" > "$RUNNER_TEMP/stable-baseline.json"
             PACKAGE_NAME="$name" LATEST_VERSION="$latest" node --input-type=module <<'NODE'
