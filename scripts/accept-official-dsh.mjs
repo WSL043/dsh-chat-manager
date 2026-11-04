@@ -118,7 +118,17 @@ async function removeIsolatedOnboarding(page, dshVersion) {
   if (CURRENT_ONBOARDING_HOSTS.has(dshVersion)) {
     // The current onboarding shares the Settings root. Removing its DOM also
     // removes Settings; complete the visible, non-credential flow instead.
-    await page.getByRole('button', { name: /^(Continue|继续)$/ }).click()
+    const notice = page.getByRole('dialog', { name: /^(Internal Testing Notice|内测声明|Preview Notice|预览版说明)$/ })
+    const continueButton = page.getByRole('button', { name: /^(Continue|继续)$/ })
+    await continueButton.click()
+    // Wait for acknowledgement persistence before inspecting the workspace.
+    // Retry only its explicit retryable error; never remove a blocking dialog or accept it as closed.
+    if (!await notice.waitFor({ state: 'hidden', timeout: 5000 }).then(() => true, () => false)) {
+      const retryable = notice.getByText(/acknowledgement could not be saved|确认.*保存|保存.*确认/i)
+      if (!await retryable.isVisible()) throw new Error('Official first-run notice did not finish saving its acknowledgement')
+      await continueButton.click()
+      await notice.waitFor({ state: 'hidden', timeout: 10000 })
+    }
     // Later steps differ by core (API key step, sign-in step, or none): close whatever dialog is still open.
     for (let step = 0; step < 4; step += 1) {
       const dismiss = page.locator('[role="dialog"]:visible').last().getByRole('button', { name: /^(Configure later|稍后配置|Set up later|Close|关闭|Skip|跳过)$/ }).first()
