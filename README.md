@@ -1,6 +1,6 @@
 # DSH Chat Manager · 聊天与会话管理器
 
-**本分支正在准备独立插件 v2 候选 `2.0.0-alpha.1`，已通过官方 Alpha2 Windows 隔离 UI 验收，尚未发布。**
+**本分支正在准备独立插件 v2 候选 `2.0.0-alpha.1`，已通过官方 RC1 Windows 隔离 UI 验收，尚未发布。**
 稳定发布版见 [最新正式 Release](https://github.com/WSL043/dsh-chat-manager/releases/latest)，安装使用 npm `latest`。
 本工作树不是该发布包，也不继承它的 RC 或旧 Portable 兼容承诺。
 
@@ -26,9 +26,9 @@
 ## 候选兼容边界
 
 <!-- dsh-compatibility -->
-v2 的固定目标为 DeepSeek Harness `0.2.2-alpha.2` 提交
-`f3803c96974ad4a94195fb97e5c637e9c2a3afe3`，
-对应 Cordis `4.0.6-alpha.1`。已通过该官方 Alpha2 的 Windows 隔离 UI 验收；没有 RC 或旧 Portable 基线声明。
+v2 的固定目标为 DeepSeek Harness `0.2.2-rc.1` 提交
+`66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`，
+对应 Cordis `4.1.0`。官方 RC1 的 Windows 隔离 UI 验收已通过；不声明其他内核或旧 Portable 基线。
 验收使用生成的测试会话，未验证用户现有安装或真实模型调用。
 <!-- /dsh-compatibility -->
 
