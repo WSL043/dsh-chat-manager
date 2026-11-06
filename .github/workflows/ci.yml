@@ -106,11 +106,21 @@ jobs:
           name: chat-manager-${{ github.sha }}
           path: .candidate
       - run: pnpm exec playwright install --with-deps chromium
+      - name: Stage the fixed official CLI once for acceptance
+        shell: pwsh
+        env:
+          OFFICIAL_DSH_VERSION: ${{ matrix.dsh_version }}
+        run: |
+          $Runtime = Join-Path $env:RUNNER_TEMP 'chat-manager-official-runtime'
+          New-Item -ItemType Directory -Force -Path $Runtime | Out-Null
+          @{ private = $true; dependencies = @{ '@deepseek-ai/dsh' = $env:OFFICIAL_DSH_VERSION } } | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $Runtime 'package.json') -Encoding utf8
+          pnpm --dir $Runtime install --ignore-scripts --config.minimum-release-age=0
+          if ($LASTEXITCODE -ne 0) { throw 'Official acceptance runtime installation failed.' }
       - name: Verify archive, restore, cancel and confirmed deletion of the generated test session
         env:
           TEMP: ${{ runner.temp }}
           TMP: ${{ runner.temp }}
-          DSH_TEST_PNPM_ROOT: ${{ steps.acceptance-pnpm.outputs.dest }}/node_modules/pnpm
+          DSH_TEST_RUNTIME: ${{ runner.temp }}/chat-manager-official-runtime/node_modules/@deepseek-ai/dsh
           DSH_ACCEPTANCE_EVIDENCE_ROOT: ${{ runner.temp }}/dsh-chat-manager-evidence
         shell: pwsh
         run: |
