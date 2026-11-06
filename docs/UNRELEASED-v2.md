@@ -6,8 +6,8 @@ from this source before acceptance. Publication workflows remain unchanged and
 are not permission to publish. Do not install this working tree into a daily profile.
 
 The v2 source targets only the public contracts inspected at DeepSeek Harness
-0.2.2-alpha.2 commit f3803c96974ad4a94195fb97e5c637e9c2a3afe3.
-Isolated Windows UI acceptance passed on official Alpha2 using generated fixtures;
+0.2.2-rc.1 commit 66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db.
+RC1 isolated Windows UI acceptance passed using generated fixtures;
 existing user installations and real-model calls were not validated. The candidate
 remains unpublished. For RC3, continue using published 1.5.19; its RC or Portable
 compatibility promises do not carry over to this preparation.

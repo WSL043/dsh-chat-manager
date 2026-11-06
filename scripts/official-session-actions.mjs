@@ -84,7 +84,7 @@ export function registerOfficialSessionActions(ctx, React, ui) {
 }
 
 export function buildOfficialSlotClient() {
-  return `// DSH Chat Manager unreleased v2: public Alpha2 slots; no workspace copy.\nwindow.__ModuleLoader__.load({
+  return `// DSH Chat Manager unreleased v2: public DSH slots; no workspace copy.\nwindow.__ModuleLoader__.load({
   id: "dsh-chat-manager",
   factory: require => {
     const React = require("react");

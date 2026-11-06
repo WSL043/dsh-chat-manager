@@ -7,11 +7,11 @@ import { spawnSync } from 'node:child_process'
 import { parseOfficialAcceptanceArgs, buildAcceptanceFixtureSource, waitForAcceptanceFixture, sanitizeAcceptanceDiagnostic, resolveOfficialAcceptanceCommand, resolveAcceptanceEvidenceRoot } from '../scripts/accept-official-dsh.mjs'
 import { ARCHIVE_SETTINGS_ID, ARCHIVE_SETTINGS_LABEL, archiveActionPattern, openPluginManager } from '../scripts/accept-modern-official.mjs'
 
-test('official candidate acceptance defaults to fixed Alpha2 and requires a candidate package', () => {
-  assert.deepEqual(parseOfficialAcceptanceArgs(['--package', '/synthetic/plugin.tgz']), { dshVersion: '0.2.2-alpha.2', packagePath: '/synthetic/plugin.tgz', port: 14191 })
-  assert.deepEqual(parseOfficialAcceptanceArgs(['--dsh-version', '0.2.2-alpha.2', '--package', '/synthetic/plugin.tgz', '--port', '14193']), { dshVersion: '0.2.2-alpha.2', packagePath: '/synthetic/plugin.tgz', port: 14193 })
+test('official candidate acceptance defaults to fixed RC1 and requires a candidate package', () => {
+  assert.deepEqual(parseOfficialAcceptanceArgs(['--package', '/synthetic/plugin.tgz']), { dshVersion: '0.2.2-rc.1', packagePath: '/synthetic/plugin.tgz', port: 14191 })
+  assert.deepEqual(parseOfficialAcceptanceArgs(['--dsh-version', '0.2.2-rc.1', '--package', '/synthetic/plugin.tgz', '--port', '14193']), { dshVersion: '0.2.2-rc.1', packagePath: '/synthetic/plugin.tgz', port: 14193 })
   assert.throws(() => parseOfficialAcceptanceArgs([]), /--package is required/)
-  for (const version of ['next', '0.2.1-rc.4', '1.0.0']) assert.throws(() => parseOfficialAcceptanceArgs(['--dsh-version', version, '--package', '/synthetic/plugin.tgz']), /fixed 0.2.2-alpha.2/)
+  for (const version of ['next', '0.2.1-rc.4', '1.0.0']) assert.throws(() => parseOfficialAcceptanceArgs(['--dsh-version', version, '--package', '/synthetic/plugin.tgz']), /fixed 0.2.2-rc.1/)
 })
 
 test('generated own-agent fixture is source-only and never intercepts another owner', () => {
@@ -146,13 +146,13 @@ test('acceptance selects pinned JS entries as separate Node arguments and refuse
   t.after(() => rm(base, { recursive: true, force: true }))
   const pnpmRoot = join(base, 'pnpm with spaces & punctuation'), runtimeRoot = join(base, 'official runtime with spaces')
   const pnpmManifest = { name: 'pnpm', version: '11.19.0', bin: { pnpm: 'bin/pnpm.mjs' } }
-  const runtimeManifest = { name: '@deepseek-ai/dsh', version: '0.2.2-alpha.2', bin: { dsh: 'lib/bin.js' } }
+  const runtimeManifest = { name: '@deepseek-ai/dsh', version: '0.2.2-rc.1', bin: { dsh: 'lib/bin.js' } }
   for (const [directory, manifest, subdirectory, filename] of [[pnpmRoot, pnpmManifest, 'bin', 'pnpm.mjs'], [runtimeRoot, runtimeManifest, 'lib', 'bin.js']]) {
     await mkdir(join(directory, subdirectory), { recursive: true })
     await writeFile(join(directory, 'package.json'), JSON.stringify(manifest))
     await writeFile(join(directory, subdirectory, filename), '// Synthetic resolver fixture; never executed.\n')
   }
-  assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot: null, pnpmRoot }), [await realpath(join(pnpmRoot, 'bin', 'pnpm.mjs')), 'dlx', '--allow-build=fs-ext', '@deepseek-ai/dsh@0.2.2-alpha.2'])
+  assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot: null, pnpmRoot }), [await realpath(join(pnpmRoot, 'bin', 'pnpm.mjs')), 'dlx', '--allow-build=fs-ext', '@deepseek-ai/dsh@0.2.2-rc.1'])
   assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot }), [await realpath(join(runtimeRoot, 'lib', 'bin.js'))])
   assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot: await realpath(runtimeRoot) }), [await realpath(join(runtimeRoot, 'lib', 'bin.js'))])
   await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: '--eval', pnpmRoot }), /absolute/)
@@ -184,6 +184,6 @@ test('acceptance selects pinned JS entries as separate Node arguments and refuse
   await assert.rejects(resolveAcceptanceEvidenceRoot(join(pnpmRoot, 'bin', 'pnpm.mjs', 'child')), /directories without links/)
   for (const change of [{ name: '@other/runtime' }, { version: '0.2.1-rc.3' }, { bin: { dsh: 'other.js' } }]) {
     await writeFile(join(runtimeRoot, 'package.json'), JSON.stringify({ ...runtimeManifest, ...change }))
-    await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot }), /fixed official Alpha2/)
+    await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot }), /fixed official RC1/)
   }
 })

@@ -8,7 +8,7 @@ import { chromium } from 'playwright'
 import { acceptModernOfficial } from './accept-modern-official.mjs'
 import { randomUUID } from 'node:crypto'
 
-const FIXED_DSH_VERSION = '0.2.2-alpha.2'
+const FIXED_DSH_VERSION = '0.2.2-rc.1'
 
 export function parseOfficialAcceptanceArgs(argv) {
   const values = {}
@@ -20,7 +20,7 @@ export function parseOfficialAcceptanceArgs(argv) {
     values[name] = value
     index += 1
   }
-  if (values['--dsh-version'] !== undefined && values['--dsh-version'] !== FIXED_DSH_VERSION) throw new Error('--dsh-version must be the fixed 0.2.2-alpha.2 candidate target')
+  if (values['--dsh-version'] !== undefined && values['--dsh-version'] !== FIXED_DSH_VERSION) throw new Error('--dsh-version must be the fixed 0.2.2-rc.1 candidate target')
   if (values['--package'] === undefined) throw new Error('--package is required')
   const port = values['--port'] === undefined ? 14191 : Number(values['--port'])
   if (!Number.isSafeInteger(port) || port < 1024 || port > 65535) throw new Error('--port must be between 1024 and 65535')
@@ -50,7 +50,7 @@ export async function resolveOfficialAcceptanceCommand({ runtimeRoot = process.e
   const entryPath = official ? join('lib', 'bin.js') : join('bin', 'pnpm.mjs')
   if (official ? manifest.name !== '@deepseek-ai/dsh' || manifest.version !== FIXED_DSH_VERSION || manifest.bin?.dsh !== 'lib/bin.js'
     : manifest.name !== 'pnpm' || manifest.version !== '11.19.0' || manifest.bin?.pnpm !== 'bin/pnpm.mjs') {
-    throw Error(official ? 'runtime does not match fixed official Alpha2' : 'pnpm does not match fixed 11.19.0 JS entry')
+    throw Error(official ? 'runtime does not match fixed official RC1' : 'pnpm does not match fixed 11.19.0 JS entry')
   }
   const entry = await realpath(join(directory, entryPath))
   if (relative(directory, entry) !== entryPath || !(await stat(entry)).isFile()) throw Error('CLI entry must be the expected regular file inside its package directory')
@@ -288,7 +288,7 @@ async function removeIsolatedOnboarding(page) {
 }
 
 export async function runOfficialAcceptance(options) {
-  if (options.dshVersion !== FIXED_DSH_VERSION) throw Error('only fixed Alpha2 is admitted by this candidate runner')
+  if (options.dshVersion !== FIXED_DSH_VERSION) throw Error('only fixed RC1 is admitted by this candidate runner')
   const packagePath = resolve(options.packagePath)
   await access(packagePath)
   const dshCommand = await resolveOfficialAcceptanceCommand()
@@ -324,7 +324,7 @@ export async function runOfficialAcceptance(options) {
       return candidate.href
     }, server).catch(error => { throw Error(sanitizeAcceptanceDiagnostic(error.message + '\n' + (stderr || stdout), [config.nonce]).slice(-8192)) })
     const fixtureState = await waitForAcceptanceFixture(config, { child: server })
-    const browser = await chromium.launch({ headless: true, channel: process.env.DSH_TEST_BROWSER_CHANNEL || undefined })
+    const browser = await chromium.launch({ headless: true, executablePath: process.env.DSH_TEST_BROWSER_EXECUTABLE || undefined, channel: process.env.DSH_TEST_BROWSER_EXECUTABLE ? undefined : process.env.DSH_TEST_BROWSER_CHANNEL || undefined })
     try {
       const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, colorScheme: process.env.DSH_ACCEPTANCE_COLOR_SCHEME || 'dark', ...(process.env.DSH_ACCEPTANCE_LOCALE ? { locale: process.env.DSH_ACCEPTANCE_LOCALE } : {}) })
       const errors = []; page.on('pageerror', error => errors.push(error.message))
