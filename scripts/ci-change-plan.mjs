@@ -72,7 +72,7 @@ function main() {
     /^cordis\.patch\.yml$/u,
     /^tsdown(?:\.demo)?\.config\.mjs$/u,
     /^scripts\/build-client\.mjs$/u,
-    /^scripts\/(?:build-modern-client|archive-settings)\.mjs$/u,
+    /^scripts\/(?:archive-settings|official-session-actions)\.mjs$/u,
   ])
   const demo = planner || changed([/^demo\//u, /^docs\//u, /^\.github\/workflows\/pages\.yml$/u])
   const delivery = planner || changed([

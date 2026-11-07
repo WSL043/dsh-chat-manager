@@ -6,9 +6,8 @@ import { pathToFileURL } from 'node:url'
 
 import { chromium } from 'playwright'
 import { acceptModernOfficial } from './accept-modern-official.mjs'
-import { randomUUID } from 'node:crypto'
-
-const FIXED_DSH_VERSION = '0.2.2-rc.1'
+import { createHash, randomUUID } from 'node:crypto'
+import { CORE_VERSION } from './prepare-compat-release.mjs'
 
 export function parseOfficialAcceptanceArgs(argv) {
   const values = {}
@@ -20,19 +19,19 @@ export function parseOfficialAcceptanceArgs(argv) {
     values[name] = value
     index += 1
   }
-  if (values['--dsh-version'] !== undefined && values['--dsh-version'] !== FIXED_DSH_VERSION) throw new Error('--dsh-version must be the fixed 0.2.2-rc.1 candidate target')
   if (values['--package'] === undefined) throw new Error('--package is required')
+  if (!CORE_VERSION.test(values['--dsh-version'])) throw new Error('--dsh-version must name a fixed official final or RC')
   const port = values['--port'] === undefined ? 14191 : Number(values['--port'])
   if (!Number.isSafeInteger(port) || port < 1024 || port > 65535) throw new Error('--port must be between 1024 and 65535')
-  return { dshVersion: FIXED_DSH_VERSION, packagePath: values['--package'], port }
+  return { dshVersion: values['--dsh-version'], packagePath: values['--package'], port }
 }
 
 // These are operator-selected package roots, not executable names or CLI fragments.
 // Metadata/path checks constrain the fixture tool; they are not package signature verification.
-export async function resolveOfficialAcceptanceCommand({ runtimeRoot = process.env.DSH_TEST_RUNTIME, pnpmRoot = process.env.DSH_TEST_PNPM_ROOT } = {}) {
-  const official = Boolean(runtimeRoot)
-  const selected = official ? runtimeRoot : pnpmRoot
-  if (typeof selected !== 'string' || !isAbsolute(selected)) throw Error('provide an absolute DSH_TEST_RUNTIME or DSH_TEST_PNPM_ROOT package directory')
+export async function resolveOfficialAcceptanceCommand({ dshVersion, runtimeRoot = process.env.DSH_TEST_RUNTIME }) {
+  if (!CORE_VERSION.test(dshVersion)) throw Error('Expected a fixed official DSH version')
+  const selected = runtimeRoot
+  if (typeof selected !== 'string' || !isAbsolute(selected)) throw Error('provide an absolute DSH_TEST_RUNTIME package directory')
   // Only independently staged acceptance packages under the OS temporary directory are admitted.
   const temporaryRoot = resolve(tmpdir())
   const canonicalTemporaryRoot = await realpath(temporaryRoot)
@@ -47,14 +46,13 @@ export async function resolveOfficialAcceptanceCommand({ runtimeRoot = process.e
   const directory = await realpath(selectedPath)
   if (directory === canonicalTemporaryRoot || !directory.startsWith(canonicalTemporaryRoot + sep)) throw Error('CLI package must remain inside os.tmpdir() after resolving links')
   const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'))
-  const entryPath = official ? join('lib', 'bin.js') : join('bin', 'pnpm.mjs')
-  if (official ? manifest.name !== '@deepseek-ai/dsh' || manifest.version !== FIXED_DSH_VERSION || manifest.bin?.dsh !== 'lib/bin.js'
-    : manifest.name !== 'pnpm' || manifest.version !== '11.19.0' || manifest.bin?.pnpm !== 'bin/pnpm.mjs') {
-    throw Error(official ? 'runtime does not match fixed official RC1' : 'pnpm does not match fixed 11.19.0 JS entry')
+  const entryPath = join('lib', 'bin.js')
+  if (manifest.name !== '@deepseek-ai/dsh' || manifest.version !== dshVersion || manifest.bin?.dsh !== 'lib/bin.js') {
+    throw Error('runtime does not match selected official DSH')
   }
   const entry = await realpath(join(directory, entryPath))
   if (relative(directory, entry) !== entryPath || !(await stat(entry)).isFile()) throw Error('CLI entry must be the expected regular file inside its package directory')
-  return official ? [entry] : [entry, 'dlx', '--allow-build=fs-ext', '@deepseek-ai/dsh@' + FIXED_DSH_VERSION]
+  return [entry]
 }
 
 // Evidence is generated test output: admit only OS-temp descendants and inspect all existing parents before writing.
@@ -288,10 +286,11 @@ async function removeIsolatedOnboarding(page) {
 }
 
 export async function runOfficialAcceptance(options) {
-  if (options.dshVersion !== FIXED_DSH_VERSION) throw Error('only fixed RC1 is admitted by this candidate runner')
+  const { dshVersion } = options
   const packagePath = resolve(options.packagePath)
   await access(packagePath)
-  const dshCommand = await resolveOfficialAcceptanceCommand()
+  const packageSha256 = createHash('sha256').update(await readFile(packagePath)).digest('hex')
+  const dshCommand = await resolveOfficialAcceptanceCommand({ dshVersion })
   const evidenceRoot = process.env.DSH_ACCEPTANCE_EVIDENCE_ROOT ? await resolveAcceptanceEvidenceRoot(process.env.DSH_ACCEPTANCE_EVIDENCE_ROOT) : undefined
   if (evidenceRoot) await mkdir(evidenceRoot, { recursive: true })
   const base = await mkdtemp(join(evidenceRoot || tmpdir(), 'dsh-session-delete-official-'))
@@ -326,7 +325,7 @@ export async function runOfficialAcceptance(options) {
     const fixtureState = await waitForAcceptanceFixture(config, { child: server })
     const browser = await chromium.launch({ headless: true, executablePath: process.env.DSH_TEST_BROWSER_EXECUTABLE || undefined, channel: process.env.DSH_TEST_BROWSER_EXECUTABLE ? undefined : process.env.DSH_TEST_BROWSER_CHANNEL || undefined })
     try {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, colorScheme: process.env.DSH_ACCEPTANCE_COLOR_SCHEME || 'dark', ...(process.env.DSH_ACCEPTANCE_LOCALE ? { locale: process.env.DSH_ACCEPTANCE_LOCALE } : {}) })
+      const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, colorScheme: process.env.DSH_ACCEPTANCE_COLOR_SCHEME || 'dark', locale: process.env.DSH_ACCEPTANCE_LOCALE || 'en-US' })
       const errors = []; page.on('pageerror', error => errors.push(error.message))
       await page.goto(url, { waitUntil: 'domcontentloaded' }); await removeIsolatedOnboarding(page)
       const control = async action => {
@@ -345,10 +344,10 @@ export async function runOfficialAcceptance(options) {
         throw error
       } finally { await control('release-running').catch(() => {}) }
       if (errors.length) throw Error('Browser runtime exceptions: ' + JSON.stringify(errors))
-      await writeFile(join(base, 'acceptance.json'), JSON.stringify({ ...result, dshVersion: FIXED_DSH_VERSION }, null, 2) + '\n')
+      await writeFile(join(base, 'acceptance.json'), JSON.stringify({ ...result, dshVersion, packageSha256 }, null, 2) + '\n')
     } finally { await browser.close() }
     passed = true
-    return { ok: true, dshVersion: FIXED_DSH_VERSION, checks: ['isolated fixture-only profile', 'public archive settings', 'native archive and public unarchive clicks', 'archive content search', 'confirmation cancel sends no request', 'loaded idle/running genuinely refused', 'cold archived positive UI deletion', 'neighbor bytes preserved', 'plugin hot toggles preserve official composer', 'no page reload', 'no runtime exceptions'] }
+    return { ok: true, dshVersion, packageSha256, checks: ['isolated fixture-only profile', 'public archive settings', 'native archive and public unarchive clicks', 'archive content search', 'confirmation cancel sends no request', 'loaded idle/running genuinely refused', 'cold archived positive UI deletion', 'neighbor bytes preserved', 'plugin hot toggles preserve official composer', 'no page reload', 'no runtime exceptions'] }
   } finally {
     if (server) await stopProcess(server)
     await writeFile(join(base, 'web.log'), sanitizeAcceptanceDiagnostic(installOutput + stdout + '\n' + stderr, [config.nonce]).slice(-32768))

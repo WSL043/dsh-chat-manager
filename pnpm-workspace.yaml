@@ -7,5 +7,5 @@ minimumReleaseAge: 1440
 # dsh-compat-release-age-start
 minimumReleaseAgeExclude:
   - '@deepseek-ai/cordis@4.1.0'
-  - '@deepseek-ai/cosmokit@1.8.7-alpha.1'
+  - '@deepseek-ai/cosmokit@1.9.0'
 # dsh-compat-release-age-end

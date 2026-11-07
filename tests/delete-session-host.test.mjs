@@ -47,6 +47,10 @@ test('deletes only the exact cold archived directory while retaining write owner
       return { header: HEADER, close: async () => { owned = false; closed++ } } },
     removeDirectory: async directory => { assert.equal(owned, true); await rm(directory, { recursive: true }) },
   })
+  deps.reconcileArchive = (_id, result) => {
+    assert.equal(owned, true, 'the official lease protects archive reconciliation')
+    return result
+  }
   assert.deepEqual(await deleteSessionSafely(deps, args(paths)), { ok: true, value: { deleted: true } })
   assert.equal(owned, false); assert.equal(closed, 1)
   await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
@@ -229,18 +233,18 @@ test('reports an incomplete cleanup honestly after the live directory was atomic
   const paths = await fixture()
   t.after(() => rm(paths.base, { recursive: true, force: true }))
 
-  const result = await deleteSessionSafely(
-    dependencies({
+  const deps = dependencies({
       transcript: paths.transcript,
       removeDirectory: async (directory) => {
         await rm(join(directory, 'session.jsonl'))
         throw new Error('simulated cleanup failure')
       },
-    }),
-    { sessionRoot: paths.root, sessionId: HEADER.id },
-  )
-
+  })
+  const result = await deleteSessionSafely(deps, args(paths))
   assert.equal(result.error.code, 'storage-partial')
+  deps.sessionPersistence.stat = async () => undefined
+  deps.reconcileArchive = () => assert.fail('Partial storage must retain its archive marker')
+  assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'storage-partial')
   await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
 })
 

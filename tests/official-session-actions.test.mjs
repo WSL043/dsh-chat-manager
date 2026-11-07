@@ -5,10 +5,12 @@ import { registerOfficialSessionActions, buildOfficialSlotClient } from '../scri
 
 function fixture(fetch, archived = true) {
   const entries = [], cleanups = []
-  let closed = 0, refreshed = 0, requestDelete
+  let refreshed = 0, requestDelete, contribution
   const React = { createElement: (type, props, ...children) => ({ type, props: props || {}, children }), useSyncExternalStore: (_subscribe, snapshot) => snapshot() }
   const ui = { MenuItemButton: 'MenuItem', IconTrashOutlineRegular: 'Trash', Modal: 'Modal', Button: 'Button' }
   const ctx = { locale: { getSnapshot: () => ({ active: 'zh' }) },
+    workspaces: { list: { getSnapshot: () => ({ archivedSessionIds: archived ? ['synthetic'] : [] }) } },
+    contextMenus: { register: value => { contribution = value; return () => { contribution = null } } },
     get: name => { assert.equal(name, 'sessions'); return { refresh: async () => { refreshed++ } } },
     effect: fn => cleanups.push(fn()), slots: {
       inject: (_name, fn) => fn(), register: (meta, component) => { entries.push({ meta, component }); return () => {} },
@@ -18,24 +20,22 @@ function fixture(fetch, archived = true) {
     ctx, React, ui, fetch, AbortController, console,
     registerArchiveSettings: (_ctx, _React, _ui, options) => { requestDelete = options.requestDelete },
   })
-  const menu = () => entries[0].component({ sessionId: 'synthetic', displayTitle: 'Disposable',
-    useMenuOpenState: () => [true, () => closed++], useWorkspaces: selector => selector({ archivedSessionIds: archived ? ['synthetic'] : [] }) })
+  const menu = () => contribution?.resolve({ sessionId: 'synthetic', displayTitle: 'Disposable' })[0]
   return { entries, menu, dialog: () => entries[1].component(), requestDelete: row => requestDelete(row),
-    dispose: () => cleanups.forEach(fn => fn()), counts: () => ({ closed, refreshed }) }
+    dispose: () => cleanups.forEach(fn => fn()), counts: () => ({ refreshed }) }
 }
 
 test('archived-only public menu and cancellation never contact the host', () => {
   const bed = fixture(() => { throw Error('must not delete') })
-  assert.deepEqual(bed.entries.map(e => e.meta.name), ['sidebar.workspaces.session.menu.item', 'shell.overlay'])
-  assert.equal(fixture(() => {}, false).menu(), null)
-  bed.menu().props.onSelect()
-  assert.equal(bed.menu().props.danger, true)
+  assert.deepEqual(bed.entries.map(e => e.meta.name), ['contextMenu.icon', 'shell.overlay'])
+  assert.equal(fixture(() => {}, false).menu(), undefined)
+  bed.menu().run()
+  assert.equal(bed.menu().danger, true)
   const dialog = bed.dialog()
   assert.equal(dialog.props.open, true)
   assert.match(dialog.props.description, /已加载或运行中的会话会被拒绝/)
   dialog.props.footer.children[0].props.onClick()
   assert.equal(bed.dialog(), null)
-  assert.equal(bed.counts().closed, 1)
   bed.dispose()
 })
 
@@ -47,21 +47,21 @@ test('explicit confirmation deletes once and refreshes the real public session l
     assert.equal(JSON.parse(options.body).sessionId, 'synthetic')
     return { ok: true, json: async () => ({ ok: true, value: { archiveReconciled: true } }) }
   })
-  bed.menu().props.onSelect()
+  bed.menu().run()
   const confirm = bed.dialog().props.footer.children[1].props.onClick
   await Promise.all([confirm(), confirm()])
   assert.equal(calls, 1); assert.equal(bed.dialog(), null)
-  assert.deepEqual(bed.counts(), { closed: 1, refreshed: 1 })
+  assert.deepEqual(bed.counts(), { refreshed: 1 })
   bed.dispose(); await confirm(); assert.equal(calls, 1)
 })
 
 test('refused deletion remains visible; incomplete archive cleanup is not hidden', async () => {
   const refused = fixture(async () => ({ ok: false, json: async () => ({ error: { message: 'session busy' } }) }))
-  refused.menu().props.onSelect(); await refused.dialog().props.footer.children[1].props.onClick()
+  refused.menu().run(); await refused.dialog().props.footer.children[1].props.onClick()
   assert.equal(refused.dialog().children[1].children[0], 'session busy')
   assert.equal(refused.counts().refreshed, 0); refused.dispose()
   const partial = fixture(async () => ({ ok: true, json: async () => ({ ok: true, value: { archiveReconciled: false } }) }))
-  partial.menu().props.onSelect(); await partial.dialog().props.footer.children[1].props.onClick()
+  partial.menu().run(); await partial.dialog().props.footer.children[1].props.onClick()
   assert.match(partial.dialog().children[1].children[0], /归档列表未完成更新/)
   partial.dispose()
 })

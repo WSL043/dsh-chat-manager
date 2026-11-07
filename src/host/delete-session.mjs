@@ -1,29 +1,8 @@
-import { lstat, mkdtemp, readdir, realpath, rename, rm } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { lstat, mkdtemp, readdir, realpath, rename, rm, rmdir } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
-const failure = (code, message) => ({ ok: false, error: { code, message } })
-const MAX_REQUEST_BYTES = 8 * 1024
-
-const sendJson = (res, status, body) => {
-  res.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'cache-control': 'no-store',
-    'x-content-type-options': 'nosniff',
-  })
-  res.end(JSON.stringify(body))
-}
-
-const readJsonBody = async (req) => {
-  const chunks = []
-  let size = 0
-  for await (const chunk of req) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-    size += buffer.length
-    if (size > MAX_REQUEST_BYTES) throw new Error('request-too-large')
-    chunks.push(buffer)
-  }
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'))
-}
+import { failure, readPluginPost, sendJson } from './plugin-request.mjs'
 
 const sameHeader = (left, right) => (
   left?.id === right?.id
@@ -42,6 +21,9 @@ const inside = (root, target) => {
   const path = relative(root, target)
   return path !== '' && !path.startsWith(`..${sep}`) && path !== '..' && !isAbsolute(path)
 }
+
+const quarantinePrefix = sessionId =>
+  '.dsh-session-delete-' + createHash('sha256').update(sessionId, 'utf16le').digest('hex') + '-'
 
 const missing = error => error?.code === 'ENOENT'
 
@@ -132,7 +114,9 @@ export async function deleteSessionSafely(deps, { sessionRoot, sessionId }) {
   pending.add(sessionId)
   let handle
   try {
-    return await deleteReservedSession(deps, { sessionRoot, sessionId }, acquired => { handle = acquired })
+    const result = await deleteReservedSession(deps, { sessionRoot, sessionId }, acquired => { handle = acquired })
+    if (result.ok && deps.reconcileArchive) return await deps.reconcileArchive(sessionId, result)
+    return result
   } finally {
     try { await handle?.close() }
     finally { pending.delete(sessionId) }
@@ -148,6 +132,10 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle
   if (live()) return failure('session-active', '该会话仍被宿主加载，未删除任何内容。停止或归档不一定会释放宿主所有权。')
   const before = await persistence.stat(sessionId)
   if (before === undefined) {
+    const parentEntries = await readdir(dirname(resolve(sessionRoot)))
+    if (parentEntries.some(name => name.startsWith(quarantinePrefix(sessionId)))) {
+      return failure('storage-partial', '会话仍在隔离区中，未清理归档标记。')
+    }
     // A stale archive marker is cleaned only after independent physical absence
     // checks. A corrupt or inaccessible directory must never count as absence.
     if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) return failure('session-not-found', '无法验证会话是否已经不存在。')
@@ -209,10 +197,10 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle
   let detached = false
   try {
     const moveDirectory = deps.moveDirectory ?? rename
-    quarantineRoot = await mkdtemp(join(dirname(validated.root), '.dsh-session-delete-'))
+    quarantineRoot = await mkdtemp(join(dirname(validated.root), quarantinePrefix(sessionId)))
     quarantinedDirectory = join(quarantineRoot, basename(validated.resolvedDirectory))
     if (live() || !archived()) {
-      await rm(quarantineRoot, { recursive: true, force: true })
+      await rmdir(quarantineRoot)
       return failure('session-reopened', '该会话已重新加载或取消归档，已取消删除。')
     }
     await moveDirectory(validated.resolvedDirectory, quarantinedDirectory)
@@ -234,7 +222,7 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle
       }
       await moveDirectory(quarantinedDirectory, validated.resolvedDirectory)
       detached = false
-      await rm(quarantineRoot, { recursive: true, force: true })
+      await rmdir(quarantineRoot)
       return failure('unsafe-location', '会话目录在删除期间发生了身份变化，未删除任何文件。')
     }
 
@@ -244,7 +232,7 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle
       }
       await moveDirectory(quarantinedDirectory, validated.resolvedDirectory)
       detached = false
-      await rm(quarantineRoot, { recursive: true, force: true })
+      await rmdir(quarantineRoot)
       return failure('session-reopened', '该会话已重新加载或取消归档，已恢复原目录。')
     }
     const removeDirectory = deps.removeDirectory
@@ -253,7 +241,7 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle
     if (await pathExists(quarantinedDirectory)) {
       return failure('storage-partial', '会话目录已移入隔离区，但存储清理未完成，不能确认永久删除成功。')
     }
-    await rm(quarantineRoot, { recursive: true, force: true })
+    await rmdir(quarantineRoot)
     return { ok: true, value: { deleted: true } }
   } catch (error) {
     if (detached && quarantinedDirectory !== undefined) {
@@ -266,10 +254,10 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle
       if (remains) {
         return failure('storage-partial', '会话目录已移入隔离区，但存储清理未完成，不能确认永久删除成功。')
       }
-      if (quarantineRoot !== undefined) await rm(quarantineRoot, { recursive: true, force: true }).catch(() => undefined)
+      if (quarantineRoot !== undefined) await rmdir(quarantineRoot).catch(() => undefined)
       return { ok: true, value: { deleted: true } }
     }
-    if (quarantineRoot !== undefined) await rm(quarantineRoot, { recursive: true, force: true }).catch(() => undefined)
+    if (quarantineRoot !== undefined) await rmdir(quarantineRoot).catch(() => undefined)
     if (missing(error)) return failure('session-not-found', '会话不存在或已经删除。')
     return failure('storage-error', '存储删除失败，未删除任何文件。')
   }
@@ -288,7 +276,7 @@ export function sameOriginRequest(req) {
 /**
  * Require the Host's own request fence (authority, cross-site, and Host session cookie checks).
  * The official desktop app forwards dsh-app:// requests to the Host without an Origin header, so a
- * plain same-origin check cannot replace admission. Until the fixed Alpha2 service is ready, refuse.
+ * plain same-origin check cannot replace admission. Refuse until the official fence is ready.
  * Return true only for admission; preserve the Host's 401/403 rejection status for the HTTP boundary.
  */
 export function hostRequestFence(connection) {
@@ -301,35 +289,8 @@ export function hostRequestFence(connection) {
 
 export function createDeleteRequestHandler({ deleteSession, isTrustedRequest = () => false }) {
   return async (req, res) => {
-    const contentType = req.headers['content-type']
-    const confirmation = req.headers['x-dsh-session-delete-confirmation']
-
-    if (req.method !== 'POST') {
-      sendJson(res, 405, failure('method-not-allowed', '只允许使用 POST 删除会话。'))
-      return
-    }
-    const admission = isTrustedRequest(req)
-    if (admission !== true || confirmation !== 'delete-session') {
-      sendJson(res, admission === 401 ? 401 : 403, failure('forbidden', '删除请求未通过宿主认证与确认校验。'))
-      return
-    }
-    if (typeof contentType !== 'string' || !contentType.toLowerCase().startsWith('application/json')) {
-      sendJson(res, 415, failure('unsupported-media-type', '删除请求必须使用 JSON。'))
-      return
-    }
-
-    let body
-    try {
-      body = await readJsonBody(req)
-    } catch (error) {
-      const tooLarge = error instanceof Error && error.message === 'request-too-large'
-      sendJson(
-        res,
-        tooLarge ? 413 : 400,
-        failure(tooLarge ? 'request-too-large' : 'invalid-json', tooLarge ? '删除请求过大。' : '删除请求不是有效 JSON。'),
-      )
-      return
-    }
+    const body = await readPluginPost(req, res, isTrustedRequest, 'delete-session')
+    if (body === undefined) return
     if (
       typeof body?.sessionId !== 'string'
       || body.sessionId.length === 0

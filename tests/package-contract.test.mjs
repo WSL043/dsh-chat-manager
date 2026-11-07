@@ -5,27 +5,30 @@ import { buildOfficialSlotClient } from '../scripts/official-session-actions.mjs
 
 const read = file => readFile(new URL('../' + file, import.meta.url), 'utf8')
 
-test('unpublished v2 has a fixed source-contract target and no inherited compatibility matrix', async () => {
+test('the v2 package declares only exact qualified host cohorts', async () => {
   const manifest = JSON.parse(await read('package.json'))
   const compatibility = JSON.parse(await read('compatibility.json'))
+  const targets = compatibility.releaseTargets
   assert.equal(manifest.name, 'dsh-chat-manager')
-  assert.equal(manifest.version, '2.0.0-alpha.1')
-  assert.equal(manifest.publishConfig?.tag, manifest.version.includes('-') ? 'next' : 'latest')
+  assert.match(manifest.version, /^2\.\d+\.\d+$/)
+  assert.equal(manifest.publishConfig.tag, 'latest')
   assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml')
-  assert.deepEqual(compatibility.releaseTargets, ['0.2.2-rc.1'])
-  assert.deepEqual(compatibility.portableBaselines, [])
-  assert.equal(compatibility.latestTested, '0.2.2-rc.1')
-  assert.equal(compatibility.clientTarget, '0.2.2-rc.1')
-  assert.equal(compatibility.testFixtures, undefined)
-  assert.ok(['pending-runtime', 'isolated-windows-ui'].includes(compatibility.qualification.status))
-  assert.equal(compatibility.qualification.runtimeVerified, compatibility.qualification.status === 'isolated-windows-ui')
-  assert.equal(compatibility.qualification.sourceCommit, '66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db')
-  for (const [name, version] of Object.entries(manifest.peerDependencies)) {
-    if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(version, '0.2.2-rc.1')
+  assert.ok(targets.length >= 1 && targets.length <= 2)
+  assert.equal(compatibility.latestTested, targets[0])
+  assert.deepEqual(compatibility.upstream.map(core => core.version), targets)
+  for (const core of compatibility.upstream) {
+    assert.match(core.version, /^\d+\.\d+\.\d+(?:-rc\.\d+)?$/)
+    assert.match(core.commit, /^[a-f0-9]{40}$/)
+    assert.match(core.integrity, /^sha512-[A-Za-z0-9+/]{86}==$/)
+  }
+  for (const [name, range] of Object.entries(manifest.peerDependencies)) {
+    if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(range, targets.join(' || '))
     assert.equal(manifest.peerDependenciesMeta[name].optional, true)
   }
-  assert.equal(manifest.peerDependencies['@deepseek-ai/cordis'], '4.1.0')
+  assert.equal(manifest.peerDependencies['@deepseek-ai/cordis'],
+    [...new Set(compatibility.upstream.map(core => core.cordis))].join(' || '))
+  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-context-menu'))
 })
 
 test('build has no dependency or legacy alias while behavior tools retain their exact imports', async () => {
@@ -41,56 +44,23 @@ test('build has no dependency or legacy alias while behavior tools retain their 
   for (const file of manifest.files.filter(file => !file.includes('*'))) await access(new URL('../' + file, import.meta.url))
 })
 
-test('candidate guides distinguish unpublished v2, stable installation and destructive-operation boundaries', async () => {
-  const [zh, en, agents, unreleased] = await Promise.all(['README.md', 'README.en.md', 'AGENTS.md', 'docs/UNRELEASED-v2.md'].map(read))
-  for (const guide of [zh, en, agents]) {
-    assert.match(guide, /2\.0\.0-alpha\.1/)
-    assert.ok(guide.includes('dsh-chat-manager@latest'))
-    const links = [...guide.matchAll(/\]\((https:\/\/[^)]+)\)/gu)].map(([, href]) => new URL(href))
-    const stableFiles = links.filter(link => link.origin === 'https://github.com').map(link => link.pathname)
-    assert.ok(stableFiles.some(path => ['/WSL043/dsh-chat-manager/blob/stable/README.md', '/WSL043/dsh-chat-manager/blob/stable/README.en.md'].includes(path)))
-    assert.ok(stableFiles.includes('/WSL043/dsh-chat-manager/blob/stable/AGENTS.md'))
-    assert.match(guide, /0\.2\.2-rc\.1/)
-    assert.doesNotMatch(guide, /正在运行的任务会先停止|Running work will be stopped first|every declared core.*verified/i)
-  }
-  assert.match(zh, /尚未发布|未发布/)
-  assert.match(en, /unpublished/i)
-  assert.match(en, /Permanent deletion cannot be undone/)
-  assert.match(zh, /永久删除无法撤销/)
-  assert.match(agents, /Never delete a session as an installation test/)
-  assert.match(agents, /dsh\.bundle/)
-  assert.match(unreleased, /Do not invoke it for this unpublished v2 candidate/)
-  assert.match(zh, /官方 ASAR/)
-  assert.match(en, /official ASAR/)
-})
-
-test('stable compatibility automation stays separate from the v2 candidate', async () => {
-  const workflow = await read('.github/workflows/upstream-compatibility.yml')
-
-  assert.match(workflow, /cron:\s*'17 \* \* \* \*'/)
-  assert.match(workflow, /selectLatestDshVersions\(Object\.keys\(registry\.versions\)\)/)
-  assert.match(workflow, /npm integrity check failed for DSH/)
-  assert.match(workflow, /releases\/tags\/dsh-v\$\{version\}/)
-  assert.match(workflow, /\.draft == false and \.immutable == true/)
-  assert.match(workflow, /dsh_versions: \$\{\{ steps\.targets\.outputs\.dsh_versions \}\}/)
-  assert.match(workflow, /dsh_version: \$\{\{ fromJSON\(needs\.prepare\.outputs\.acceptance_versions\) \}\}/)
-  assert.match(workflow, /actions\/upload-artifact@[\s\S]*actions\/download-artifact/)
-  assert.match(workflow, /Accept the exact same candidate package on this core/)
-  assert.match(workflow, /git add --[^\n]*AGENTS\.md[^\n]*README\.md[^\n]*README\.en\.md[^\n]*compatibility\.json/)
-  assert.match(workflow, /scripts\/accept-official-dsh\.mjs/)
-  assert.match(workflow, /git diff --binary \| sha256sum/)
-  assert.match(workflow, /test "\$\(git rev-parse FETCH_HEAD\)" = "\$GITHUB_SHA"/)
-  assert.match(workflow, /git push origin "HEAD:\$GITHUB_REF_NAME"[\s\S]*gh workflow run publish\.yml/)
-  assert.match(workflow, /release_kind=compatibility/)
-  assert.match(workflow, /- name: Dispatch and await the trusted release workflow/)
-  assert.match(workflow, /request_id="compat-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}"/)
-  assert.match(workflow, /select\(\.displayTitle == \$title\)/)
-  assert.match(workflow, /gh run watch "\$release_run"/)
-  assert.match(workflow, /actions:\s*write/)
-  assert.match(workflow, /no official Release yet; waiting/)
-  assert.doesNotMatch(workflow, /npm publish|gh release create/)
-  assert.doesNotMatch(workflow, /compatibility\.supported|compatibility\.previews|oldest uncovered|continue-on-error:\s*true/)
-  assert.doesNotMatch(workflow, /continue-on-error:\s*true/)
+test('qualification gates both scheduled promotion and publication of the accepted archive', async () => {
+  const [auto, release, acceptance] = await Promise.all([
+    read('.github/workflows/upstream-compatibility.yml'),
+    read('.github/workflows/publish.yml'),
+    read('.github/workflows/official-acceptance.yml'),
+  ])
+  assert.match(auto, /cron:\s*'17 \* \* \* \*'/)
+  assert.match(auto, /workflow_dispatch.*\n\s*printf 'run=true\\npromote=false/)
+  assert.match(auto, /acceptance\.result == 'success'/)
+  assert.match(auto, /git apply --include=package\.json --include=compatibility\.json/)
+  assert.match(auto, /-f expected_sha=[^\n]*-f expected_digest=/)
+  assert.match(release, /needs: \[verify, acceptance\]/)
+  assert.match(release, /\$EXPECTED_SHA.*\$GITHUB_SHA/)
+  assert.match(release, /sha256sum[^\n]*== "\$EXPECTED_DIGEST"/)
+  assert.match(release, /uses: actions\/download-artifact/)
+  assert.match(acceptance, /Installed runtime lock does not match the official archive integrity/)
+  assert.match(acceptance, /node scripts\/accept-official-dsh\.mjs/)
 })
 
 test('release workflows reconcile an existing npm artifact by package contents', async () => {
@@ -101,13 +71,11 @@ test('release workflows reconcile an existing npm artifact by package contents',
   assert.match(workflow, /diff -qr --strip-trailing-cr "\$local_tree\/package" "\$remote_tree\/package"/)
   assert.match(workflow, /mv "\$remote_package" "\$package"/)
   assert.match(workflow, /Verify existing immutable release assets/)
-  assert.match(workflow, /\.draft == false and \.prerelease == \$prerelease and \.immutable == true/)
+  assert.match(workflow, /\.draft == false and \.prerelease == false and \.immutable == true/)
   assert.match(workflow, /sha256sum -c dsh-chat-manager\.tgz\.sha256/)
   assert.match(workflow, /cmp "\$existing\/dsh-chat-manager\.tgz" \.artifacts\/dsh-chat-manager\.tgz/)
-  assert.match(workflow, /npm_tag=beta/)
-  assert.match(workflow, /npm publish "\$package"[\s\S]*--tag "\$NPM_TAG"/)
-  assert.match(workflow, /Publish immutable release[\s\S]*IS_PRERELEASE: \$\{\{ needs\.verify\.outputs\.prerelease \}\}/)
-  assert.match(workflow, /--prerelease[\s\S]*gh release create/)
+  assert.match(workflow, /npm publish "\$package"[\s\S]*--tag latest/)
+  assert.match(workflow, /Publish immutable release[\s\S]*gh release create/)
 })
 
 test('release notes credit verified merged contributor pull requests', async () => {
@@ -125,8 +93,8 @@ test('release notes never credit issue reporters and reject escaped newlines', a
   assert.match(workflow, /release_notes_en:[\s\S]*required: false/u)
   assert.match(workflow, /release_notes_zh:[\s\S]*required: false/u)
   assert.match(workflow, /RELEASE_KIND[\s\S]*compatibility/u)
-  assert.match(workflow, /Compatibility range now follows the official latest five DSH cores/u)
-  assert.match(workflow, /兼容范围改为官方最新 5 个 DSH 内核/u)
+  assert.match(workflow, /Compatibility range now follows the latest qualified official DSH core and its predecessor/u)
+  assert.match(workflow, /兼容范围改为通过验收的最新官方 DSH 内核及其上一受支持版本/u)
   assert.doesNotMatch(workflow, /reported_issues|REPORTED_ISSUES|Issue reporters|问题报告者/u)
   assert.match(workflow, /real line breaks, not literal/u)
 })
@@ -183,7 +151,7 @@ test('candidate source contributes public slots without replacing the workspace'
   const patch = await read('cordis.patch.yml')
   assert.doesNotMatch(patch, /disabled:\s*true/)
   const client = buildOfficialSlotClient()
-  assert.match(client, /sidebar\.workspaces\.session\.menu\.item/)
+  assert.match(client, /contextMenus\.register/)
   assert.match(client, /settings\.section/)
   assert.doesNotMatch(client, /new UiWorkspaceService\(|slots\.provideRoot\(/)
   assert.match(patch, /id:\s*ui-workspace-session-delete[\s\S]*name:\s*['"]?dsh-chat-manager/)

@@ -1,0 +1,86 @@
+name: Official DSH acceptance
+
+on:
+  workflow_call:
+    inputs:
+      versions:
+        required: true
+        type: string
+      artifact:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  official-dsh:
+    name: Official DSH browser acceptance (${{ matrix.dsh_version }})
+    runs-on: windows-2025
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        dsh_version: ${{ fromJSON(inputs.versions) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
+          run_install: false
+      - uses: actions/setup-node@v6
+        with: { node-version: 24.22.1, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact }}
+          path: .candidate
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Stage the pinned official CLI and check its locked integrity
+        shell: pwsh
+        env:
+          OFFICIAL_DSH_VERSION: ${{ matrix.dsh_version }}
+        run: |
+          $Candidates = @(Get-ChildItem -LiteralPath .candidate -Filter '*.tgz' -File)
+          if ($Candidates.Count -ne 1) { throw 'Expected exactly one candidate archive.' }
+          $Manifest = tar -xOf $Candidates[0].FullName package/compatibility.json | Out-String | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate compatibility metadata could not be read.' }
+          $Selected = @($Manifest.upstream | Where-Object { $_.version -eq $env:OFFICIAL_DSH_VERSION })
+          if ($Selected.Count -ne 1 -or $Selected[0].integrity -notmatch '^sha512-[A-Za-z0-9+/]+={0,2}$') {
+            throw 'Candidate lacks exact official DSH integrity.'
+          }
+          $Runtime = Join-Path $env:RUNNER_TEMP 'chat-manager-official-runtime'
+          New-Item -ItemType Directory -Force -Path $Runtime | Out-Null
+          @{ private = $true; dependencies = @{ '@deepseek-ai/dsh' = $env:OFFICIAL_DSH_VERSION } } |
+            ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $Runtime 'package.json') -Encoding utf8
+          pnpm --dir $Runtime install --ignore-scripts --config.minimum-release-age=0
+          if ($LASTEXITCODE -ne 0) { throw 'Official acceptance runtime installation failed.' }
+          $Lock = Get-Content -LiteralPath (Join-Path $Runtime 'pnpm-lock.yaml') -Raw
+          $Version = [regex]::Escape($env:OFFICIAL_DSH_VERSION)
+          $Integrity = [regex]::Escape($Selected[0].integrity)
+          if ($Lock -notmatch "(?m)^  '@deepseek-ai/dsh@$Version':\r?\n    resolution: \{integrity: $Integrity\}") {
+            throw 'Installed runtime lock does not match the official archive integrity.'
+          }
+      - name: Verify archive, restore, cancel and confirmed deletion of the generated test session
+        env:
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          DSH_TEST_RUNTIME: ${{ runner.temp }}/chat-manager-official-runtime/node_modules/@deepseek-ai/dsh
+          DSH_ACCEPTANCE_EVIDENCE_ROOT: ${{ runner.temp }}/dsh-chat-manager-evidence
+        shell: pwsh
+        run: |
+          $Candidates = @(Get-ChildItem -LiteralPath .candidate -Filter '*.tgz' -File)
+          if ($Candidates.Count -ne 1) { throw 'Expected exactly one qualified candidate package.' }
+          node scripts/accept-official-dsh.mjs --dsh-version "${{ matrix.dsh_version }}" --package $Candidates[0].FullName
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: chat-evidence-${{ matrix.dsh_version }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/dsh-chat-manager-evidence/dsh-session-delete-official-*/acceptance.json
+            ${{ runner.temp }}/dsh-chat-manager-evidence/dsh-session-delete-official-*/fixture-status.json
+            ${{ runner.temp }}/dsh-chat-manager-evidence/dsh-session-delete-official-*/web.log
+            ${{ runner.temp }}/dsh-chat-manager-evidence/dsh-session-delete-official-*/*.png
+            ${{ runner.temp }}/dsh-chat-manager-evidence/dsh-session-delete-official-*/modern-failure.txt

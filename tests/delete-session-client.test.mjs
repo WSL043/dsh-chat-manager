@@ -5,7 +5,7 @@ import { buildOfficialSlotClient } from '../scripts/official-session-actions.mjs
 
 test('v2 client contributes only public slots and public store operations', () => {
   const source = buildOfficialSlotClient()
-  for (const slot of ['sidebar.workspaces.session.menu.item', 'shell.overlay', 'settings.section']) assert.ok(source.includes(slot))
+  for (const slot of ['contextMenus.register', 'shell.overlay', 'settings.section']) assert.ok(source.includes(slot))
   assert.match(source, /dsh-chat-manager\.archive-search/)
   assert.match(source, /ctx\.workspaces\.unarchiveSession/)
   assert.doesNotMatch(source, /clearMain|\.selection|sessions\.clear|__DSH_PORTABLE_SETTINGS__|settings-ready|header\.action|new UiWorkspaceService|stableFactory|previewFactory|modernFactory/)

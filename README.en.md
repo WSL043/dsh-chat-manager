@@ -1,66 +1,23 @@
 # DSH Chat Manager
 
-**This branch prepares the independent v2 candidate `2.0.0-alpha.1`. It targets official RC1; isolated Windows UI acceptance passed and it remains unpublished.**
-See the [latest stable Release](https://github.com/WSL043/dsh-chat-manager/releases/latest); install the npm `latest` stable tag.
-This working tree is a different candidate and inherits none of that release's RC or old Portable compatibility claims.
+[简体中文](README.md) · [Releases](https://github.com/WSL043/dsh-chat-manager/releases) · [Qualified DSH versions](compatibility.json)
 
-[简体中文](README.md) · [Unreleased scope](docs/UNRELEASED-v2.md) · [Safety boundary](#safety-boundary)
+DSH Chat Manager adds archive-only message search and confirmed cleanup to DeepSeek Harness. Open **Settings → Archive cleanup** to find archived messages. Use the archived session's context menu or its search result to request permanent deletion. Both entries show the session name and ask for confirmation.
 
-## v2 scope
+DSH provides the workspace, regular search, archive, restore, and the shared session menu. The archive search narrows the official query to archived sessions before the result limit. It uses bounded event filtering when the optional full-text index is disabled.
 
-Official DSH owns normal session browsing, search, archive, stop-and-archive and unarchive.
-This plugin adds one public-slot settings page for archive content search and cleanup:
+## Install or update
 
-- Search current user and assistant messages within archived IDs before applying the result limit, with plain-text snippets.
-- Keep a four-concurrent-scan fallback when the optional full-text index is disabled. At most 20 results are returned; cancelling or changing a query stops subsequent batches.
-- Restore through the official public unarchive operation, preserving the recorded workspace position.
-- The settings page and archived row menu share a second confirmation naming the exact session. Cancellation sends no delete request.
-- Permanent deletion requires an archived, unloaded local session in current JSONL format and an exclusive official persistence write handle.
-  Loaded idle/running sessions, other writers, migration-required and unknown formats are refused.
+In the official **Plugins → Add plugin** page, enter `dsh-chat-manager@latest`. Check the resolved version and its DSH peers before installing. The compatibility file in this branch describes the v2 source. See the published tag for the installed package's compatibility, including the [v1 maintenance line](https://github.com/WSL043/dsh-chat-manager/tree/stable).
 
-Stopping work or archiving does not guarantee that the host unloaded the session.
-The plugin does not stop or dispose another component's Agent and does not migrate sessions for deletion.
-After an operation it refreshes public lists; navigation stays with official DSH.
+V2 starts with DSH 0.2.2-rc.1. Future compatibility patches are prepared from official releases and tested on the new core and the preceding supported core before publication. See the [maintenance guide](docs/stable-maintenance.md).
 
-This is an independent plugin. This work does not preinstall it into official Desktop 1.x or modify an official ASAR.
+## Permanent deletion
 
-## Candidate compatibility boundary
+Permanent deletion cannot be undone. Only archived, unloaded local sessions using the current JSONL format can be deleted. The plugin acquires the official exclusive write handle and verifies the target before removing it. Active sessions, other writers, and historical formats are refused. An incomplete cleanup keeps the archive marker and reports the retained quarantine.
 
-<!-- dsh-compatibility -->
-The fixed v2 target is DeepSeek Harness `0.2.2-rc.1` commit
-`66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db` with Cordis `4.1.0`. Isolated Windows UI acceptance passed on RC1. No other core or old Portable baseline is claimed.
-The test used generated sessions; existing user installations and real-model calls were not validated.
-<!-- /dsh-compatibility -->
+External attachments, caches, backups, cloud copies and non-JSONL stores fall outside this operation. Uninstalling the plugin preserves sessions.
 
-See the [stable maintenance branch](https://github.com/WSL043/dsh-chat-manager/blob/stable/README.en.md) for its support window. This v2 candidate remains unpublished and inherits no stable compatibility claims.
+[Report an issue](https://github.com/WSL043/dsh-chat-manager/issues/new/choose) · [Security](SECURITY.md) · [MIT](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-## Install, update and uninstall
-
-Do not install this working tree or unpublished candidate into a daily profile.
-For the stable release, check the target DSH, profile, actual version resolved by `latest`, and its peer requirements.
-Follow the [stable installation guide](https://github.com/WSL043/dsh-chat-manager/blob/stable/AGENTS.md)
-and enter `dsh-chat-manager@latest` on the official **Plugins → Add plugin** page.
-Do not infer publication or host suitability from this branch's package.json.
-
-Install, update and uninstall only the selected plugin layer; preserve sessions, unrelated plugins and user configuration.
-Restart DSH only with the user's permission. Remove the plugin through the official plugin page; uninstalling does not delete sessions.
-Agents must follow [AGENTS.md](AGENTS.md) and the stable guide above, pinning the verified resolved version when installing.
-
-Stable maintenance checks upstream every hour. Compatibility patches publish automatically to npm and GitHub Releases after acceptance; failures block publication and report an error. This process does not publish or widen support for the v2 candidate.
-
-## Safety boundary
-
-**Permanent deletion cannot be undone.** Verify the named target and back up anything needed before confirming.
-The plugin validates and removes only the confirmed session's independent JSONL directory.
-Uncertain paths, identity or writer ownership are refused. Incomplete cleanup retains the quarantine and is reported;
-a failed archive-marker update remains visible.
-
-This is not secure erasure. External attachments, caches, logs, backups, cloud copies, other sessions and non-JSONL stores are outside its scope.
-A destructive acceptance test requires a disposable fixture session explicitly selected and confirmed by the user.
-
-## Feedback and license
-
-[Report an issue](https://github.com/WSL043/dsh-chat-manager/issues/new?template=bug-report.yml) ·
-[Security](SECURITY.md) · [MIT](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)
-
-This unofficial community plugin is not affiliated with or endorsed by DeepSeek.
+This community plugin is independent of DeepSeek.

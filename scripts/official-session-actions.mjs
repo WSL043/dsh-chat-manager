@@ -1,7 +1,6 @@
 import { registerArchiveSettings } from './archive-settings.mjs'
 
-// Unreleased v2: additive actions on the fixed Alpha2 public slot contract.
-// Own only this menu entry and dialog; never replace the workspace or its CSS.
+// The native context menu owns target capture, dismissal, and keyboard input.
 export function registerOfficialSessionActions(ctx, React, ui) {
   const h = React.createElement
   const listeners = new Set()
@@ -16,18 +15,8 @@ export function registerOfficialSessionActions(ctx, React, ui) {
   const snapshot = () => state
   const text = (zh, en) => ctx.locale.getSnapshot().active === 'zh' ? zh : en
   const danger = { color: 'var(--dsw-alias-state-error-primary)' }
-  function DeleteMenuItem({ sessionId, displayTitle, useMenuOpenState, useWorkspaces }) {
-    const archived = useWorkspaces(s => s.archivedSessionIds.includes(sessionId))
-    const [, closeMenu] = useMenuOpenState()
-    if (!archived) return null
-    return h(ui.MenuItemButton, {
-      danger: true,
-      icon: h(ui.IconTrashOutlineRegular, {}),
-      onSelect: () => {
-        closeMenu(false)
-        if (!disposed && !state.busy) publish({ target: { id: sessionId, title: displayTitle || sessionId }, error: '' })
-      },
-    }, text('永久删除', 'Delete permanently'))
+  const requestDelete = target => {
+    if (!disposed && !state.busy) publish({ target, error: '' })
   }
   async function confirm() {
     if (disposed || state.busy || !state.target) return
@@ -72,26 +61,41 @@ export function registerOfficialSessionActions(ctx, React, ui) {
     controller.abort()
     listeners.clear()
   }, 'chat-manager: session deletion lifecycle')
-  ctx.slots.inject('sidebar.workspaces.session.menu.item', () => ctx.slots.register({
-    name: 'sidebar.workspaces.session.menu.item', id: 'dsh-chat-manager.delete', order: 500,
-  }, DeleteMenuItem))
+  ctx.effect(() => ctx.contextMenus.register({
+    id: 'dsh-chat-manager.delete',
+    target: 'session',
+    order: 500,
+    observe: () => [ctx.workspaces.list, ctx.locale],
+    resolve({ sessionId, displayTitle }) {
+      if (!ctx.workspaces.list.getSnapshot().archivedSessionIds.includes(sessionId)) return []
+      return [{
+        id: 'delete',
+        label: text('永久删除', 'Delete permanently'),
+        danger: true,
+        afterContent: true,
+        icon: { key: 'dsh-chat-manager.delete' },
+        run: () => requestDelete({ id: sessionId, title: displayTitle || sessionId }),
+      }]
+    },
+  }))
+  ctx.slots.inject('contextMenu.icon', () => ctx.slots.register({
+    name: 'contextMenu.icon', key: 'dsh-chat-manager.delete',
+  }, ui.IconTrashOutlineRegular))
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay', id: 'dsh-chat-manager.delete-dialog',
   }, DeleteDialog))
-  registerArchiveSettings(ctx, React, ui, { requestDelete: row => {
-    if (!disposed && !state.busy) publish({ target: { id: row.id, title: row.title }, error: '' })
-  } })
+  registerArchiveSettings(ctx, React, ui, { requestDelete })
 }
 
 export function buildOfficialSlotClient() {
-  return `// DSH Chat Manager unreleased v2: public DSH slots; no workspace copy.\nwindow.__ModuleLoader__.load({
+  return `// DSH Chat Manager v2: public DSH client extensions.\nwindow.__ModuleLoader__.load({
   id: "dsh-chat-manager",
   factory: require => {
     const React = require("react");
     const ui = require("@deepseek-ai/dsh-client-ui-primitives");
     const register = ${registerOfficialSessionActions.toString()};
     const registerArchiveSettings = ${registerArchiveSettings.toString()};
-    return { inject: ["slots", "sessions", "workspaces", "locale"], apply(ctx) {
+    return { inject: ["slots", "sessions", "workspaces", "locale", "contextMenus"], apply(ctx) {
       register(ctx, React, ui);
 
     } };
