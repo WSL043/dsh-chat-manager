@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat-manager",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "packageManager": "pnpm@11.19.0",
   "description": "DeepSeek Harness archive content search and confirmed cleanup of unloaded local sessions",
   "type": "module",

@@ -22,13 +22,14 @@ export function apply(ctx) {
     throw new Error('dsh-session-delete requires the per-session JSONL persistence backend')
   }
 
-  const deleteSession = sessionId => deleteSessionSafely({
+  const deleteSession = (sessionId, expectedArchived) => deleteSessionSafely({
     sessions: ctx.sessions,
     agents: ctx.agents,
     workspaceRegistry: ctx.workspaceRegistry,
     sessionPersistence: ctx.sessionPersistence,
+    sessionActivity: sessionId => ctx.waterfall('workspace/session-activity', { sessionId }, async () => []),
     reconcileArchive: (id, result) => reconcileDeletedArchive({ workspaceRegistry: ctx.workspaceRegistry }, id, result),
-  }, { sessionRoot, sessionId })
+  }, { sessionRoot, sessionId, expectedArchived })
   // The official fence also admits the desktop app's forwarded requests; see hostRequestFence.
   // `connection` is not injected: some hosts register it after this plugin applies, and reading an
   // uninjected property throws in Cordis 4. Resolve it per request so a late connection is honored.

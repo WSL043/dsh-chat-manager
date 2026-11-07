@@ -60,7 +60,8 @@ export async function acceptModernOfficial(page, fixtures, evidenceRoot, control
   const observeRequest = request => { if (new URL(request.url()).pathname === '/plugins/dsh-session-delete/delete') requests.push(request.method()) }
   const observeNavigation = frame => { if (frame === page.mainFrame()) navigations++ }
   page.on('request', observeRequest); page.on('framenavigated', observeNavigation)
-  const capture = async name => { if (evidenceRoot) await page.screenshot({ path: path.join(evidenceRoot, name + '.png') }) }
+  const capture = async name => { if (evidenceRoot) await page.screenshot({ path: path.join(evidenceRoot, name + '.png'), animations: 'disabled' }) }
+  const deleteDialog = page.getByRole('dialog', { name: /^(Permanently delete session\?|永久删除会话？)$/ })
   const row = spec => page.getByRole('treeitem').filter({ has: page.getByText(spec.title, { exact: true }) }).last()
   const sectionAction = (dialog, verb, spec) => dialog.getByRole('button', { name: archiveActionPattern(verb, spec.title) })
   const endpoint = action => page.waitForResponse(response => new URL(response.url()).pathname === '/plugins/dsh-session-delete/' + action && response.request().method() === 'POST')
@@ -86,10 +87,9 @@ export async function acceptModernOfficial(page, fixtures, evidenceRoot, control
     await waitForState(Object.keys(fixtures).find(key => fixtures[key].id === spec.id), { archived: true })
   }
   async function cancel() {
-    const dialog = page.getByRole('dialog', { name: /^(Permanently delete session\?|永久删除会话？)$/ })
     const before = requests.length
-    await dialog.getByRole('button', { name: /^(Cancel|取消)$/ }).last().click()
-    await dialog.waitFor({ state: 'hidden' })
+    await deleteDialog.getByRole('button', { name: /^(Cancel|取消)$/ }).last().click()
+    await deleteDialog.waitFor({ state: 'hidden' })
     assert.equal(requests.length, before, 'cancel sends no deletion request')
   }
   async function assertCold() {
@@ -117,6 +117,14 @@ export async function acceptModernOfficial(page, fixtures, evidenceRoot, control
     await page.getByRole('menuitem', { name: /^(Unarchive session|取消归档)$/ }).click()
     await waitForState('cold', { archived: false })
     assert.equal((await assertCold()).states.cold.archived, false)
+    await menu(fixtures.cold)
+    await page.getByRole('menuitem', { name: /^(Archive session|归档会话)$/ }).waitFor()
+    await capture('unarchived-row-menu')
+    await page.getByRole('menuitem', { name: /^(Delete permanently|永久删除)$/ }).click()
+    await deleteDialog.waitFor()
+    await capture('unarchived-delete-confirmation'); await cancel()
+    assert.equal((await assertCold()).states.cold.archived, false)
+    assert.deepEqual(await readFile(fixtures.cold.transcriptPath), coldBytes)
     await nativeArchive(fixtures.cold)
     assert.equal((await assertCold()).states.cold.archived, true)
     assert.deepEqual(await readFile(fixtures.cold.transcriptPath), coldBytes)
@@ -138,33 +146,32 @@ export async function acceptModernOfficial(page, fixtures, evidenceRoot, control
     // A UI-opened idle session stays owned by the fixture; the product must refuse it.
     await row(fixtures.idle).click()
     await page.locator('[contenteditable="true"],textarea').first().waitFor()
-    await nativeArchive(fixtures.idle)
     const idleState = await control('status')
     assert.equal(idleState.states.idle.agentStatus, 'idle'); assert.equal(idleState.states.idle.sessionLoaded, true)
-    assert.equal(idleState.states.idle.archived, true)
+    assert.equal(idleState.states.idle.archived, false)
     const idleBytes = await readFile(fixtures.idle.transcriptPath)
-    settings = await openArchiveSettings(page)
-    await settings.getByRole('searchbox').fill('')
-    await sectionAction(settings, 'delete', fixtures.idle).click()
+    await menu(fixtures.idle)
+    await page.getByRole('menuitem', { name: /^(Delete permanently|永久删除)$/ }).click()
     let pending = endpoint('delete')
-    await page.getByRole('dialog', { name: /^(Permanently delete session\?|永久删除会话？)$/ }).getByRole('button', { name: /^(Confirm permanent deletion|确认永久删除)$/ }).click()
+    await deleteDialog.getByRole('button', { name: /^(Confirm permanent deletion|确认永久删除)$/ }).click()
     let response = await pending, payload = await response.json()
     assert.equal(response.status(), 409); assert.equal(payload.error?.code, 'session-active')
     refusals.push({ state: 'loaded-idle', status: response.status(), code: payload.error.code })
     await cancel(); assert.deepEqual(await readFile(fixtures.idle.transcriptPath), idleBytes)
+    await waitForState('idle', { archived: false, sessionLoaded: true, agentStatus: 'idle' })
 
     const runningState = await control('start-running')
-    assert.equal(runningState.states.running.agentStatus, 'running'); assert.equal(runningState.states.running.archived, true)
+    assert.equal(runningState.states.running.agentStatus, 'running'); assert.equal(runningState.states.running.archived, false)
     const runningBytes = await readFile(fixtures.running.transcriptPath)
-    // Negative API probe observes the real host refusal; positive deletion below
-    // is always a visible settings-button click on the separate cold fixture.
+    // Probe the same unarchived request without navigating into the running fixture.
     const rejected = await page.evaluate(async id => {
-      const res = await fetch('/plugins/dsh-session-delete/delete', { method: 'POST', headers: { 'content-type': 'application/json', 'x-dsh-session-delete-confirmation': 'delete-session' }, body: JSON.stringify({ sessionId: id }) })
+      const res = await fetch('/plugins/dsh-session-delete/delete', { method: 'POST', headers: { 'content-type': 'application/json', 'x-dsh-session-delete-confirmation': 'delete-session' }, body: JSON.stringify({ sessionId: id, expectedArchived: false }) })
       return { status: res.status, body: await res.json() }
     }, fixtures.running.id)
     assert.equal(rejected.status, 409); assert.equal(rejected.body.error?.code, 'session-active')
     refusals.push({ state: 'loaded-running', status: rejected.status, code: rejected.body.error.code })
     assert.deepEqual(await readFile(fixtures.running.transcriptPath), runningBytes)
+    await waitForState('running', { archived: false, sessionLoaded: true, agentStatus: 'running' })
     await control('release-running')
 
     await assertCold()
@@ -180,20 +187,24 @@ export async function acceptModernOfficial(page, fixtures, evidenceRoot, control
     await capture('archive-settings-narrow'); await page.setViewportSize(viewport)
     await remove.click(); await capture('delete-confirmation'); await cancel()
     assert.deepEqual(await readFile(fixtures.cold.transcriptPath), coldBytes)
-    await remove.click(); pending = endpoint('delete')
-    await page.getByRole('dialog', { name: /^(Permanently delete session\?|永久删除会话？)$/ }).getByRole('button', { name: /^(Confirm permanent deletion|确认永久删除)$/ }).click()
+    await restoreCold.click()
+    await waitForState('cold', { archived: false, sessionLoaded: false })
+    await closeSettings(page)
+    await menu(fixtures.cold)
+    await page.getByRole('menuitem', { name: /^(Pin session|置顶会话)$/ }).click()
+    await waitForState('cold', { pinned: true })
+    await menu(fixtures.cold)
+    await page.getByRole('menuitem', { name: /^(Delete permanently|永久删除)$/ }).click()
+    pending = endpoint('delete')
+    await deleteDialog.getByRole('button', { name: /^(Confirm permanent deletion|确认永久删除)$/ }).click()
     response = await pending; payload = await response.json()
     assert.equal(response.status(), 200); assert.equal(payload.ok, true); assert.equal(payload.value.deleted, true)
-    assert.equal(payload.value.archiveReconciled, true)
-    await remove.waitFor({ state: 'hidden' })
+    assert.equal(payload.value.pinReconciled, undefined)
+    await waitForState('cold', { pinned: false, archived: false, sessionLoaded: false })
+    await row(fixtures.cold).waitFor({ state: 'hidden' })
     await assert.rejects(access(fixtures.cold.transcriptPath), { code: 'ENOENT' })
     assert.deepEqual(await readFile(fixtures.neighbor.transcriptPath), neighborBytes, 'neighbor transcript remains byte-for-byte intact')
-    await closeSettings(page)
-
     // Return through an actual existing conversation, not the no-workspace hero.
-    await menu(fixtures.idle)
-    await page.getByRole('menuitem', { name: /^(Unarchive session|取消归档)$/ }).click()
-    await waitForState('idle', { archived: false })
     for (let cycle = 0; cycle < 4; cycle++) {
       const plugins = await openPluginManager(page)
       const toggle = plugins.locator('[data-plugin-package="dsh-chat-manager"]').getByRole('switch')

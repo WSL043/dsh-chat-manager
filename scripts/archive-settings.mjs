@@ -54,7 +54,7 @@ export function registerArchiveSettings(ctx, React, ui, { requestDelete }) {
     const card = { border: '.5px solid var(--dsw-alias-settings-card-stroke)', background: 'var(--dsw-alias-settings-card-fill)', borderRadius: 'var(--dsw-radius-xl)', padding: '0 14px' }
     return h('div', { style: { display: 'grid', gap: 16 } },
       h('h2', { style: { margin: 0, fontSize: 16 } }, text('归档内容搜索与清理', 'Archive content search and cleanup')),
-      h('p', { style: { margin: 0, fontSize: 14 } }, text('按归档范围搜索聊天内容。永久删除仅限已归档且未加载的本机会话；已加载或运行中的会话会被拒绝。', 'Search messages within archives. Permanent deletion is limited to unloaded archived local sessions; loaded or running sessions are refused.')),
+      h('p', { style: { margin: 0, fontSize: 14 } }, text('按归档范围搜索聊天内容。此处仅列出已归档的会话。已加载或运行中的会话会被拒绝删除。', 'Search messages within archives. Only archived sessions are listed here. Loaded or running sessions cannot be deleted.')),
       h('input', { type: 'search', value: query, maxLength: 500,
         'aria-label': text('搜索已归档会话', 'Search archived sessions'),
         placeholder: text('搜索名称、工作区或聊天内容', 'Search names, workspaces or messages'),

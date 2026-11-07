@@ -2,7 +2,7 @@
 
 [简体中文](README.md) · [Releases](https://github.com/WSL043/dsh-chat-manager/releases) · [Qualified DSH versions](compatibility.json)
 
-DSH Chat Manager adds archive-only message search and confirmed cleanup to DeepSeek Harness. Open **Settings → Archive cleanup** to find archived messages. Use the archived session's context menu or its search result to request permanent deletion. Both entries show the session name and ask for confirmation.
+DSH Chat Manager adds archive-only message search and confirmed cleanup to DeepSeek Harness. Open **Settings → Archive cleanup** to find archived messages. Use a session's context menu or an archive search result to request permanent deletion. Both entries show the session name and ask for confirmation.
 
 DSH provides the workspace, regular search, archive, restore, and the shared session menu. The archive search narrows the official query to archived sessions before the result limit. It uses bounded event filtering when the optional full-text index is disabled.
 
@@ -11,7 +11,7 @@ DSH provides the workspace, regular search, archive, restore, and the shared ses
 Open **Plugins → Add plugin** in official DeepSeek Harness 0.2.2-rc.1 and paste this package spec:
 
 ```text
-dsh-chat-manager@2.0.0
+dsh-chat-manager@2.0.1
 ```
 
 Check the [qualified DSH versions](compatibility.json) for newer v2 releases. The [v1 maintenance line](https://github.com/WSL043/dsh-chat-manager/tree/stable) documents earlier versions.
@@ -20,14 +20,14 @@ V2 starts with DSH 0.2.2-rc.1. Future compatibility patches are prepared from of
 
 ## Archive cleanup
 
-After archiving a session, show archived conversations in the sidebar to find **Delete permanently** in its row menu. You can also open **Settings → Archive cleanup** to find it by message content.
+Choose **Delete permanently** in the row menu of an archived or unarchived session. Open **Settings → Archive cleanup** to find archived sessions by message content.
 
 ![Official DSH archive search showing a matching archived message](docs/assets/v2-archive-search.png)
 
 <details>
-<summary>Archived session menu and confirmation</summary>
+<summary>Unarchived session menu and confirmation</summary>
 
-![Permanent delete in the menu of an archived session](docs/assets/v2-archived-menu.png)
+![Permanent delete in the menu of an unarchived session](docs/assets/v2-unarchived-menu.png)
 
 ![Confirmation dialog naming the session before permanent deletion](docs/assets/v2-delete-confirmation.png)
 
@@ -35,7 +35,7 @@ After archiving a session, show archived conversations in the sidebar to find **
 
 ## Permanent deletion
 
-Permanent deletion cannot be undone. Only archived, unloaded local sessions using the current JSONL format can be deleted. The plugin acquires the official exclusive write handle and verifies the target before removing it. Active sessions, other writers, and historical formats are refused. An incomplete cleanup keeps the archive marker and reports the retained quarantine.
+Permanent deletion cannot be undone. Only unloaded local sessions using the current JSONL format can be deleted. The plugin verifies the target under the official exclusive write handle. It refuses loaded sessions, running or pending activity, other writers, and historical formats. An incomplete cleanup reports the retained quarantine and preserves any existing archive marker.
 
 External attachments, caches, backups, cloud copies and non-JSONL stores fall outside this operation. Uninstalling the plugin preserves sessions.
 

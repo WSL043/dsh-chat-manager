@@ -65,6 +65,46 @@ test('requires archive membership before opening a write handle', async t => {
   assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
 })
 
+test('unarchived deletion uses the write lease and only clears the pin after removing storage', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  const deps = dependencies({ transcript: paths.transcript })
+  let owned = false, checks = 0, unpins = 0
+  deps.workspaceRegistry = {
+    archivedSessionIds: [],
+    async unpinSession(id) {
+      assert.equal(id, HEADER.id)
+      assert.equal(owned, true)
+      await assert.rejects(readFile(paths.transcript), { code: 'ENOENT' })
+      unpins++
+    },
+  }
+  deps.sessionActivity = async () => { checks++; return [] }
+  deps.sessionPersistence.open = async () => {
+    owned = true
+    return { header: HEADER, close: async () => { owned = false } }
+  }
+  assert.deepEqual(await deleteSessionSafely(deps, { ...args(paths), expectedArchived: false }),
+    { ok: true, value: { deleted: true } })
+  assert.equal(checks, 2)
+  assert.equal(unpins, 1)
+  assert.equal(owned, false)
+})
+
+test('unarchived deletion refuses queued activity, unavailable activity, and a stale archive choice', async t => {
+  const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
+  const deps = dependencies({ transcript: paths.transcript })
+  deps.workspaceRegistry = { archivedSessionIds: [], unpinSession: () => assert.fail('no pin write on refusal') }
+  const target = { ...args(paths), expectedArchived: false }
+  deps.sessionActivity = async () => { throw Error('activity unavailable') }
+  assert.equal((await deleteSessionSafely(deps, target)).error.code, 'activity-unknown')
+  let checks = 0
+  deps.sessionActivity = async () => ++checks === 1 ? [] : [{ kind: 'job' }]
+  assert.equal((await deleteSessionSafely(deps, target)).error.code, 'session-active')
+  deps.workspaceRegistry.archivedSessionIds = [HEADER.id]
+  assert.equal((await deleteSessionSafely(deps, target)).error.code, 'archive-state-changed')
+  assert.match(await readFile(paths.transcript, 'utf8'), /session-delete-test/)
+})
+
 test('refuses loaded idle and running sessions without touching foreign owner capabilities', async t => {
   const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
   for (const status of ['idle', 'running']) {
@@ -116,8 +156,9 @@ test('duplicate deletion stays reserved until the write handle has closed', asyn
 
 test('rechecks host liveness and archive membership after acquiring ownership', async t => {
   const paths = await fixture(); t.after(() => rm(paths.base, { recursive: true, force: true }))
-  let calls = 0
-  const deps = dependencies({ transcript: paths.transcript, sessionGet: () => ++calls === 1 ? undefined : {} })
+  let loaded = false
+  const deps = dependencies({ transcript: paths.transcript, sessionGet: () => loaded ? {} : undefined,
+    open: async () => { loaded = true; return { header: HEADER, close: async () => {} } } })
   assert.equal((await deleteSessionSafely(deps, args(paths))).error.code, 'session-reopened')
   deps.sessions.get = () => undefined
   deps.sessionPersistence.open = async () => { deps.workspaceRegistry.archivedSessionIds = []; return { header: HEADER, close: async () => {} } }
@@ -399,6 +440,11 @@ test('rejects non-POST, non-JSON, malformed, oversized, and invalid-id requests'
   const nulId = response()
   await handler(request(JSON.stringify({ sessionId: `session\0id` })), nulId)
   assert.equal(nulId.status, 400)
+
+  const invalidArchive = response()
+  await handler(request(JSON.stringify({ sessionId: HEADER.id, expectedArchived: 'false' })), invalidArchive)
+  assert.equal(invalidArchive.status, 400)
+  assert.equal(JSON.parse(invalidArchive.body).error.code, 'invalid-archive-state')
 
   const oversized = response()
   await handler(request(JSON.stringify({ sessionId: 'x'.repeat(9 * 1024) })), oversized)

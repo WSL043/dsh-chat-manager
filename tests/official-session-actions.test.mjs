@@ -25,10 +25,14 @@ function fixture(fetch, archived = true) {
     dispose: () => cleanups.forEach(fn => fn()), counts: () => ({ refreshed }) }
 }
 
-test('archived-only public menu and cancellation never contact the host', () => {
+test('both public row menus show deletion and cancellation never contacts the host', () => {
   const bed = fixture(() => { throw Error('must not delete') })
   assert.deepEqual(bed.entries.map(e => e.meta.name), ['contextMenu.icon', 'shell.overlay'])
-  assert.equal(fixture(() => {}, false).menu(), undefined)
+  const unarchived = fixture(() => { throw Error('must not delete') }, false)
+  unarchived.menu().run()
+  unarchived.dialog().props.footer.children[0].props.onClick()
+  assert.equal(unarchived.dialog(), null)
+  unarchived.dispose()
   bed.menu().run()
   assert.equal(bed.menu().danger, true)
   const dialog = bed.dialog()
@@ -44,9 +48,9 @@ test('explicit confirmation deletes once and refreshes the real public session l
   const bed = fixture(async (url, options) => {
     calls++; assert.equal(url, '/plugins/dsh-session-delete/delete')
     assert.equal(options.headers['x-dsh-session-delete-confirmation'], 'delete-session')
-    assert.equal(JSON.parse(options.body).sessionId, 'synthetic')
-    return { ok: true, json: async () => ({ ok: true, value: { archiveReconciled: true } }) }
-  })
+    assert.deepEqual(JSON.parse(options.body), { sessionId: 'synthetic', expectedArchived: false })
+    return { ok: true, json: async () => ({ ok: true }) }
+  }, false)
   bed.menu().run()
   const confirm = bed.dialog().props.footer.children[1].props.onClick
   await Promise.all([confirm(), confirm()])
