@@ -8,7 +8,13 @@
 
 ## 安装与更新
 
-在官方 **插件 → 添加插件** 中输入 `dsh-chat-manager@latest`。安装前请核对实际解析出的版本及其 DSH 要求。本分支兼容文件描述 v2 源码的范围，已安装版本的兼容性请查看对应发布标签。[v1 维护分支](https://github.com/WSL043/dsh-chat-manager/tree/stable)保留旧版说明。
+在官方 DeepSeek Harness 0.2.2-rc.1 中打开 **插件 → 添加插件**，粘贴以下包名和版本：
+
+```text
+dsh-chat-manager@2.0.0
+```
+
+更新到后续 v2 版本前，可查看[已验收的 DSH 版本](compatibility.json)。旧版说明见 [v1 维护分支](https://github.com/WSL043/dsh-chat-manager/tree/stable)。
 
 v2 从 DSH 0.2.2-rc.1 开始支持。后续补丁跟随官方发布，新内核和上一受支持版本均通过验收后才发布。详见[维护指南](docs/stable-maintenance.md)。
 

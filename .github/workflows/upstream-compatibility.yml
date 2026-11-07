@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
+    inputs:
+      check_published:
+        description: Verify the published baseline and qualify without promoting a release
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -31,11 +36,12 @@ jobs:
       - name: Resolve the released v2 baseline
         id: candidate
         env:
+          CHECK_PUBLISHED: ${{ inputs.check_published }}
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$CHECK_PUBLISHED" != true ]]; then
             printf 'run=true\npromote=false\nrecover=false\n' >> "$GITHUB_OUTPUT"
             exit
           fi
@@ -64,17 +70,28 @@ jobs:
             fi
             recover=true
           fi
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$anchor" \
-            | jq -e --arg tag "v$anchor" '.tag_name == $tag and .immutable == true and .draft == false and .prerelease == false' >/dev/null
+          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$anchor")"
+          jq -e --arg tag "v$anchor" '.tag_name == $tag and .draft == false and .prerelease == false' <<< "$release" >/dev/null
           git fetch origin "refs/tags/v$anchor:refs/tags/v$anchor"
+          if [[ "$anchor" == 2.0.0 ]]; then
+            # The first v2 release predates the repository's immutability setting.
+            test "$(git rev-parse 'v2.0.0^{commit}')" = '020ab806b7e55713a034b5097d1386594f750237'
+            test "$(npm view dsh-chat-manager@2.0.0 dist.integrity)" = 'sha512-xQjYOBAyq49dVGUdFuq7Ln7zw0R4BZ6hBbQV4CLBQE7fijYMw88Q4UyEXIgTEb5gCJOeuxBWlZVQwaw2NC0Fvg=='
+            jq -e 'any(.assets[]; .name == "dsh-chat-manager.tgz" and .digest == "sha256:2976009cbfdc97d8320a3bed7c0985d465a6b609c2baaf7ba199b51bb775a983")' <<< "$release" >/dev/null
+          else
+            jq -e '.immutable == true' <<< "$release" >/dev/null
+          fi
           git merge-base --is-ancestor "v$anchor" HEAD
           git diff --exit-code "v$anchor" HEAD -- src lib assets locale cordis.patch.yml
           if [[ "$recover" == true ]]; then
-            git diff --exit-code "v$anchor" HEAD -- . ':!package.json' ':!compatibility.json'
+            git diff --exit-code "v$anchor" HEAD -- . ':!package.json' ':!compatibility.json' ':!.github/workflows/upstream-compatibility.yml' ':!.github/workflows/publish.yml' ':!README.md' ':!README.en.md'
           else
             git diff --exit-code "v$anchor" HEAD -- package.json compatibility.json
           fi
-          printf 'run=true\npromote=true\nrecover=%s\n' "$recover" >> "$GITHUB_OUTPUT"
+          promote=false
+          if [[ "$GITHUB_EVENT_NAME" == schedule ]]; then promote=true; fi
+          printf 'run=true\npromote=%s\nrecover=%s\n' "$promote" "$recover" >> "$GITHUB_OUTPUT"
+          echo "Verified published v2 baseline v$anchor." >> "$GITHUB_STEP_SUMMARY"
       - name: Authenticate the exact official targets
         id: plan
         if: steps.candidate.outputs.run == 'true'
@@ -122,7 +139,7 @@ jobs:
 
   publish:
     needs: [prepare, acceptance]
-    if: needs.prepare.outputs.promote == 'true' && needs.acceptance.result == 'success'
+    if: github.event_name == 'schedule' && needs.prepare.outputs.promote == 'true' && needs.acceptance.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
