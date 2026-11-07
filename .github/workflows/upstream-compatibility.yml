@@ -84,7 +84,9 @@ jobs:
           git merge-base --is-ancestor "v$anchor" HEAD
           git diff --exit-code "v$anchor" HEAD -- src lib assets locale cordis.patch.yml
           if [[ "$recover" == true ]]; then
-            git diff --exit-code "v$anchor" HEAD -- . ':!package.json' ':!compatibility.json' ':!.github/workflows/upstream-compatibility.yml' ':!.github/workflows/publish.yml' ':!README.md' ':!README.en.md'
+            git diff --exit-code "v$anchor" HEAD -- . ':!package.json' ':!compatibility.json' \
+              ':!.github/workflows/upstream-compatibility.yml' ':!.github/workflows/publish.yml' \
+              ':!README.md' ':!README.en.md' ':!docs/assets/v2-*.png'
           else
             git diff --exit-code "v$anchor" HEAD -- package.json compatibility.json
           fi

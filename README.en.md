@@ -18,6 +18,21 @@ Check the [qualified DSH versions](compatibility.json) for newer v2 releases. Th
 
 V2 starts with DSH 0.2.2-rc.1. Future compatibility patches are prepared from official releases and tested on the new core and the preceding supported core before publication. See the [maintenance guide](docs/stable-maintenance.md).
 
+## Archive cleanup
+
+After archiving a session, show archived conversations in the sidebar to find **Delete permanently** in its row menu. You can also open **Settings → Archive cleanup** to find it by message content.
+
+![Official DSH archive search showing a matching archived message](docs/assets/v2-archive-search.png)
+
+<details>
+<summary>Archived session menu and confirmation</summary>
+
+![Permanent delete in the menu of an archived session](docs/assets/v2-archived-menu.png)
+
+![Confirmation dialog naming the session before permanent deletion](docs/assets/v2-delete-confirmation.png)
+
+</details>
+
 ## Permanent deletion
 
 Permanent deletion cannot be undone. Only archived, unloaded local sessions using the current JSONL format can be deleted. The plugin acquires the official exclusive write handle and verifies the target before removing it. Active sessions, other writers, and historical formats are refused. An incomplete cleanup keeps the archive marker and reports the retained quarantine.
