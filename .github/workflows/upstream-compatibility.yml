@@ -81,7 +81,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RECOVER: ${{ steps.candidate.outputs.recover }}
-        run: node scripts/prepare-compat-release.mjs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/prepare-compat-release.mjs > "$RUNNER_TEMP/compatibility-plan.json"
+          jq -r '"changed=\(.changed)", "waiting=\(.waiting)", "versions=\(.targets|tojson)", "version=\(.version)"' \
+            "$RUNNER_TEMP/compatibility-plan.json" | tee -a "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@v6
         if: steps.plan.outputs.waiting == 'false' && (steps.plan.outputs.changed == 'true' || steps.candidate.outputs.recover == 'true' || github.event_name == 'workflow_dispatch')
         with: { version: 11.19.0, run_install: false }

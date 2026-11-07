@@ -35,7 +35,6 @@ jobs:
         with:
           name: ${{ inputs.artifact }}
           path: .candidate
-      - run: pnpm exec playwright install --with-deps chromium
       - name: Stage the pinned official CLI and check its locked integrity
         shell: pwsh
         env:
@@ -65,6 +64,7 @@ jobs:
         env:
           TEMP: ${{ runner.temp }}
           TMP: ${{ runner.temp }}
+          DSH_TEST_BROWSER_CHANNEL: chrome
           DSH_TEST_RUNTIME: ${{ runner.temp }}/chat-manager-official-runtime/node_modules/@deepseek-ai/dsh
           DSH_ACCEPTANCE_EVIDENCE_ROOT: ${{ runner.temp }}/dsh-chat-manager-evidence
         shell: pwsh
