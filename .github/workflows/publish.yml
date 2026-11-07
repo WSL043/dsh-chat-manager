@@ -8,6 +8,14 @@ on:
         description: Optional correlation id used by the compatibility autopilot
         required: false
         type: string
+      expected_sha:
+        description: Main commit accepted by the compatibility workflow
+        required: false
+        type: string
+      expected_digest:
+        description: SHA-256 of the accepted compatibility package
+        required: false
+        type: string
       release_kind:
         description: Release-note template
         required: false
@@ -41,96 +49,71 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
-      prerelease: ${{ steps.version.outputs.prerelease }}
-      npm_tag: ${{ steps.version.outputs.npm_tag }}
+      versions: ${{ steps.version.outputs.versions }}
     steps:
       - uses: actions/checkout@v7
-        with: { fetch-depth: 0 }
-      - name: Protect stable compatibility source
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$GITHUB_REF" == refs/heads/main || "$GITHUB_REF" == refs/heads/stable ]]
-          if [[ "$GITHUB_REF" == refs/heads/stable ]]; then
-            name="$(node -p 'require("./package.json").name')"
-            latest="$(npm view "$name" dist-tags.latest)"
-            [[ "$latest" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-            gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$latest" \
-              | jq -e --arg tag "v$latest" '.tag_name == $tag and .draft == false and .prerelease == false' >/dev/null
-            git fetch origin "refs/tags/v$latest:refs/tags/v$latest"
-            anchor="$(node -p 'require("./.github/stable-maintenance.json").sourceCommit')"
-            [[ "$anchor" =~ ^[0-9a-f]{40}$ ]]
-            git merge-base --is-ancestor "$anchor" "v$latest"
-            git merge-base --is-ancestor "v$latest" HEAD
-            git diff --exit-code "$anchor" HEAD -- src assets locale cordis.patch.yml tsdown.config.mjs scripts/build-client.mjs
-            git show "$anchor:package.json" > "$RUNNER_TEMP/stable-anchor.json"
-            git show "v$latest:package.json" > "$RUNNER_TEMP/stable-baseline.json"
-            PACKAGE_NAME="$name" LATEST_VERSION="$latest" node --input-type=module <<'NODE'
-          import { readFileSync } from 'node:fs';
-          import { validateStableMaintenance, authenticateStableArchive } from './scripts/stable-maintenance.mjs';
-          const bootstrap = JSON.parse(readFileSync('.github/stable-maintenance.json', 'utf8'));
-          const anchor = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/stable-anchor.json', 'utf8'));
-          if (anchor.version !== bootstrap.version) throw new Error('stable bootstrap source version changed');
-          const baseline = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/stable-baseline.json', 'utf8'));
-          validateStableMaintenance({ latest: bootstrap.version, expectedName: process.env.PACKAGE_NAME, baseline: anchor, maintenance: baseline });
-          await authenticateStableArchive({ name: process.env.PACKAGE_NAME, version: process.env.LATEST_VERSION, bootstrap });
-          validateStableMaintenance({ latest: process.env.LATEST_VERSION, expectedName: process.env.PACKAGE_NAME,
-            baseline: JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/stable-baseline.json', 'utf8')),
-            maintenance: JSON.parse(readFileSync('package.json', 'utf8')) });
-          NODE
-          fi
       - uses: pnpm/action-setup@v6
         with:
           version: 11.19.0
           run_install: false
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: 24.22.1
           cache: pnpm
-      - name: Require a release branch and resolve version
+      - name: Require the selected main revision and a final v2 package
         id: version
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          EXPECTED_DIGEST: ${{ inputs.expected_digest }}
+          RELEASE_KIND: ${{ inputs.release_kind }}
         shell: bash
         run: |
-          [[ "$GITHUB_REF" == refs/heads/main || "$GITHUB_REF" == refs/heads/stable ]]
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          if [[ "$RELEASE_KIND" == compatibility ]]; then
+            [[ "$EXPECTED_SHA" == "$GITHUB_SHA" && "$EXPECTED_DIGEST" =~ ^[a-f0-9]{64}$ ]]
+          fi
           version="$(node -p "require('./package.json').version")"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]]
+          [[ "$version" =~ ^2\.[0-9]+\.[0-9]+$ ]]
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
-          if [[ "$version" == *-* ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-            echo "npm_tag=beta" >> "$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-            echo "npm_tag=latest" >> "$GITHUB_OUTPUT"
-          fi
+          echo "versions=$(node -p 'JSON.stringify(require("./compatibility.json").releaseTargets)')" >> "$GITHUB_OUTPUT"
+      - name: Verify recorded official release identities
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVER: 'true'
+        run: node scripts/prepare-compat-release.mjs | jq -e '.waiting == false and .changed == false'
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm test
       - run: pnpm run build
       - run: git diff --exit-code -- lib
-      - run: pnpm exec playwright install --with-deps chromium
-      - name: Qualify the release package on its declared target cores
+      - name: Pack the archive that will be tested and published
         env:
-          DSH_ACCEPTANCE_EVIDENCE_ROOT: ${{ runner.temp }}/chat-release-acceptance
+          EXPECTED_DIGEST: ${{ inputs.expected_digest }}
+        shell: bash
         run: |
+          set -euo pipefail
           pnpm pack --pack-destination .candidate
-          package="$(find .candidate -maxdepth 1 -name '*.tgz' -print -quit)"
-          for version in $(node -e "const c=require('./compatibility.json'); console.log([...c.releaseTargets,...(c.portableBaselines||[]).filter(v=>!c.releaseTargets.includes(v))].join(' '))"); do
-            node scripts/accept-official-dsh.mjs --dsh-version "$version" --package "$package"
-          done
-      - name: Preserve visual acceptance evidence
-        if: always()
-        uses: actions/upload-artifact@v7
+          mv .candidate/dsh-chat-manager-*.tgz .candidate/dsh-chat-manager.tgz
+          if [[ -n "$EXPECTED_DIGEST" ]]; then
+            [[ "$(sha256sum .candidate/dsh-chat-manager.tgz | cut -d' ' -f1)" == "$EXPECTED_DIGEST" ]]
+          fi
+      - uses: actions/upload-artifact@v7
         with:
-          name: chat-release-visual-${{ github.sha }}
-          path: |
-            ${{ runner.temp }}/chat-release-acceptance/**/*.png
-            ${{ runner.temp }}/chat-release-acceptance/**/modern-failure.txt
-          if-no-files-found: ignore
+          name: release-${{ github.sha }}
+          path: .candidate/dsh-chat-manager.tgz
+          include-hidden-files: true
+          if-no-files-found: error
+
+  acceptance:
+    needs: verify
+    uses: ./.github/workflows/official-acceptance.yml
+    with:
+      versions: ${{ needs.verify.outputs.versions }}
+      artifact: release-${{ github.sha }}
 
   release:
-    needs: verify
+    needs: [verify, acceptance]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -139,14 +122,13 @@ jobs:
       pull-requests: read
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/download-artifact@v8
         with:
-          version: 11.19.0
-          run_install: false
+          name: release-${{ github.sha }}
+          path: .artifacts
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
-          cache: pnpm
+          node-version: 24.22.1
           registry-url: https://registry.npmjs.org
       - name: Install OIDC-capable npm
         run: npm install --global npm@12.0.2
@@ -155,13 +137,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
-          IS_PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         shell: bash
         run: |
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-              | jq -e --argjson prerelease "$IS_PRERELEASE" \
-                '.draft == false and .prerelease == $prerelease and .immutable == true' >/dev/null
+              | jq -e '.draft == false and .prerelease == false and .immutable == true' >/dev/null
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -171,25 +151,15 @@ jobs:
               exit 1
             fi
           fi
-      - name: Build release assets
+      - name: Verify the accepted package
         env:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
         shell: bash
         run: |
-          pnpm install --frozen-lockfile --ignore-scripts
-          pnpm run build
-          git diff --exit-code -- lib
-          rm -rf .artifacts
-          mkdir -p .artifacts
-          pnpm pack --pack-destination .artifacts
-          package="$(find .artifacts -maxdepth 1 -type f -name '*.tgz' -print -quit)"
-          test -n "$package"
-          mv "$package" .artifacts/dsh-chat-manager.tgz
-          (cd .artifacts && sha256sum dsh-chat-manager.tgz > dsh-chat-manager.tgz.sha256)
-          for asset in dsh-chat-manager.tgz dsh-chat-manager.tgz.sha256; do
-            test -s ".artifacts/$asset"
-          done
-          tar -xOf .artifacts/dsh-chat-manager.tgz package/package.json \
+          set -euo pipefail
+          package=.artifacts/dsh-chat-manager.tgz
+          test -s "$package"
+          tar -xOf "$package" package/package.json \
             | jq -e --arg version "$RELEASE_VERSION" \
               '.name == "dsh-chat-manager" and .version == $version and .dsh.bundle.patch == "./cordis.patch.yml"' >/dev/null
       - name: Write release notes
@@ -205,10 +175,10 @@ jobs:
           set -euo pipefail
           if [[ "${RELEASE_KIND:-feature}" == 'compatibility' ]]; then
             RELEASE_NOTES_EN="$(printf '%s\n%s' \
-              '- Compatibility range now follows the official latest five DSH cores.' \
+              '- Compatibility range now follows the latest qualified official DSH core and its predecessor.' \
               '- No functionality changes.')"
             RELEASE_NOTES_ZH="$(printf '%s\n%s' \
-              '- 兼容范围改为官方最新 5 个 DSH 内核。' \
+              '- 兼容范围改为通过验收的最新官方 DSH 内核及其上一受支持版本。' \
               '- 功能无变化。')"
           else
             test -n "${RELEASE_NOTES_EN:-}"
@@ -282,7 +252,6 @@ jobs:
       - name: Publish immutable npm package
         env:
           RELEASE_VERSION: ${{ needs.verify.outputs.version }}
-          NPM_TAG: ${{ needs.verify.outputs.npm_tag }}
         shell: bash
         run: |
           set -euo pipefail
@@ -302,7 +271,7 @@ jobs:
             diff -qr --strip-trailing-cr "$local_tree/package" "$remote_tree/package"
             mv "$remote_package" "$package"
           else
-            npm publish "$package" --access public --provenance --tag "$NPM_TAG"
+            npm publish "$package" --access public --provenance --tag latest
           fi
           (cd .artifacts && sha256sum dsh-chat-manager.tgz > dsh-chat-manager.tgz.sha256)
       - name: Verify existing immutable release assets
@@ -310,7 +279,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
-          IS_PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         shell: bash
         run: |
           set -euo pipefail
@@ -326,16 +294,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
-          IS_PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         shell: bash
         run: |
-          flags=()
-          if [[ "$IS_PRERELEASE" == 'true' ]]; then flags+=(--prerelease); fi
           gh release create "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "DSH Chat Manager $RELEASE_TAG" \
             --notes-file .artifacts/release.md \
-            "${flags[@]}" \
             .artifacts/dsh-chat-manager.tgz \
             .artifacts/dsh-chat-manager.tgz.sha256

@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat-manager",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0",
   "packageManager": "pnpm@11.19.0",
   "description": "DeepSeek Harness archive content search and confirmed cleanup of unloaded local sessions",
   "type": "module",
@@ -21,6 +21,7 @@
     "src/index.js",
     "src/host/archive-manager.mjs",
     "src/host/delete-session.mjs",
+    "src/host/plugin-request.mjs",
     "README.md",
     "README.en.md",
     "README.zh-CN.md",
@@ -39,7 +40,8 @@
         "@deepseek-ai/dsh-client-ui-primitives",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-session",
-        "@deepseek-ai/dsh-client-ui-settings"
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-context-menu"
       ],
       "platform": "web"
     }
@@ -77,7 +79,7 @@
   "license": "MIT",
   "publishConfig": {
     "access": "public",
-    "tag": "next"
+    "tag": "latest"
   },
   "repository": {
     "type": "git",
@@ -98,7 +100,8 @@
     "@deepseek-ai/dsh-client-ui-session": "0.2.2-rc.1",
     "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.1",
     "@deepseek-ai/dsh-client-ui-workspace": "0.2.2-rc.1",
-    "react": "^18.2.0"
+    "react": "^18.2.0",
+    "@deepseek-ai/dsh-client-ui-context-menu": "0.2.2-rc.1"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {
@@ -123,6 +126,9 @@
       "optional": true
     },
     "react": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-context-menu": {
       "optional": true
     }
   },

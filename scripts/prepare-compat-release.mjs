@@ -1,394 +1,136 @@
+import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { pathToFileURL } from 'node:url'
 
-const RELEASE_AGE_START = '# dsh-compat-release-age-start'
-const RELEASE_AGE_END = '# dsh-compat-release-age-end'
+export const CORE_VERSION = /^\d+\.\d+\.\d+(?:-rc\.\d+)?$/
+const CORE_NAME = '@deepseek-ai/dsh'
+const GITHUB = 'https://api.github.com'
+const RELEASE_REPO = '/repos/deepseek-ai/deepseek-harness'
+const REGISTRY = 'https://registry.npmjs.org'
 
-const VERSION_RE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/
-// Keep this window identical to selectCoreWindow() in DSH-Portable-Updates scripts/core-window.mjs and coreWindow() in
-// DSH-Portable launcher/update-core.mjs: the newest five versions, at least two of them release candidates or finals.
-const RELEASE_TARGET_COUNT = 5
-const MIN_RELEASE_CANDIDATES = 2
-
-function parseVersion(version) {
-  const match = VERSION_RE.exec(version)
-  if (match === null) throw new Error(`invalid DSH version: ${version}`)
-  const prerelease = match[4]?.split('.') ?? []
-  const build = match[5]?.split('.') ?? []
-  if (prerelease.some(value => !/^[0-9A-Za-z-]+$/.test(value)
-    || (/^\d+$/.test(value) && value.length > 1 && value.startsWith('0')))
-    || build.some(value => !/^[0-9A-Za-z-]+$/.test(value))) {
-    throw new Error(`invalid DSH version: ${version}`)
-  }
-  return {
-    raw: version,
-    core: match.slice(1, 4).map(BigInt),
-    prerelease: prerelease.map(value => /^\d+$/.test(value) ? BigInt(value) : value),
-  }
+function order(version) {
+  if (!CORE_VERSION.test(version)) throw Error('Expected a fixed DSH final or RC version')
+  const [base, rc] = version.split('-rc.')
+  return [...base.split('.').map(BigInt), rc === undefined ? 1n : 0n, BigInt(rc ?? 0)]
 }
 
-export function compareDshVersions(left, right) {
-  const a = parseVersion(left)
-  const b = parseVersion(right)
-  for (let index = 0; index < 3; index += 1) {
-    if (a.core[index] !== b.core[index]) return a.core[index] < b.core[index] ? -1 : 1
-  }
-  if (a.prerelease.length === 0 || b.prerelease.length === 0) {
-    return a.prerelease.length === b.prerelease.length ? 0 : a.prerelease.length === 0 ? 1 : -1
-  }
-  const length = Math.max(a.prerelease.length, b.prerelease.length)
-  for (let index = 0; index < length; index += 1) {
-    const av = a.prerelease[index]
-    const bv = b.prerelease[index]
-    if (av === undefined || bv === undefined) return av === bv ? 0 : av === undefined ? -1 : 1
-    if (av === bv) continue
-    if (typeof av === 'bigint' && typeof bv === 'bigint') return av < bv ? -1 : 1
-    if (typeof av === 'bigint') return -1
-    if (typeof bv === 'bigint') return 1
-    return av < bv ? -1 : 1
+function compare(a, b) {
+  const right = order(b)
+  for (const [index, value] of order(a).entries()) {
+    if (value !== right[index]) return value > right[index] ? 1 : -1
   }
   return 0
 }
 
-export function selectNewestPublishedTag(distTags) {
-  const versions = Object.values(distTags).filter(value => typeof value === 'string')
-  if (versions.length === 0) throw new Error('the DSH registry returned no version tags')
-  return versions.reduce((newest, version) => compareDshVersions(version, newest) > 0 ? version : newest)
+export function newestOfficialCore(tags) {
+  const versions = [tags?.latest, tags?.next].filter(value => typeof value === 'string' && CORE_VERSION.test(value))
+  if (!versions.length) throw Error('No official final or RC on the latest and next channels')
+  return versions.sort((a, b) => compare(b, a))[0]
 }
 
-export function selectLatestDshVersions(versions, count = RELEASE_TARGET_COUNT) {
-  if (!Array.isArray(versions) || !Number.isInteger(count) || count < 1) {
-    throw new TypeError('published DSH versions and a positive target count are required')
+export function planCompatibilityUpdate(manifest, compatibility, newest, cores) {
+  if (!/^2\.\d+\.\d+$/.test(manifest.version) || manifest.publishConfig?.tag !== 'latest') throw Error('Expected a final v2 package')
+  const [current] = compatibility.releaseTargets
+  if (compare(newest, current) <= 0) return null
+  const targets = [newest, current]
+  if (cores.length !== targets.length || cores.some((core, index) => core.version !== targets[index]
+    || !/^[a-f0-9]{40}$/.test(core.commit) || !/^sha512-[A-Za-z0-9+/]+={0,2}$/.test(core.integrity)
+    || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(core.cordis))) throw Error('Incomplete official release evidence')
+
+  const next = structuredClone(manifest)
+  const [major, minor, patch] = manifest.version.split('.')
+  next.version = [major, minor, BigInt(patch) + 1n].join('.')
+  for (const peer of Object.keys(next.peerDependencies)) {
+    if (peer.startsWith('@deepseek-ai/dsh-')) next.peerDependencies[peer] = targets.join(' || ')
   }
-  const valid = [...new Set(versions.filter(version => {
-    if (typeof version !== 'string') return false
-    try {
-      parseVersion(version)
-      return true
-    } catch {
-      return false
-    }
-  }))].sort((left, right) => compareDshVersions(right, left))
-  if (valid.length < count) throw new Error(`the DSH registry returned fewer than ${count} valid versions`)
-  // Alphas never push the newest release candidates or finals out of the window: when fewer than two non-alpha
-  // versions fall inside it, the oldest alpha slots go to the newest non-alpha versions instead.
-  const isAlpha = version => /-alpha[.]/.test(version)
-  const window = valid.slice(0, count)
-  const needed = Math.min(MIN_RELEASE_CANDIDATES, count) - window.filter(version => !isAlpha(version)).length
-  for (const extra of valid.slice(count).filter(version => !isAlpha(version)).slice(0, Math.max(0, needed))) {
-    const alphaAt = window.map(isAlpha).lastIndexOf(true)
-    if (alphaAt === -1) break
-    window.splice(alphaAt, 1)
-    window.push(extra)
-  }
-  return window
-}
-
-function nextStableVersion(version) {
-  const parsed = parseVersion(version)
-  if (parsed.prerelease.length > 0) {
-    if (parsed.prerelease[0] !== 'beta') throw new Error(`unsupported plugin prerelease: ${version}`)
-    return parsed.core.join('.')
-  }
-  return `${parsed.core[0]}.${parsed.core[1]}.${parsed.core[2] + 1n}`
-}
-
-function previousDocumentedPluginVersion(version) {
-  const parsed = parseVersion(version)
-  if (parsed.prerelease.length === 0) return version
-  if (parsed.prerelease.length !== 2 || parsed.prerelease[0] !== 'beta'
-    || !Number.isInteger(parsed.prerelease[1]) || parsed.core[2] === 0) {
-    throw new Error(`unsupported plugin prerelease: ${version}`)
-  }
-  return `${parsed.core[0]}.${parsed.core[1]}.${parsed.core[2] - 1n}`
-}
-
-const LEGACY_PATCH_BEFORE = '0.1.6-alpha.2'
-
-function workspaceFixtureName(version, dependencies = {}) {
-  const rc = /-rc\.(\d+)$/.exec(version)
-  const name = rc === null ? `dsh-ui-workspace-${version.replaceAll('.', '-')}` : `dsh-ui-workspace-rc${rc[1]}`
-  const expected = `npm:@deepseek-ai/dsh-client-ui-workspace@${version}`
-  return dependencies[name] && dependencies[name] !== expected
-    ? `dsh-ui-workspace-${version.replaceAll('.', '-')}` : name
-}
-
-// Upstream does not republish every package with each core: a package without the newest target version
-// keeps its newest release at or below that target.
-export function devVersionFor(published, target) {
-  if (!Array.isArray(published) || published.includes(target)) return target
-  const candidates = published.filter(version => {
-    try {
-      return compareDshVersions(version, target) <= 0
-    } catch {
-      return false
-    }
-  }).sort((left, right) => compareDshVersions(right, left))
-  if (candidates.length === 0) throw new Error(`no published release at or below ${target}`)
-  return candidates[0]
-}
-
-// The cordis host each core ships, read from its `~x.y.z` dependency; a prerelease host such as
-// 4.0.5-alpha.1 is outside every plain range, so it is listed exactly.
-export function cordisHostOf(range) {
-  const match = /^[~^]?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/u.exec(String(range ?? '').trim())
-  if (match === null) throw new Error(`unsupported cordis dependency range: ${range}`)
-  return match[1]
-}
-
-export function widenCordisPeer(peer, hosts) {
-  const listed = String(peer ?? '').split(/\s*\|\|\s*/u).filter(Boolean)
-  return [...new Set([...listed, ...hosts])].join(' || ')
-}
-
-// Cores that a shipped DSH-Portable bundles stay in the peer range and the acceptance matrix after they leave the
-// core window: Portable users still run them, and the host refuses a plugin whose peers omit their core.
-export function portableBaselinesOf(compatibility) {
-  return Array.isArray(compatibility?.portableBaselines) ? compatibility.portableBaselines : []
-}
-
-export function supportedCores(targets, baselines) {
-  return [...targets, ...baselines.filter(version => !targets.includes(version))]
-}
-
-function peersCoverBaselines(manifest, baselines) {
-  return Object.entries(manifest.peerDependencies ?? {}).every(([name, range]) =>
-    !name.startsWith('@deepseek-ai/dsh-') || baselines.every(version => String(range).split('||').map(item => item.trim()).includes(version)))
-}
-
-export function planCompatibilityUpdate(state, targetVersions, publishedVersions = {}, cordisHosts = []) {
-  if (!Array.isArray(targetVersions) || targetVersions.length !== RELEASE_TARGET_COUNT) {
-    throw new Error(`exactly the newest ${RELEASE_TARGET_COUNT} DSH versions are required`)
-  }
-  const targets = selectLatestDshVersions(targetVersions)
-  if (targets.length !== targetVersions.length || targets.some((version, index) => version !== targetVersions[index])) {
-    throw new Error(`DSH release targets must be exactly the newest ${RELEASE_TARGET_COUNT} versions in descending semver order`)
-  }
-  const currentTargets = state.compatibility.releaseTargets ?? []
-  const baselines = portableBaselinesOf(state.compatibility)
-  if (currentTargets.length === targets.length && currentTargets.every((version, index) => version === targets[index])
-    && peersCoverBaselines(state.manifest, baselines)) return null
-
-  const compatibility = structuredClone(state.compatibility)
-  const fixtures = compatibility.testFixtures ?? {}
-  if (compatibility.supported) fixtures.historicalSupported = [...new Set([...(fixtures.historicalSupported ?? []), ...compatibility.supported])]
-  if (compatibility.previews) fixtures.historicalPreviews = [...new Set([...(fixtures.historicalPreviews ?? []), ...compatibility.previews])]
-  if (compatibility.workspaceFixtures) fixtures.workspaceByVersion = { ...(fixtures.workspaceByVersion ?? {}), ...compatibility.workspaceFixtures }
-  if (compatibility.legacyWorkspaceFixture) fixtures.legacyWorkspaceAlias = compatibility.legacyWorkspaceFixture
-  if (compatibility.previewWorkspaceFixture) fixtures.previewWorkspaceAlias = compatibility.previewWorkspaceFixture
-  delete compatibility.supported
-  delete compatibility.previews
-  delete compatibility.workspaceFixtures
-  delete compatibility.legacyWorkspaceFixture
-  delete compatibility.previewWorkspaceFixture
-
-  const previousDshVersion = compatibility.latestTested
-  // Only cores older than the modern workspace (MODERN_WORKSPACE_VERSION in build-modern-client.mjs) are
-  // built with the legacy source patch, so only they join the legacy patch-marker fixtures. Newer cores use
-  // the official session slots and are covered by the per-core acceptance run instead.
-  const legacyPrevious = compareDshVersions(previousDshVersion, LEGACY_PATCH_BEFORE) < 0
-  const previousFixture = legacyPrevious ? workspaceFixtureName(previousDshVersion, state.manifest.devDependencies) : null
-  fixtures.workspaceByVersion ??= {}
-  if (legacyPrevious) fixtures.workspaceByVersion[previousDshVersion] = previousFixture
-  fixtures.historicalSupported = [...new Set([...(fixtures.historicalSupported ?? []), previousDshVersion])]
-  compatibility.testFixtures = fixtures
-  compatibility.releaseTargets = targets
-  compatibility.latestTested = targets[0]
-  if (Object.hasOwn(compatibility, 'clientTarget')) compatibility.clientTarget = targets[0]
-
-  const manifest = structuredClone(state.manifest)
-  const previousPluginVersion = manifest.version
-  manifest.version = nextStableVersion(previousPluginVersion)
-  for (const name of Object.keys(manifest.devDependencies)) {
-    if (name.startsWith('@deepseek-ai/dsh-') && name !== '@deepseek-ai/dsh-client-runtime') {
-      manifest.devDependencies[name] = devVersionFor(publishedVersions[name], targets[0])
-    }
-  }
-  if (legacyPrevious) manifest.devDependencies[previousFixture] = `npm:@deepseek-ai/dsh-client-ui-workspace@${previousDshVersion}`
-  const peerRange = supportedCores(targets, baselines).join(' || ')
-  for (const name of Object.keys(manifest.peerDependencies)) {
-    if (name.startsWith('@deepseek-ai/dsh-')) manifest.peerDependencies[name] = peerRange
-  }
-  if (cordisHosts.length > 0 && Object.hasOwn(manifest.peerDependencies, '@deepseek-ai/cordis')) {
-    manifest.peerDependencies['@deepseek-ai/cordis'] = widenCordisPeer(manifest.peerDependencies['@deepseek-ai/cordis'], cordisHosts)
-  }
-
+  next.peerDependencies['@deepseek-ai/cordis'] = [...new Set(cores.map(core => core.cordis))].join(' || ')
   return {
-    previousPluginVersion,
-    previousDocumentedPluginVersion: previousDocumentedPluginVersion(previousPluginVersion),
-    pluginVersion: manifest.version,
-    previousDshVersion,
-    dshVersions: targets,
-    compatibility,
-    manifest,
+    manifest: next,
+    compatibility: {
+      releaseTargets: targets,
+      latestTested: newest,
+      upstream: cores,
+      autoFollowFrom: manifest.version,
+    },
   }
 }
 
-export function boundedArtifactPaths(update) {
-  return ['README.md', 'README.en.md', 'AGENTS.md', 'THIRD_PARTY_NOTICES.md']
+function endpoint(origin, pathname) {
+  const url = new URL(origin)
+  url.pathname = pathname
+  return url
 }
 
-export function rewriteWorkspaceCohort(workspace, update) {
-  const target = update.dshVersions[0]
-  if (update.previousDshVersion === target) return workspace
-  const rewritten = workspace.replaceAll(`@${update.previousDshVersion}`, `@${target}`)
-  if (rewritten === workspace) throw new Error(`pnpm release cohort ${update.previousDshVersion} was not found`)
-  return rewritten
+async function get(url, options = {}) {
+  return fetch(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(60_000) })
 }
 
-export function rewriteReleaseVersion(source, previousVersion, nextVersion) {
-  return source.replaceAll(previousVersion, nextVersion)
+async function json(url, options) {
+  const response = await get(url, options)
+  if (!response.ok) throw Error('Registry or release API returned HTTP ' + response.status)
+  return response.json()
 }
 
-export function rewriteDshVersion(source, previousVersion, nextVersion) {
-  const rewritten = source.replaceAll(previousVersion, nextVersion)
-  if (!source.includes(previousVersion)) throw new Error(`DSH version ${previousVersion} was not found in bounded artifact`)
-  return rewritten
-}
-
-export function rewriteAgentCompatibility(source, pluginVersion, targets) {
-  const current = targets.join(', ')
-  const summary = `> Current release: dsh-chat-manager@${pluginVersion}, qualified targets DSH ${current}. Use the same package for all of them; no other cores are claimed.`
-  let rewritten = source.replace(/^> Current release:.*$/mu, summary)
-  rewritten = rewritten.replace(/^This release targets DSH .*$/mu,
-    `This release targets DSH ${targets.slice(0, -1).join(', ')}, and ${targets.at(-1)}. Check the target core before installation.`)
-  rewritten = rewritten.replace(/^For DSH .*$/gmu, '')
-  if (!rewritten.includes(summary)) throw new Error('Agent guide compatibility section is out of sync')
-  return rewritten
-}
-
-export function rewriteCompatibilityBlock(source, targets, language) {
-  const marker = /<!-- dsh-compatibility -->[\s\S]*?<!-- \/dsh-compatibility -->/
-  if (!marker.test(source)) throw new Error(`missing generated DSH compatibility block (${language})`)
-  if (targets.length !== RELEASE_TARGET_COUNT) throw new Error(`exactly ${RELEASE_TARGET_COUNT} DSH versions must be qualified`)
-  const list = targets.map(version => `\`${version}\``).join(language === 'zh' ? '、' : ', ')
-  const body = language === 'zh'
-    ? `当前版本支持 DeepSeek Harness ${list}。`
-    : `This release supports DeepSeek Harness ${list}.`
-  return source.replace(marker, `<!-- dsh-compatibility -->\n${body}\n<!-- /dsh-compatibility -->`)
-}
-
-export function rewriteInstallationCompatibility(source, pluginVersion, targets, language) {
-  const listed = targets.map(version => `\`${version}\``)
-  const line = language === 'zh'
-    ? `**版本 ${pluginVersion} 支持 DSH 内核 ${listed.join('、')}。**`
-    : `**Version ${pluginVersion} supports DSH cores ${listed[0]}, ${listed[1]}, and ${listed[2]}.**`
-  const pattern = language === 'zh'
-    ? /^\*\*版本 \d+\.\d+\.\d+ 支持 DSH 内核 .*。\*\*$/mu
-    : /^\*\*Version \d+\.\d+\.\d+ supports DSH cores .*\.\*\*$/mu
-  return pattern.test(source) ? source.replace(pattern, line) : source
-}
-
-export function extractDeepSeekReleaseAgeSelectors(lockfile) {
-  const packagesStart = lockfile.indexOf('\npackages:\n')
-  const snapshotsStart = lockfile.indexOf('\nsnapshots:\n')
-  if (packagesStart === -1 || snapshotsStart === -1 || snapshotsStart <= packagesStart) {
-    throw new Error('pnpm lockfile does not contain packages and snapshots sections')
+export async function officialCore(version, token) {
+  order(version)
+  const tag = 'dsh-v' + version
+  const headers = token ? { Authorization: 'Bearer ' + token } : {}
+  const release = await get(endpoint(GITHUB, RELEASE_REPO + '/releases/tags/' + tag), { headers })
+  if (release.status === 404) return null
+  if (!release.ok) throw Error('GitHub release API returned HTTP ' + release.status)
+  const details = await release.json()
+  if (details.tag_name !== tag || details.draft !== false || details.immutable !== true || !details.published_at) {
+    throw Error('Official DSH release is not immutable and published: ' + tag)
   }
-  const packages = lockfile.slice(packagesStart, snapshotsStart)
-  const selectors = [...packages.matchAll(/^  '(@deepseek-ai\/[^']+@[^']+)':$/gmu)].map(match => match[1])
-  if (selectors.length === 0) throw new Error('pnpm lockfile contains no @deepseek-ai package selectors')
-  return [...new Set(selectors)].sort()
-}
+  const ref = await json(endpoint(GITHUB, RELEASE_REPO + '/git/ref/tags/' + tag), { headers })
+  const object = ref.object
+  if (!/^[a-f0-9]{40}$/.test(object?.sha) || !['tag', 'commit'].includes(object.type)) throw Error('Invalid official Git tag')
+  const commit = object.type === 'commit' ? object.sha
+    : await json(endpoint(GITHUB, RELEASE_REPO + '/git/tags/' + object.sha), { headers }).then(({ object }) =>
+        object?.type === 'commit' ? object.sha : undefined)
+  if (!/^[a-f0-9]{40}$/.test(commit)) throw Error('Invalid official commit')
 
-export function rewriteReleaseAgeCohort(workspace, selectors) {
-  const start = workspace.indexOf(RELEASE_AGE_START)
-  const end = workspace.indexOf(RELEASE_AGE_END)
-  if (start === -1 || end === -1 || end <= start) throw new Error('missing bounded DSH release-age markers')
-  const block = [
-    RELEASE_AGE_START,
-    'minimumReleaseAgeExclude:',
-    ...selectors.map(selector => `  - '${selector}'`),
-    RELEASE_AGE_END,
-  ].join('\n')
-  return `${workspace.slice(0, start)}${block}${workspace.slice(end + RELEASE_AGE_END.length)}`
-}
-
-async function refreshReleaseAge(root) {
-  const [workspace, lockfile] = await Promise.all([
-    readFile(resolve(root, 'pnpm-workspace.yaml'), 'utf8'),
-    readFile(resolve(root, 'pnpm-lock.yaml'), 'utf8'),
-  ])
-  const selectors = extractDeepSeekReleaseAgeSelectors(lockfile)
-  await writeFile(resolve(root, 'pnpm-workspace.yaml'), rewriteReleaseAgeCohort(workspace, selectors))
-  return { changed: true, selectors: selectors.length }
-}
-
-// Requests stay on the npm package-metadata endpoint; names are one encoded path component.
-export function deepSeekPackageMetadataUrl(name) {
-  if (typeof name !== 'string' || !/^@deepseek-ai\/dsh(?:-[a-z0-9][a-z0-9._-]*)?$/u.test(name)) throw new TypeError('a DeepSeek DSH package name is required')
-  return 'https://registry.npmjs.org/' + encodeURIComponent(name)
-}
-
-export function cordisHostsFromPackument(targetVersions, packument) {
-  if (!Array.isArray(targetVersions)) throw new TypeError('DSH target versions must be an array')
-  const versions = packument.versions ?? {}
-  return targetVersions.map(version => {
-    parseVersion(version)
-    if (!Object.hasOwn(versions, version)) throw new Error(`Unpublished DSH target: ${version}`)
-    return cordisHostOf(versions[version].dependencies?.['@deepseek-ai/cordis'])
-  })
+  const packageInfo = await json(endpoint(REGISTRY, '/' + encodeURIComponent(CORE_NAME) + '/' + version))
+  const { integrity, tarball } = packageInfo.dist ?? {}
+  const cordis = /^[~^]?(\d+\.\d+\.\d+(?:-[\w.-]+)?)$/.exec(packageInfo.dependencies?.['@deepseek-ai/cordis'])?.[1]
+  const url = endpoint(REGISTRY, '/@deepseek-ai/dsh/-/dsh-' + version + '.tgz')
+  if (packageInfo.name !== CORE_NAME || packageInfo.version !== version || !cordis
+    || tarball !== url.href
+    || !/^sha512-[A-Za-z0-9+/]+={0,2}$/.test(integrity)) throw Error('Unexpected official registry package metadata')
+  const response = await get(url)
+  if (!response.ok) throw Error('Official tarball unavailable')
+  const digest = createHash('sha512').update(Buffer.from(await response.arrayBuffer())).digest('base64')
+  if ('sha512-' + digest !== integrity) throw Error('Official npm tarball integrity mismatch')
+  return { version, commit, integrity, cordis }
 }
 
 async function main() {
-  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-  if (process.argv.includes('--refresh-release-age')) return refreshReleaseAge(root)
-  const targetsIndex = process.argv.indexOf('--dsh-versions')
-  const targets = targetsIndex === -1 ? undefined : process.argv[targetsIndex + 1]
-  if (targets === undefined) throw new Error('--dsh-versions JSON array is required')
-  const targetVersions = JSON.parse(targets)
-  if (!Array.isArray(targetVersions)) throw new TypeError('DSH target versions must be an array')
-  for (const version of targetVersions) parseVersion(version)
-  const compatibilityPath = resolve(root, 'compatibility.json')
-  const manifestPath = resolve(root, 'package.json')
-  const [compatibility, manifest] = await Promise.all([
-    readFile(compatibilityPath, 'utf8').then(JSON.parse),
-    readFile(manifestPath, 'utf8').then(JSON.parse),
-  ])
-  const publishedVersions = Object.fromEntries(await Promise.all(Object.keys(manifest.devDependencies)
-    .filter(name => name.startsWith('@deepseek-ai/dsh-') && name !== '@deepseek-ai/dsh-client-runtime')
-    .map(async name => {
-      const response = await fetch(deepSeekPackageMetadataUrl(name), { redirect: 'error' })
-      if (!response.ok) throw new Error(`Registry HTTP ${response.status} for ${name}`)
-      return [name, Object.keys((await response.json()).versions ?? {})]
-    })))
-  const coreResponse = await fetch('https://registry.npmjs.org/@deepseek-ai%2fdsh', {
-    headers: { Accept: 'application/vnd.npm.install-v1+json' }, redirect: 'error',
-  })
-  if (!coreResponse.ok) throw new Error(`Registry HTTP ${coreResponse.status} for @deepseek-ai/dsh`)
-  const cordisHosts = cordisHostsFromPackument(targetVersions, await coreResponse.json())
-  const update = planCompatibilityUpdate({ compatibility, manifest }, targetVersions, publishedVersions, cordisHosts)
-  if (update === null) {
-    process.stdout.write(`${JSON.stringify({ changed: false, dshVersions: targetVersions })}\n`)
-    return
+  const manifest = JSON.parse(await readFile('package.json', 'utf8'))
+  const compatibility = JSON.parse(await readFile('compatibility.json', 'utf8'))
+  const registry = await json(endpoint(REGISTRY, '/' + encodeURIComponent(CORE_NAME)), { headers: { Accept: 'application/vnd.npm.install-v1+json' } })
+  const newest = newestOfficialCore(registry['dist-tags'])
+  const [current] = compatibility.releaseTargets
+  const changed = process.env.RECOVER !== 'true' && compare(newest, current) > 0
+  const targets = changed ? [newest, current] : compatibility.releaseTargets
+  const cores = await Promise.all(targets.map(version => officialCore(version, process.env.GH_TOKEN)))
+  const waiting = cores.some(core => core === null)
+  if (!waiting) {
+    for (const expected of compatibility.upstream) {
+      const actual = cores.find(core => core.version === expected.version)
+      if (actual && ['commit', 'integrity', 'cordis'].some(key => actual[key] !== expected[key])) {
+        throw Error('Official source or package integrity changed')
+      }
+    }
   }
-  const textPaths = boundedArtifactPaths(update)
-  const textSources = await Promise.all(textPaths.map(path => readFile(resolve(root, path), 'utf8')))
-  const rewritten = textSources.map(source => rewriteReleaseVersion(source, update.previousDocumentedPluginVersion, update.pluginVersion))
-  rewritten[0] = rewriteInstallationCompatibility(
-    rewriteCompatibilityBlock(rewritten[0], update.dshVersions, 'zh'), update.pluginVersion, update.dshVersions, 'zh')
-  rewritten[1] = rewriteInstallationCompatibility(
-    rewriteCompatibilityBlock(rewritten[1], update.dshVersions, 'en'), update.pluginVersion, update.dshVersions, 'en')
-  rewritten[2] = rewriteAgentCompatibility(rewritten[2], update.pluginVersion, update.dshVersions)
-  rewritten[3] = rewriteDshVersion(rewritten[3], update.previousDshVersion, update.dshVersions[0])
-
-  const workspacePath = resolve(root, 'pnpm-workspace.yaml')
-  const workspace = await readFile(workspacePath, 'utf8')
-  const nextWorkspace = rewriteWorkspaceCohort(workspace, update)
-
-  await Promise.all([
-    writeFile(compatibilityPath, `${JSON.stringify(update.compatibility, null, 2)}\n`),
-    writeFile(manifestPath, `${JSON.stringify(update.manifest, null, 2)}\n`),
-    writeFile(workspacePath, nextWorkspace),
-    ...textPaths.map((path, index) => writeFile(resolve(root, path), rewritten[index])),
-  ])
-  process.stdout.write(`${JSON.stringify({ changed: true, ...update })}\n`)
+  const update = waiting || !changed ? null : planCompatibilityUpdate(manifest, compatibility, newest, cores)
+  if (update) {
+    await writeFile('package.json', JSON.stringify(update.manifest, null, 2) + '\n')
+    await writeFile('compatibility.json', JSON.stringify(update.compatibility, null, 2) + '\n')
+  }
+  const result = { changed: update !== null, waiting, targets, version: update?.manifest.version ?? manifest.version }
+  console.log(JSON.stringify(result))
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  main().catch(error => {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
-    process.exitCode = 1
-  })
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main()
 }

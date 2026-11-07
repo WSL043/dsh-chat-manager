@@ -1,11 +1,6 @@
-> Unpublished candidate: dsh-chat-manager@2.0.0-alpha.1. Fixed target: DSH 0.2.2-rc.1 at 66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db, Cordis 4.1.0. RC1 isolated Windows UI acceptance passed using generated fixtures, without validating an existing user installation or real-model calls; this candidate remains unpublished and no other cores are claimed.
-
 # Agent maintenance and installation boundary
 
-This working tree prepares an independent v2 plugin. It is not the npm `latest` stable
-package and must not inherit the stable line's RC or old Portable compatibility
-claims. This work does not preinstall a plugin into official Desktop 1.x or modify
-an official ASAR. Read [docs/UNRELEASED-v2.md](docs/UNRELEASED-v2.md) before maintenance.
+Read [docs/UNRELEASED-v2.md](docs/UNRELEASED-v2.md) and [the maintenance guide](docs/stable-maintenance.md) before changing v2. Qualified targets are recorded in compatibility.json. Check the published tag for an installed package.
 
 ## Installation protection
 
@@ -33,7 +28,7 @@ an official ASAR. Read [docs/UNRELEASED-v2.md](docs/UNRELEASED-v2.md) before mai
 
 Official DSH owns normal archive, stop-and-archive, unarchive and navigation.
 The plugin contributes archive-only content search and confirmed permanent cleanup
-through public slots. It must not capture foreign AgentHandle capabilities, patch
+through the public context menu and settings slot. It must not capture foreign AgentHandle capabilities, patch
 shared lifecycle methods, read private navigation state or write private registry state.
 
 Permanent deletion is irreversible. The confirmation must name the exact target;
@@ -64,7 +59,6 @@ requested version, changes, rollback state and what remains unverified. Never di
 TLS validation, delete a profile, replace unrelated packages or attempt a destructive
 session test as recovery.
 
-Stable maintenance checks upstream every hour and publishes compatible patches
-to npm and GitHub Releases only after acceptance. Failures block publication and
-report an error. This process does not define v2 admission or publish or widen this
-fixed candidate; v2 publication and lock refresh remain separate maintainer actions.
+The v2 workflow checks official releases hourly and qualifies a patch before promotion.
+The first v2 publication is a maintainer action. The compatibility workflow can
+run in verification mode before that release.

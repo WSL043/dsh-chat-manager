@@ -7,11 +7,11 @@ import { spawnSync } from 'node:child_process'
 import { parseOfficialAcceptanceArgs, buildAcceptanceFixtureSource, waitForAcceptanceFixture, sanitizeAcceptanceDiagnostic, resolveOfficialAcceptanceCommand, resolveAcceptanceEvidenceRoot } from '../scripts/accept-official-dsh.mjs'
 import { ARCHIVE_SETTINGS_ID, ARCHIVE_SETTINGS_LABEL, archiveActionPattern, openPluginManager } from '../scripts/accept-modern-official.mjs'
 
-test('official candidate acceptance defaults to fixed RC1 and requires a candidate package', () => {
-  assert.deepEqual(parseOfficialAcceptanceArgs(['--package', '/synthetic/plugin.tgz']), { dshVersion: '0.2.2-rc.1', packagePath: '/synthetic/plugin.tgz', port: 14191 })
+test('official acceptance requires an exact final or RC and a candidate archive', () => {
+  assert.throws(() => parseOfficialAcceptanceArgs(['--package', '/synthetic/plugin.tgz']), /fixed official final or RC/)
   assert.deepEqual(parseOfficialAcceptanceArgs(['--dsh-version', '0.2.2-rc.1', '--package', '/synthetic/plugin.tgz', '--port', '14193']), { dshVersion: '0.2.2-rc.1', packagePath: '/synthetic/plugin.tgz', port: 14193 })
   assert.throws(() => parseOfficialAcceptanceArgs([]), /--package is required/)
-  for (const version of ['next', '0.2.1-rc.4', '1.0.0']) assert.throws(() => parseOfficialAcceptanceArgs(['--dsh-version', version, '--package', '/synthetic/plugin.tgz']), /fixed 0.2.2-rc.1/)
+  for (const version of ['next', '0.2.1-alpha.4', '1.0.0 || 2.0.0']) assert.throws(() => parseOfficialAcceptanceArgs(['--dsh-version', version, '--package', '/synthetic/plugin.tgz']), /fixed official final or RC/)
 })
 
 test('generated own-agent fixture is source-only and never intercepts another owner', () => {
@@ -144,36 +144,31 @@ test('HMR navigation opens the official sidebar manager, Installed tab and exact
 test('acceptance selects pinned JS entries as separate Node arguments and refuses other package identities', async t => {
   const base = await mkdtemp(join(tmpdir(), 'chat-v2-command-'))
   t.after(() => rm(base, { recursive: true, force: true }))
-  const pnpmRoot = join(base, 'pnpm with spaces & punctuation'), runtimeRoot = join(base, 'official runtime with spaces')
-  const pnpmManifest = { name: 'pnpm', version: '11.19.0', bin: { pnpm: 'bin/pnpm.mjs' } }
+  const runtimeRoot = join(base, 'official runtime with spaces')
+  const dshVersion = '0.2.2-rc.1'
   const runtimeManifest = { name: '@deepseek-ai/dsh', version: '0.2.2-rc.1', bin: { dsh: 'lib/bin.js' } }
-  for (const [directory, manifest, subdirectory, filename] of [[pnpmRoot, pnpmManifest, 'bin', 'pnpm.mjs'], [runtimeRoot, runtimeManifest, 'lib', 'bin.js']]) {
+  for (const [directory, manifest, subdirectory, filename] of [[runtimeRoot, runtimeManifest, 'lib', 'bin.js']]) {
     await mkdir(join(directory, subdirectory), { recursive: true })
     await writeFile(join(directory, 'package.json'), JSON.stringify(manifest))
     await writeFile(join(directory, subdirectory, filename), '// Synthetic resolver fixture; never executed.\n')
   }
-  assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot: null, pnpmRoot }), [await realpath(join(pnpmRoot, 'bin', 'pnpm.mjs')), 'dlx', '--allow-build=fs-ext', '@deepseek-ai/dsh@0.2.2-rc.1'])
-  assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot }), [await realpath(join(runtimeRoot, 'lib', 'bin.js'))])
-  assert.deepEqual(await resolveOfficialAcceptanceCommand({ runtimeRoot: await realpath(runtimeRoot) }), [await realpath(join(runtimeRoot, 'lib', 'bin.js'))])
-  await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: '--eval', pnpmRoot }), /absolute/)
+  assert.deepEqual(await resolveOfficialAcceptanceCommand({ dshVersion, runtimeRoot }), [await realpath(join(runtimeRoot, 'lib', 'bin.js'))])
+  assert.deepEqual(await resolveOfficialAcceptanceCommand({ dshVersion, runtimeRoot: await realpath(runtimeRoot) }), [await realpath(join(runtimeRoot, 'lib', 'bin.js'))])
+  await assert.rejects(resolveOfficialAcceptanceCommand({ dshVersion, runtimeRoot: '--eval' }), /absolute/)
   const temporaryRoot = resolve(tmpdir())
   for (const outside of [temporaryRoot, await realpath(temporaryRoot), resolve(temporaryRoot, '..', 'chat-v2-outside-package'), temporaryRoot + '-sibling', temporaryRoot + sep + 'child' + sep + '..' + sep + '..' + sep + 'chat-v2-outside-package']) {
-    await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: outside }), /strict subdirectory of os.tmpdir/)
+    await assert.rejects(resolveOfficialAcceptanceCommand({ dshVersion, runtimeRoot: outside }), /strict subdirectory of os.tmpdir/)
   }
   const externalLink = join(base, 'outside-temp-link')
   await symlink(resolve(temporaryRoot, '..'), externalLink, process.platform === 'win32' ? 'junction' : 'dir')
-  await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: externalLink }), /inside os.tmpdir.*resolving links/)
+  await assert.rejects(resolveOfficialAcceptanceCommand({ dshVersion, runtimeRoot: externalLink }), /inside os.tmpdir.*resolving links/)
 
-  for (const change of [{ name: '@other/package' }, { version: '11.20.0' }, { bin: { pnpm: 'other.js' } }]) {
-    await writeFile(join(pnpmRoot, 'package.json'), JSON.stringify({ ...pnpmManifest, ...change }))
-    await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: null, pnpmRoot }), /fixed 11.19.0 JS entry/)
-  }
   const linkedRoot = join(base, 'linked package'), outsideBin = join(base, 'outside-bin')
   await mkdir(linkedRoot); await mkdir(outsideBin)
-  await writeFile(join(linkedRoot, 'package.json'), JSON.stringify(pnpmManifest))
-  await writeFile(join(outsideBin, 'pnpm.mjs'), '// Outside the package; never executed.\n')
-  await symlink(outsideBin, join(linkedRoot, 'bin'), process.platform === 'win32' ? 'junction' : 'dir')
-  await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot: null, pnpmRoot: linkedRoot }), /inside its package directory/)
+  await writeFile(join(linkedRoot, 'package.json'), JSON.stringify(runtimeManifest))
+  await writeFile(join(outsideBin, 'bin.js'), '// Outside the package; never executed.\n')
+  await symlink(outsideBin, join(linkedRoot, 'lib'), process.platform === 'win32' ? 'junction' : 'dir')
+  await assert.rejects(resolveOfficialAcceptanceCommand({ dshVersion, runtimeRoot: linkedRoot }), /inside its package directory/)
   assert.equal(await resolveAcceptanceEvidenceRoot(join(base, 'new', 'evidence')), join(await realpath(base), 'new', 'evidence'))
   assert.equal(await resolveAcceptanceEvidenceRoot(base), await realpath(base))
   for (const outside of [temporaryRoot, await realpath(temporaryRoot), resolve(temporaryRoot, '..', 'chat-v2-outside-evidence')]) {
@@ -181,9 +176,9 @@ test('acceptance selects pinned JS entries as separate Node arguments and refuse
   }
   await assert.rejects(resolveAcceptanceEvidenceRoot(externalLink), /without links/)
   await assert.rejects(resolveAcceptanceEvidenceRoot(join(externalLink, 'new', 'evidence')), /without links/)
-  await assert.rejects(resolveAcceptanceEvidenceRoot(join(pnpmRoot, 'bin', 'pnpm.mjs', 'child')), /directories without links/)
+  await assert.rejects(resolveAcceptanceEvidenceRoot(join(runtimeRoot, 'lib', 'bin.js', 'child')), /directories without links/)
   for (const change of [{ name: '@other/runtime' }, { version: '0.2.1-rc.3' }, { bin: { dsh: 'other.js' } }]) {
     await writeFile(join(runtimeRoot, 'package.json'), JSON.stringify({ ...runtimeManifest, ...change }))
-    await assert.rejects(resolveOfficialAcceptanceCommand({ runtimeRoot }), /fixed official RC1/)
+    await assert.rejects(resolveOfficialAcceptanceCommand({ dshVersion, runtimeRoot }), /selected official DSH/)
   }
 })

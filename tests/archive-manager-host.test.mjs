@@ -4,7 +4,7 @@ import test from 'node:test'
 
 import {
   createArchiveRequestHandlers,
-  deleteSessionAndReconcileArchive,
+  reconcileDeletedArchive,
   restoreArchivedSession,
   searchArchivedSessions,
 } from '../src/host/archive-manager.mjs'
@@ -16,6 +16,9 @@ const B = 'session-archive-b'
 const fixtureConnection = { requestRejection: req => !sameOriginRequest(req) ? 403
   : req.headers.cookie === 'fixture-auth' ? undefined : 401 }
 const fixtureFence = hostRequestFence(fixtureConnection)
+
+const deleteSessionAndReconcileArchive = async ({ deleteSession, ...options }, id) =>
+  reconcileDeletedArchive(options, id, await deleteSession(id))
 
 test('verified absent transcript clears only its stale archive marker', async () => {
   const workspaceRegistry = registry()

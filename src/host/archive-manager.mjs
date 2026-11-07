@@ -1,6 +1,7 @@
+import { failure, readPluginPost, sendJson } from './plugin-request.mjs'
+
 const SEARCH_LIMIT = 20
 const MESSAGE_TYPES = new Set(['user/message', 'assistant/message'])
-const MAX_REQUEST_BYTES = 8 * 1024
 
 const assertSessionId = sessionId => {
   if (typeof sessionId !== 'string' || sessionId.length === 0 || sessionId.length > 512 || sessionId.includes('\0')) {
@@ -68,8 +69,7 @@ export async function restoreArchivedSession(workspaceRegistry, sessionId) {
 }
 
 /** Keep DSH's archive registry free of ids whose storage was permanently removed. */
-export async function deleteSessionAndReconcileArchive({ workspaceRegistry, deleteSession, warn = console.warn }, sessionId) {
-  const result = await deleteSession(sessionId)
+export async function reconcileDeletedArchive({ workspaceRegistry, warn = console.warn }, sessionId, result) {
   if (result?.ok !== true) return result
   try {
     await restoreArchivedSession(workspaceRegistry, sessionId)
@@ -138,67 +138,11 @@ export async function searchArchivedSessions({ workspaceRegistry, sessionQuery }
   return { items, hasMore: page?.nextCursor !== undefined }
 }
 
-const sendJson = (res, status, payload) => {
-  res.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'cache-control': 'no-store',
-    'x-content-type-options': 'nosniff',
-  })
-  res.end(JSON.stringify(payload))
-}
-
-const failure = (code, message) => ({ ok: false, error: { code, message } })
-
-const readJsonBody = async req => {
-  const chunks = []
-  let size = 0
-  for await (const chunk of req) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-    size += buffer.length
-    if (size > MAX_REQUEST_BYTES) throw new Error('request-too-large')
-    chunks.push(buffer)
-  }
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'))
-}
-
-const acceptJsonPost = (req, res, isTrustedRequest) => {
-  if (req.method !== 'POST') {
-    sendJson(res, 405, failure('method-not-allowed', '只允许使用 POST 管理归档会话。'))
-    return false
-  }
-  const admission = isTrustedRequest(req)
-  if (admission !== true) {
-    sendJson(res, admission === 401 ? 401 : 403, failure('forbidden', '归档管理请求未通过宿主认证。'))
-    return false
-  }
-  const contentType = req.headers['content-type']
-  if (typeof contentType !== 'string' || !contentType.toLowerCase().startsWith('application/json')) {
-    sendJson(res, 415, failure('unsupported-media-type', '归档管理请求必须使用 JSON。'))
-    return false
-  }
-  return true
-}
-
-const parseBody = async (req, res) => {
-  try {
-    return await readJsonBody(req)
-  } catch (error) {
-    const tooLarge = error instanceof Error && error.message === 'request-too-large'
-    sendJson(
-      res,
-      tooLarge ? 413 : 400,
-      failure(tooLarge ? 'request-too-large' : 'invalid-json', tooLarge ? '归档管理请求过大。' : '归档管理请求不是有效 JSON。'),
-    )
-    return undefined
-  }
-}
-
 /** Same-origin HTTP boundary consumed by the native archive manager UI. */
 export function createArchiveRequestHandlers({ search, warn = console.warn, isTrustedRequest = () => false }) {
   return {
     search: async (req, res) => {
-      if (!acceptJsonPost(req, res, isTrustedRequest)) return
-      const body = await parseBody(req, res)
+      const body = await readPluginPost(req, res, isTrustedRequest)
       if (body === undefined) return
       const query = typeof body?.query === 'string' ? body.query.trim() : ''
       if (query.length === 0 || query.length > 500 || query.includes('\0')) {

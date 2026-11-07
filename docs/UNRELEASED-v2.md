@@ -1,54 +1,15 @@
-# Unreleased v2 preparation
+# DSH Chat Manager 2.0.0
 
-This maintenance branch prepares package version 2.0.0-alpha.1; it is not a
-published release. The generated client must be rebuilt and verified
-from this source before acceptance. Publication workflows remain unchanged and
-are not permission to publish. Do not install this working tree into a daily profile.
+- Use the official session context menu for the permanent delete entry, including the row menu and keyboard access.
+- Keep the archive-only content query and index-disabled fallback. Normal session actions remain in the official workspace.
+- Preserve the archive marker after incomplete cleanup. Keep the official persistence lease through archive reconciliation.
+- Track the current official DSH core and the preceding supported core through the compatibility workflow.
 
-The v2 source targets only the public contracts inspected at DeepSeek Harness
-0.2.2-rc.1 commit 66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db.
-RC1 isolated Windows UI acceptance passed using generated fixtures;
-existing user installations and real-model calls were not validated. The candidate
-remains unpublished. For RC3, continue using published 1.5.19; its RC or Portable
-compatibility promises do not carry over to this preparation.
+Initial scope is official DSH 0.2.2-rc.1 with Cordis 4.1.0. Use generated isolated profiles for acceptance. Signed Desktop shell behavior and existing user data are separate from the browser fixture.
 
-- Normal search, archive, stop-and-archive and restore stay with official DSH.
-- One additive public settings section searches archived message content with
-  archive IDs applied before the result limit. It retains the bounded-concurrency
-  event scan when the optional full-text index is disabled. Results and snippets
-  remain limited, and superseded requests are cancelled.
-- The settings section and archived row menu share one named delete confirmation.
-  Permanent deletion requires an archived, unloaded, current-format local JSONL
-  session and an exclusive official persistence write handle held through cleanup.
-  Loaded idle/running sessions, other writers and historical/unknown formats are
-  refused. The plugin does not stop agents or migrate sessions for deletion.
-- Public refresh and unarchive operations reconcile lists. No workspace copy,
-  private navigation/state access, global lifecycle wrapping, or Portable settings
-  global is used. Stopping or archiving does not promise that an Agent is unloaded.
-- Deletion is irreversible, is not secure erasure, and excludes external
-  attachments, caches, logs, backups, cloud copies and non-JSONL stores. Partial
-  cleanup retains the quarantine and is reported; an archive reconciliation failure
-  remains visible for retry.
+## 中文
 
-Before release, the maintainer must align the package files, dependency/lock and
-compatibility metadata, regenerate the client, then qualify a fixed official core
-in an isolated disposable profile. Required checks include cancel-without-request,
-archive-only search beyond the global result cap, index-disabled cancellation,
-cold archived deletion preserving neighbours, live/busy/migration refusal,
-reopen/lease races, HMR/unload, partial cleanup and narrow/dark UI. Destructive
-acceptance requires explicitly selected disposable fixture sessions. No user
-profile or existing Portable package may be used as test data.
-
-## Compatibility automation hold
-
-The existing compatibility preparation script assumes a newest-five-core window
-and at least two release candidates/finals. Its plan and README rewrite functions
-require five targets; its next-release/documented-version functions only handle
-stable or beta plugin versions. It may widen Cordis peers and regenerate legacy
-fixture metadata. These paths need a v2 fixed-target/prerelease guard before use.
-An empty portableBaselines list currently adds no old baseline by itself.
-
-The unchanged upstream-compatibility workflow selects the five-core window, can
-write/commit compatibility metadata and can dispatch the trusted publish workflow.
-Do not invoke it for this unpublished v2 candidate. No workflow was changed here;
-a maintainer must separately review guards before any automation is enabled for v2.
+- 永久删除入口接入官方会话菜单，支持行菜单和键盘操作。
+- 保留仅搜索归档内容及关闭全文索引时的后备查询。常规会话操作由官方工作区提供。
+- 清理未完成时保留归档标记。在官方独占写入句柄保护下更新归档状态。
+- 兼容流程跟随最新官方内核，并验收上一受支持版本。

@@ -5,7 +5,7 @@ import {
 } from './host/delete-session.mjs'
 import {
   createArchiveRequestHandlers,
-  deleteSessionAndReconcileArchive,
+  reconcileDeletedArchive,
   searchArchivedSessions,
 } from './host/archive-manager.mjs'
 
@@ -27,6 +27,7 @@ export function apply(ctx) {
     agents: ctx.agents,
     workspaceRegistry: ctx.workspaceRegistry,
     sessionPersistence: ctx.sessionPersistence,
+    reconcileArchive: (id, result) => reconcileDeletedArchive({ workspaceRegistry: ctx.workspaceRegistry }, id, result),
   }, { sessionRoot, sessionId })
   // The official fence also admits the desktop app's forwarded requests; see hostRequestFence.
   // `connection` is not injected: some hosts register it after this plugin applies, and reading an
@@ -34,10 +35,7 @@ export function apply(ctx) {
   const isTrustedRequest = req => hostRequestFence(currentConnection(ctx))(req)
   const handler = createDeleteRequestHandler({
     isTrustedRequest,
-    deleteSession: sessionId => deleteSessionAndReconcileArchive({
-      workspaceRegistry: ctx.workspaceRegistry,
-      deleteSession,
-    }, sessionId),
+    deleteSession,
   })
   const archiveHandlers = createArchiveRequestHandlers({
     isTrustedRequest,
@@ -72,7 +70,7 @@ export {
 
 export {
   createArchiveRequestHandlers,
-  deleteSessionAndReconcileArchive,
+  reconcileDeletedArchive,
   restoreArchivedSession,
   searchArchivedSessions,
 } from './host/archive-manager.mjs'
