@@ -26,7 +26,7 @@ export function registerOfficialSessionActions(ctx, React, ui) {
       const response = await fetch('/plugins/dsh-session-delete/delete', {
         method: 'POST', signal: controller.signal,
         headers: { 'content-type': 'application/json', 'x-dsh-session-delete-confirmation': 'delete-session' },
-        body: JSON.stringify({ sessionId: target.id }),
+        body: JSON.stringify({ sessionId: target.id, expectedArchived: target.archived }),
       })
       const result = await response.json()
       if (!response.ok || result?.ok !== true) throw Error(result?.error?.message || `HTTP ${response.status}`)
@@ -36,6 +36,9 @@ export function registerOfficialSessionActions(ctx, React, ui) {
       const refreshed = await Promise.allSettled([sessions.refresh()])
       if (result.value?.archiveReconciled === false) {
         publish({ error: text('记录已删除，但归档列表未完成更新。请刷新列表后重试清理归档标记。', 'The record was deleted, but its archive marker could not be cleared. Refresh and retry marker cleanup.') })
+      }
+      else if (result.value?.pinReconciled === false) {
+        publish({ error: text('记录已删除，但置顶状态未能清理。', 'The record was deleted, but its pin could not be cleared.') })
       }
       else publish({ target: null })
       for (const item of refreshed) if (item.status === 'rejected') console.warn('Session deleted; list refresh failed:', item.reason)
@@ -49,7 +52,7 @@ export function registerOfficialSessionActions(ctx, React, ui) {
     return h(ui.Modal, {
       open: true, onClose: close, closeLabel: text('取消', 'Cancel'),
       title: text('永久删除会话？', 'Permanently delete session?'),
-      description: text('只删除已归档且未加载的本机会话记录，无法恢复。已加载或运行中的会话会被拒绝。', 'Only an unloaded, archived local session can be deleted. This cannot be undone. Loaded or running sessions are refused.'),
+      description: text('只删除未加载的本机会话记录，无法恢复。已加载或运行中的会话会被拒绝。', 'Only an unloaded local session can be deleted. This cannot be undone. Loaded or running sessions are refused.'),
       footer: h('div', { style: { display: 'flex', gap: 8 } },
         h(ui.Button, { variant: 'outline', disabled: current.busy, onClick: close }, text('取消', 'Cancel')),
         h(ui.Button, { variant: 'outline', style: danger, disabled: current.busy, onClick: confirm },
@@ -67,14 +70,16 @@ export function registerOfficialSessionActions(ctx, React, ui) {
     order: 500,
     observe: () => [ctx.workspaces.list, ctx.locale],
     resolve({ sessionId, displayTitle }) {
-      if (!ctx.workspaces.list.getSnapshot().archivedSessionIds.includes(sessionId)) return []
+      const ids = ctx.workspaces.list.getSnapshot().archivedSessionIds
+      if (!Array.isArray(ids)) return []
+      const archived = ids.includes(sessionId)
       return [{
         id: 'delete',
         label: text('永久删除', 'Delete permanently'),
         danger: true,
         afterContent: true,
         icon: { key: 'dsh-chat-manager.delete' },
-        run: () => requestDelete({ id: sessionId, title: displayTitle || sessionId }),
+        run: () => requestDelete({ id: sessionId, title: displayTitle || sessionId, archived }),
       }]
     },
   }))
@@ -84,7 +89,7 @@ export function registerOfficialSessionActions(ctx, React, ui) {
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay', id: 'dsh-chat-manager.delete-dialog',
   }, DeleteDialog))
-  registerArchiveSettings(ctx, React, ui, { requestDelete })
+  registerArchiveSettings(ctx, React, ui, { requestDelete: row => requestDelete({ ...row, archived: true }) })
 }
 
 export function buildOfficialSlotClient() {

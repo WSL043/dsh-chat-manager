@@ -33,9 +33,11 @@ shared lifecycle methods, read private navigation state or write private registr
 
 Permanent deletion is irreversible. The confirmation must name the exact target;
 cancelling is the safe default and must not send a delete request. A target must be
-archived, unloaded, local and current-format JSONL, with an exclusive official
-persistence write handle held through the operation. Refuse loaded idle/running
-sessions, another writer, historical/unknown formats, unsafe paths or changed identity.
+unloaded, local and current-format JSONL, with an exclusive official persistence
+write handle held through the operation. Before deleting from the unarchived row,
+check the official workspace activity providers without stopping work. Refuse loaded
+idle/running sessions, another writer, historical/unknown formats, unsafe paths,
+changed archive state or changed identity.
 Stopping or archiving does not promise that an Agent has been unloaded. Do not
 stop/dispose another owner or migrate sessions merely to delete them.
 

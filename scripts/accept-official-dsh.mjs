@@ -185,9 +185,8 @@ async function installOwnedAcceptanceFixture(ctx, config) {
       yield { type: 'text-delta', index: 0, text: 'Synthetic acceptance response' }
       if (options.model === 'hold') {
         enteredHeld = true
-        // A controlled drain delay exposes the real running Agent after the
-        // official archive operation issues cancellation. Only this owner may
-        // release it. There is no network call or product lifecycle interception.
+        // Keep a real Agent running until the fixture owner releases it.
+        // There is no network call or product lifecycle interception.
         await new Promise((resolve, reject) => {
           const timer = setTimeout(() => reject(Error('fixture held activity exceeded 60 seconds')), 60000)
           releaseHeld = () => { clearTimeout(timer); resolve() }
@@ -232,6 +231,7 @@ async function installOwnedAcceptanceFixture(ctx, config) {
     agentStatus: ctx.agents.get(spec.id)?.status ?? null,
     sessionLoaded: ctx.sessions.get(spec.id) !== undefined,
     archived: ctx.workspaceRegistry.archivedSessionIds.includes(spec.id),
+    pinned: ctx.workspaceRegistry.pinnedSessionIds.includes(spec.id),
   }])) })
   const send = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(body)) }
   ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: '/plugins/dsh-chat-manager-acceptance-fixture/control', handler: async (req, res) => {
@@ -246,7 +246,6 @@ async function installOwnedAcceptanceFixture(ctx, config) {
         const deadline = Date.now() + 10000
         while ((!enteredHeld || handle.agent.status !== 'running') && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20))
         if (!enteredHeld || handle.agent.status !== 'running') throw Error('fixture did not reach genuine running activity')
-        await ctx.workspaceRegistry.archiveSession(handle.agent.id, { stopActivity: true })
         await ctx.sessionPersistence.flush()
         if (handle.agent.status !== 'running') throw Error('running fixture converged before its refusal check')
       } else if (action === 'release-running') {
@@ -347,7 +346,7 @@ export async function runOfficialAcceptance(options) {
       await writeFile(join(base, 'acceptance.json'), JSON.stringify({ ...result, dshVersion, packageSha256 }, null, 2) + '\n')
     } finally { await browser.close() }
     passed = true
-    return { ok: true, dshVersion, packageSha256, checks: ['isolated fixture-only profile', 'public archive settings', 'native archive and public unarchive clicks', 'archive content search', 'confirmation cancel sends no request', 'loaded idle/running genuinely refused', 'cold archived positive UI deletion', 'neighbor bytes preserved', 'plugin hot toggles preserve official composer', 'no page reload', 'no runtime exceptions'] }
+    return { ok: true, dshVersion, packageSha256, checks: ['isolated fixture-only profile', 'public archive settings', 'native archive and public unarchive clicks', 'archive content search', 'confirmation cancel sends no request', 'loaded idle/running genuinely refused', 'cold unarchived positive UI deletion and pin reconciliation', 'neighbor bytes preserved', 'plugin hot toggles preserve official composer', 'no page reload', 'no runtime exceptions'] }
   } finally {
     if (server) await stopProcess(server)
     await writeFile(join(base, 'web.log'), sanitizeAcceptanceDiagnostic(installOutput + stdout + '\n' + stderr, [config.nonce]).slice(-32768))

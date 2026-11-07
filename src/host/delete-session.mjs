@@ -100,8 +100,8 @@ const pathExists = async (path) => {
 // single-writer persistence ownership excludes host resume/create operations.
 const pendingByBackend = new WeakMap()
 
-/** Permanently delete only an unloaded, archived, current-format JSONL session. */
-export async function deleteSessionSafely(deps, { sessionRoot, sessionId }) {
+/** Permanently delete only an unloaded, current-format JSONL session. */
+export async function deleteSessionSafely(deps, { sessionRoot, sessionId, expectedArchived = true }) {
   const persistence = deps.sessionPersistence
   if (persistence?.name !== 'session-persistence-jsonl'
     || typeof persistence.open !== 'function' || typeof persistence.stat !== 'function'
@@ -114,28 +114,57 @@ export async function deleteSessionSafely(deps, { sessionRoot, sessionId }) {
   pending.add(sessionId)
   let handle
   try {
-    const result = await deleteReservedSession(deps, { sessionRoot, sessionId }, acquired => { handle = acquired })
-    if (result.ok && deps.reconcileArchive) return await deps.reconcileArchive(sessionId, result)
-    return result
+    const result = await deleteReservedSession(deps, { sessionRoot, sessionId, expectedArchived }, acquired => { handle = acquired })
+    if (!result.ok) return result
+    if (expectedArchived) return deps.reconcileArchive ? await deps.reconcileArchive(sessionId, result) : result
+    try {
+      await deps.workspaceRegistry.unpinSession(sessionId)
+      return result
+    } catch {
+      return { ok: true, value: { ...result.value, pinReconciled: false } }
+    }
   } finally {
     try { await handle?.close() }
     finally { pending.delete(sessionId) }
   }
 }
 
-async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle) {
-  const persistence = deps.sessionPersistence
-  const archived = () => Array.isArray(deps.workspaceRegistry?.archivedSessionIds)
-    && deps.workspaceRegistry.archivedSessionIds.includes(sessionId)
+async function deleteReservedSession(deps, { sessionRoot, sessionId, expectedArchived }, ownHandle) {
+  const { sessionPersistence: persistence, workspaceRegistry } = deps
+  const archiveMatches = () => {
+    const ids = workspaceRegistry?.archivedSessionIds
+    return Array.isArray(ids) && ids.includes(sessionId) === expectedArchived
+  }
   const live = () => deps.sessions.get(sessionId) !== undefined || deps.agents.get(sessionId) !== undefined
-  if (!archived()) return failure('session-not-archived', '请先使用 DSH 的归档操作归档该会话。')
-  if (live()) return failure('session-active', '该会话仍被宿主加载，未删除任何内容。停止或归档不一定会释放宿主所有权。')
+  const archiveChanged = () => expectedArchived
+    ? failure('session-not-archived', '该会话未归档或已取消归档，请从当前会话菜单重试。')
+    : failure('archive-state-changed', '会话归档状态已变化，请从当前会话菜单重试。')
+  const active = () => failure('session-active', '该会话仍被宿主加载或有活动，未删除任何内容。停止或归档不一定会释放宿主所有权。')
+  const unsupportedActivity = () => failure('activity-unknown', '无法确认会话没有活动，未删除任何内容。')
+  const checkActivity = async () => {
+    if (expectedArchived) return
+    try {
+      const activity = await deps.sessionActivity(sessionId)
+      if (!Array.isArray(activity)) return unsupportedActivity()
+      if (activity.length || live()) return active()
+    } catch {
+      return unsupportedActivity()
+    }
+  }
+  if (!archiveMatches()) return archiveChanged()
+  if (live()) return active()
+  if (!expectedArchived && (typeof deps.sessionActivity !== 'function' || typeof workspaceRegistry.unpinSession !== 'function')) {
+    return failure('unsupported-workspace', '当前宿主不支持安全删除未归档会话。')
+  }
+  const activityRefusal = await checkActivity()
+  if (activityRefusal) return activityRefusal
   const before = await persistence.stat(sessionId)
   if (before === undefined) {
     const parentEntries = await readdir(dirname(resolve(sessionRoot)))
     if (parentEntries.some(name => name.startsWith(quarantinePrefix(sessionId)))) {
-      return failure('storage-partial', '会话仍在隔离区中，未清理归档标记。')
+      return failure('storage-partial', '会话仍在隔离区中，未确认永久删除。')
     }
+    if (!expectedArchived) return failure('session-not-found', '会话不存在或已经删除。')
     // A stale archive marker is cleaned only after independent physical absence
     // checks. A corrupt or inaccessible directory must never count as absence.
     if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) return failure('session-not-found', '无法验证会话是否已经不存在。')
@@ -148,7 +177,7 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle
         return failure('storage-state-unknown', '会话目录仍然存在，未清理其归档标记。')
       }
     }
-    if (await persistence.stat(sessionId) === undefined && !live() && archived()) {
+    if (await persistence.stat(sessionId) === undefined && !live() && archiveMatches()) {
       return { ok: true, value: { deleted: false, alreadyAbsent: true } }
     }
     return failure('storage-state-unknown', '无法确认会话存储状态。')
@@ -168,6 +197,8 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle
   try { validated = await validateExistingLocation(paths) }
   catch (error) { return failure(missing(error) ? 'session-not-found' : 'storage-error', '读取会话存储失败，未删除任何文件。') }
   if (validated === undefined) return failure('unsafe-location', '会话存储位置未通过安全校验。')
+  if (live()) return active()
+  if (!archiveMatches()) return archiveChanged()
   let handle
   try {
     handle = await persistence.open(sessionId, 'write')
@@ -190,7 +221,10 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle
     return failure('unsafe-location', '会话存储身份发生变化，未删除任何文件。')
   }
   if (live()) return failure('session-reopened', '该会话在删除过程中被重新加载，已取消删除。')
-  if (!archived()) return failure('session-not-archived', '该会话已取消归档，已取消删除。')
+  if (!archiveMatches()) return archiveChanged()
+  // The lease excludes a new writer. Recheck official activity without stopping work.
+  const activityUnderLease = await checkActivity()
+  if (activityUnderLease) return activityUnderLease
 
   let quarantineRoot
   let quarantinedDirectory
@@ -199,9 +233,9 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle
     const moveDirectory = deps.moveDirectory ?? rename
     quarantineRoot = await mkdtemp(join(dirname(validated.root), quarantinePrefix(sessionId)))
     quarantinedDirectory = join(quarantineRoot, basename(validated.resolvedDirectory))
-    if (live() || !archived()) {
+    if (live() || !archiveMatches()) {
       await rmdir(quarantineRoot)
-      return failure('session-reopened', '该会话已重新加载或取消归档，已取消删除。')
+      return failure('session-reopened', '该会话已重新加载或归档状态已变化，已取消删除。')
     }
     await moveDirectory(validated.resolvedDirectory, quarantinedDirectory)
     detached = true
@@ -226,14 +260,14 @@ async function deleteReservedSession(deps, { sessionRoot, sessionId }, ownHandle
       return failure('unsafe-location', '会话目录在删除期间发生了身份变化，未删除任何文件。')
     }
 
-    if (live() || !archived()) {
+    if (live() || !archiveMatches()) {
       if (await pathExists(validated.resolvedDirectory)) {
         return failure('storage-partial', '会话已重新加载且原路径被占用，隔离区已保留。')
       }
       await moveDirectory(quarantinedDirectory, validated.resolvedDirectory)
       detached = false
       await rmdir(quarantineRoot)
-      return failure('session-reopened', '该会话已重新加载或取消归档，已恢复原目录。')
+      return failure('session-reopened', '该会话已重新加载或归档状态已变化，已恢复原目录。')
     }
     const removeDirectory = deps.removeDirectory
       ?? (directory => rm(directory, { recursive: true, force: false }))
@@ -301,8 +335,12 @@ export function createDeleteRequestHandler({ deleteSession, isTrustedRequest = (
       return
     }
 
+    if (body.expectedArchived !== undefined && typeof body.expectedArchived !== 'boolean') {
+      sendJson(res, 400, failure('invalid-archive-state', '会话归档状态无效。'))
+      return
+    }
     try {
-      const result = await deleteSession(body.sessionId)
+      const result = await deleteSession(body.sessionId, body.expectedArchived)
       sendJson(res, result.ok ? 200 : 409, result)
     } catch {
       sendJson(res, 500, failure('internal', '删除过程中发生未预期错误，未确认删除成功。'))
