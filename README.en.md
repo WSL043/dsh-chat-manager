@@ -8,9 +8,30 @@ DSH provides the workspace, regular search, archive, restore, and the shared ses
 
 ## Install or update
 
-In the official **Plugins → Add plugin** page, enter `dsh-chat-manager@latest`. Check the resolved version and its DSH peers before installing. The compatibility file in this branch describes the v2 source. See the published tag for the installed package's compatibility, including the [v1 maintenance line](https://github.com/WSL043/dsh-chat-manager/tree/stable).
+Open **Plugins → Add plugin** in official DeepSeek Harness 0.2.2-rc.1 and paste this package spec:
+
+```text
+dsh-chat-manager@2.0.0
+```
+
+Check the [qualified DSH versions](compatibility.json) for newer v2 releases. The [v1 maintenance line](https://github.com/WSL043/dsh-chat-manager/tree/stable) documents earlier versions.
 
 V2 starts with DSH 0.2.2-rc.1. Future compatibility patches are prepared from official releases and tested on the new core and the preceding supported core before publication. See the [maintenance guide](docs/stable-maintenance.md).
+
+## Archive cleanup
+
+After archiving a session, show archived conversations in the sidebar to find **Delete permanently** in its row menu. You can also open **Settings → Archive cleanup** to find it by message content.
+
+![Official DSH archive search showing a matching archived message](docs/assets/v2-archive-search.png)
+
+<details>
+<summary>Archived session menu and confirmation</summary>
+
+![Permanent delete in the menu of an archived session](docs/assets/v2-archived-menu.png)
+
+![Confirmation dialog naming the session before permanent deletion](docs/assets/v2-delete-confirmation.png)
+
+</details>
 
 ## Permanent deletion
 

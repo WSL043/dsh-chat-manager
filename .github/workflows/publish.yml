@@ -226,8 +226,10 @@ jobs:
 
           ## Install or update
 
-          \`\`\`sh
-          dsh plugin --profile web add dsh-chat-manager@${RELEASE_VERSION}
+          In official DeepSeek Harness, open **Plugins → Add plugin** and paste:
+
+          \`\`\`text
+          dsh-chat-manager@${RELEASE_VERSION}
           \`\`\`
 
           ## 中文
@@ -245,8 +247,10 @@ jobs:
 
           ## 安装或更新
 
-          \`\`\`sh
-          dsh plugin --profile web add dsh-chat-manager@${RELEASE_VERSION}
+          在官方 DeepSeek Harness 中打开 **插件 → 添加插件**，粘贴：
+
+          \`\`\`text
+          dsh-chat-manager@${RELEASE_VERSION}
           \`\`\`
           NOTES
       - name: Publish immutable npm package
