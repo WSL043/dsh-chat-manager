@@ -16,7 +16,9 @@ dsh-chat-manager@2.0.1
 
 Check the [qualified DSH versions](compatibility.json) for newer v2 releases. The [v1 maintenance line](https://github.com/WSL043/dsh-chat-manager/tree/stable) documents earlier versions.
 
-V2 starts with DSH 0.2.2-rc.1. Future compatibility patches are prepared from official releases and tested on the new core and the preceding supported core before publication. See the [maintenance guide](docs/stable-maintenance.md).
+## Maintenance status
+
+Compatibility updates are automated, and manual maintenance is occasional and handled as needed. The workflow tracks official DSH final and RC releases and publishes a compatibility patch only after acceptance passes on both the new core and the preceding supported core. See the [maintenance guide](docs/stable-maintenance.md).
 
 ## Archive cleanup
 
