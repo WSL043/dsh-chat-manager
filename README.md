@@ -16,7 +16,9 @@ dsh-chat-manager@2.0.1
 
 更新到后续 v2 版本前，可查看[已验收的 DSH 版本](compatibility.json)。旧版说明见 [v1 维护分支](https://github.com/WSL043/dsh-chat-manager/tree/stable)。
 
-v2 从 DSH 0.2.2-rc.1 开始支持。后续补丁跟随官方发布，新内核和上一受支持版本均通过验收后才发布。详见[维护指南](docs/stable-maintenance.md)。
+## 维护状态
+
+本插件以自动兼容更新为主，人工维护仅按需进行。工作流会跟踪 DSH 官方正式版和 RC 版，仅在新内核和上一受支持内核均通过验收后发布兼容补丁。详见[维护指南](docs/stable-maintenance.md)。
 
 ## 归档清理
 
