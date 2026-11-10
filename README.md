@@ -2,6 +2,8 @@
 
 [English](README.en.md) · [发布版本](https://github.com/WSL043/dsh-chat-manager/releases) · [已验收的 DSH 版本](compatibility.json)
 
+> **本插件已停止人工维护。** 归档会话管理推荐使用 [`@michengai/dsh-archive-manager`](https://github.com/MichengAI/dsh-archive-manager)。在 **插件 → 添加插件** 中粘贴该包名即可安装。现有自动流程仍可发布通过验收的兼容补丁。
+
 在 DeepSeek Harness 的 **设置 → 归档清理** 中搜索已归档的聊天内容。从会话行菜单或归档搜索结果打开永久删除。两个入口都会显示会话名称，并要求再次确认。
 
 工作区、常规搜索、归档、恢复和会话菜单由 DSH 提供。归档搜索在官方查询达到结果上限前限定归档范围。关闭全文索引时，使用有限并发的官方事件筛选。
@@ -15,10 +17,6 @@ dsh-chat-manager@2.0.1
 ```
 
 更新到后续 v2 版本前，可查看[已验收的 DSH 版本](compatibility.json)。旧版说明见 [v1 维护分支](https://github.com/WSL043/dsh-chat-manager/tree/stable)。
-
-## 维护状态
-
-本插件以自动兼容更新为主，人工维护仅按需进行。工作流会跟踪 DSH 官方正式版和 RC 版，仅在新内核和上一受支持内核均通过验收后发布兼容补丁。详见[维护指南](docs/stable-maintenance.md)。
 
 ## 归档清理
 
@@ -43,4 +41,4 @@ dsh-chat-manager@2.0.1
 
 [问题反馈](https://github.com/WSL043/dsh-chat-manager/issues/new/choose) · [安全](SECURITY.md) · [MIT](LICENSE) · [第三方说明](THIRD_PARTY_NOTICES.md)
 
-本插件由社区独立维护。
+本插件是社区项目。

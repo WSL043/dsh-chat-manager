@@ -2,6 +2,8 @@
 
 [简体中文](README.md) · [Releases](https://github.com/WSL043/dsh-chat-manager/releases) · [Qualified DSH versions](compatibility.json)
 
+> **Manual maintenance has ended.** For archived chats, we recommend [`@michengai/dsh-archive-manager`](https://github.com/MichengAI/dsh-archive-manager). Paste the package name in **Plugins → Add plugin** to install it. The existing automation may still publish compatibility patches that pass acceptance checks.
+
 DSH Chat Manager adds archive-only message search and confirmed cleanup to DeepSeek Harness. Open **Settings → Archive cleanup** to find archived messages. Use a session's context menu or an archive search result to request permanent deletion. Both entries show the session name and ask for confirmation.
 
 DSH provides the workspace, regular search, archive, restore, and the shared session menu. The archive search narrows the official query to archived sessions before the result limit. It uses bounded event filtering when the optional full-text index is disabled.
@@ -15,10 +17,6 @@ dsh-chat-manager@2.0.1
 ```
 
 Check the [qualified DSH versions](compatibility.json) for newer v2 releases. The [v1 maintenance line](https://github.com/WSL043/dsh-chat-manager/tree/stable) documents earlier versions.
-
-## Maintenance status
-
-Compatibility updates are automated, and manual maintenance is occasional and handled as needed. The workflow tracks official DSH final and RC releases and publishes a compatibility patch only after acceptance passes on both the new core and the preceding supported core. See the [maintenance guide](docs/stable-maintenance.md).
 
 ## Archive cleanup
 
