@@ -1,6 +1,6 @@
 {
   "name": "dsh-chat-manager",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "packageManager": "pnpm@11.19.0",
   "description": "DeepSeek Harness archive content search and confirmed cleanup of unloaded local sessions",
   "type": "module",
@@ -94,14 +94,14 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.1.0",
-    "@deepseek-ai/dsh-client-locale": "0.2.2-rc.2 || 0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.2 || 0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-settings": "0.2.2-rc.2 || 0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-session": "0.2.2-rc.2 || 0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.2 || 0.2.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-workspace": "0.2.2-rc.2 || 0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-locale": "0.2.2-rc.3 || 0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.3 || 0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.2-rc.3 || 0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-ui-session": "0.2.2-rc.3 || 0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.2-rc.3 || 0.2.2-rc.2",
+    "@deepseek-ai/dsh-client-ui-workspace": "0.2.2-rc.3 || 0.2.2-rc.2",
     "react": "^18.2.0",
-    "@deepseek-ai/dsh-client-ui-context-menu": "0.2.2-rc.2 || 0.2.2-rc.1"
+    "@deepseek-ai/dsh-client-ui-context-menu": "0.2.2-rc.3 || 0.2.2-rc.2"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/cordis": {

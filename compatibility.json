@@ -1,22 +1,22 @@
 {
   "releaseTargets": [
-    "0.2.2-rc.2",
-    "0.2.2-rc.1"
+    "0.2.2-rc.3",
+    "0.2.2-rc.2"
   ],
-  "latestTested": "0.2.2-rc.2",
+  "latestTested": "0.2.2-rc.3",
   "upstream": [
+    {
+      "version": "0.2.2-rc.3",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced",
+      "integrity": "sha512-S+4oUYVKWuc1SCMMp1mpUa2llxVy0o9gIgp7TDg/Ea7PuvXVkAfnykqSH1/oDXVB+y5VzEm0QIJulo1LIB3qRg==",
+      "cordis": "4.1.0"
+    },
     {
       "version": "0.2.2-rc.2",
       "commit": "ddac96760b6edf8fa0fe17cbdcf0b512f4c12b2c",
       "integrity": "sha512-J727r2C471x2cYXGjqZ0D9T1ZyaYQDFH/Ynx8iq+85oslM4nky5YTBnbAuTtxMhW7nhY8wuAEfjjFCQ+K6Swgw==",
       "cordis": "4.1.0"
-    },
-    {
-      "version": "0.2.2-rc.1",
-      "commit": "66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db",
-      "integrity": "sha512-ijR9UEVYkG15Q/Q79JzvzLBzQOQfc63VLr9n6flpwHPhr5IKn2UxthnSoto/P9l7qGd7pPvI1Ra6TW7LH3oKpg==",
-      "cordis": "4.1.0"
     }
   ],
-  "autoFollowFrom": "2.0.1"
+  "autoFollowFrom": "2.0.2"
 }
